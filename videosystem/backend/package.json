@@ -1,0 +1,45 @@
+{
+  "name": "viracut-backend",
+  "version": "1.0.0",
+  "description": "ViraCut MVP Backend - Supabase integration and API services",
+  "private": true,
+  "scripts": {
+    "dev": "supabase start",
+    "build": "echo 'Backend build complete'",
+    "start": "supabase start",
+    "db:migrate": "supabase db push",
+    "db:seed": "supabase db reset --seed",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff",
+    "db:generate-types": "supabase gen types typescript --local > src/types/database.ts",
+    "lint": "eslint src --ext .ts,.tsx",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0",
+    "joi": "^17.11.0",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.8.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "@typescript-eslint/parser": "^6.7.0",
+    "eslint": "^8.50.0",
+    "supabase": "^1.115.0",
+    "typescript": "^5.2.0"
+  },
+  "keywords": [
+    "video-editing",
+    "supabase",
+    "api",
+    "typescript"
+  ],
+  "author": "ViraCut Team",
+  "license": "MIT"
+}
