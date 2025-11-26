@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { SquareTerminal, Bot, CodeXml, Book, Settings2, LifeBuoy, SquareUser, Paperclip, Mic, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
@@ -13,6 +14,7 @@ interface Message {
 }
 
 export default function QuestionnairePage() {
+    const router = useRouter();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
@@ -128,14 +130,7 @@ export default function QuestionnairePage() {
     };
 
     const submitSoulPrint = async (finalAnswers: Record<string, string>) => {
-        const webhookUrl = process.env.NEXT_PUBLIC_N8N_SOULPRINT_WEBHOOK;
-
-        if (!webhookUrl) {
-            console.error("Webhook URL not configured");
-            throw new Error("Configuration error");
-        }
-
-        const response = await fetch(webhookUrl, {
+        const response = await fetch('/api/soulprint/submit', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -147,7 +142,8 @@ export default function QuestionnairePage() {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to submit');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to submit soulprint');
         }
 
         return response.json();
@@ -169,8 +165,18 @@ export default function QuestionnairePage() {
                     <button className="flex h-9 w-9 items-center justify-center"><div className="h-4 w-4 bg-[url('/images/hero-badge.png')] bg-contain bg-center bg-no-repeat" /></button>
                 </div>
                 <div className="flex flex-1 flex-col items-center gap-1 p-2">
-                    <button className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#EA580C] opacity-80"><SquareTerminal className="h-5 w-5 text-[#E5E5E5]" /></button>
-                    <button className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#1A1A1A]"><Bot className="h-5 w-5 text-[#E5E5E5]" /></button>
+                    <button
+                        onClick={() => router.push('/questionnaire')}
+                        className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#EA580C] opacity-80"
+                    >
+                        <SquareTerminal className="h-5 w-5 text-[#E5E5E5]" />
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#1A1A1A]"
+                    >
+                        <Bot className="h-5 w-5 text-[#E5E5E5]" />
+                    </button>
                     <button className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#1A1A1A]"><CodeXml className="h-5 w-5 text-[#E5E5E5]" /></button>
                     <button className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#1A1A1A]"><Book className="h-5 w-5 text-[#E5E5E5]" /></button>
                     <button className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#1A1A1A]"><Settings2 className="h-5 w-5 text-[#E5E5E5]" /></button>
@@ -192,7 +198,11 @@ export default function QuestionnairePage() {
                             </div>
                         )}
                     </div>
-                    <Button className="h-9 rounded-lg bg-[#EA580C] px-4 font-geist text-sm font-medium text-[#E5E5E5] hover:bg-[#EA580C]/90" disabled={!isComplete}>
+                    <Button
+                        className="h-9 rounded-lg bg-[#EA580C] px-4 font-geist text-sm font-medium text-[#E5E5E5] hover:bg-[#EA580C]/90"
+                        disabled={!isComplete}
+                        onClick={() => router.push('/dashboard')}
+                    >
                         {isComplete ? "View SoulPrint" : "Save"}
                     </Button>
                 </header>
