@@ -39,7 +39,7 @@ export default function ChatPage() {
                 const { data: existingSoulprint, error: soulprintCheckError } = await supabase
                     .from('soulprints')
                     .select('soulprint_data')
-                    .eq('user_id', currentUser.id)
+                    .eq('user_id', currentUser.email)
                     .maybeSingle()
 
                 if (!existingSoulprint) {
@@ -77,7 +77,7 @@ export default function ChatPage() {
                     const { error: insertError } = await supabase
                         .from('soulprints')
                         .insert({
-                            user_id: currentUser.id,
+                            user_id: currentUser.email,
                             soulprint_data: defaultSoulprintData
                         })
 
@@ -155,7 +155,7 @@ export default function ChatPage() {
                 const { error } = await supabase
                     .from('soulprints')
                     .upsert({
-                        user_id: user.id,
+                        user_id: user.email,
                         soulprint_data: sourceSp.soulprint_data
                     }, { onConflict: 'user_id' })
 

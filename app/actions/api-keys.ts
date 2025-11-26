@@ -40,7 +40,7 @@ export async function generateApiKey(label: string = "Default Key") {
     const { data, error } = await supabase
         .from('api_keys')
         .insert({
-            user_id: user?.id, // Use actual user ID (UUID for authenticated users)
+            user_id: user?.email, // Use email as primary identifier
             label,
             key_hash: hashedKey,
             // We don't store the raw key!
@@ -77,7 +77,7 @@ export async function listApiKeys() {
     const { data, error } = await supabase
         .from('api_keys')
         .select('*')
-        .eq('user_id', user?.id) // Use actual user ID (UUID for authenticated users)
+        .eq('user_id', user?.email) // Use email as primary identifier
         .order('created_at', { ascending: false })
 
     if (error) {
