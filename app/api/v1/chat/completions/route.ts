@@ -48,10 +48,18 @@ export async function POST(req: NextRequest) {
             .from("soulprints")
             .select("soulprint_data")
             .eq("user_id", keyData.user_id)
-            .single();
+            .maybeSingle();
 
         if (soulprintError) {
             console.error('Error fetching soulprint:', soulprintError);
+            return NextResponse.json({
+                error: "Failed to fetch user's SoulPrint data. Please ensure your account is properly set up."
+            }, { status: 500 });
+        }
+
+        if (!soulprint) {
+            console.warn('No soulprint found for user:', keyData.user_id);
+            // This shouldn't happen with the new initialization, but handle gracefully
         }
 
         // Safe JSON serialization function to handle circular references
@@ -114,7 +122,12 @@ Always stay in character based on these traits.`;
 
         if (!openAIResponse.ok) {
             const error = await openAIResponse.json();
-            return NextResponse.json(error, { status: openAIResponse.status });
+            // Ensure error message is properly formatted
+            const errorMessage = error.error?.message || error.message || 'OpenAI API request failed';
+            return NextResponse.json({
+                error: errorMessage,
+                details: error
+            }, { status: openAIResponse.status });
         }
 
         // 6. Handle Response (Streaming vs Non-Streaming)

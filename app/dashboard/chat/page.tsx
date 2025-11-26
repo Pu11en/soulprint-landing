@@ -28,103 +28,99 @@ export default function ChatPage() {
             try {
                 // 1. Get current user
                 const { data: { user: currentUser } } = await supabase.auth.getUser()
+                if (!currentUser) {
+                    console.error('No user found')
+                    setInitializing(false)
+                    return
+                }
                 setUser(currentUser)
 
-                // 2. Ensure soulprint exists for demo user or current user
-                if (currentUser) {
-                    // For demo user (demo@soulprint.ai), ensure soulprint data exists
-                    if (currentUser.email === 'demo@soulprint.ai') {
-                        // Try to find soulprint by current user's UUID first
-                        let { data: existingSoulprint } = await supabase
-                            .from('soulprints')
-                            .select('soulprint_data')
-                            .eq('user_id', currentUser.id)
-                            .single()
+                // 2. GUARANTEE soulprint exists for ALL users
+                const { data: existingSoulprint, error: soulprintCheckError } = await supabase
+                    .from('soulprints')
+                    .select('soulprint_data')
+                    .eq('user_id', currentUser.id)
+                    .maybeSingle()
 
-                        if (!existingSoulprint) {
-                            // Also try fallback to 'test' string for compatibility
-                            const { data: fallbackSoulprint } = await supabase
-                                .from('soulprints')
-                                .select('soulprint_data')
-                                .eq('user_id', 'test')
-                                .single()
+                if (!existingSoulprint) {
+                    console.log('No soulprint found, creating default soulprint for user:', currentUser.email)
 
-                            if (fallbackSoulprint) {
-                                // Copy fallback data to current user
-                                await supabase
-                                    .from('soulprints')
-                                    .insert({
-                                        user_id: currentUser.id,
-                                        soulprint_data: fallbackSoulprint.soulprint_data
-                                    })
-                            } else {
-                                // Create new soulprint for demo user
-                                const demoSoulprintData = {
-                                    communication_style: {
-                                        formality: "casual",
-                                        directness: "direct",
-                                        humor: "moderate"
-                                    },
-                                    decision_making: {
-                                        approach: "analytical",
-                                        speed: "balanced",
-                                        collaboration: "high"
-                                    },
-                                    values: ["innovation", "authenticity", "growth"],
-                                    work_style: {
-                                        environment: "collaborative",
-                                        pace: "steady",
-                                        structure: "flexible"
-                                    },
-                                    personality_traits: {
-                                        openness: "high",
-                                        conscientiousness: "moderate",
-                                        extraversion: "balanced",
-                                        agreeableness: "high",
-                                        neuroticism: "low"
-                                    }
-                                }
-
-                                await supabase
-                                    .from('soulprints')
-                                    .insert({
-                                        user_id: currentUser.id,
-                                        soulprint_data: demoSoulprintData
-                                    })
-                            }
+                    // Default soulprint for ANY user
+                    const defaultSoulprintData = {
+                        communication_style: {
+                            formality: "casual",
+                            directness: "direct",
+                            humor: "moderate",
+                            tone: "friendly"
+                        },
+                        decision_making: {
+                            approach: "analytical",
+                            speed: "balanced",
+                            collaboration: "high",
+                            risk_tolerance: "moderate"
+                        },
+                        values: ["innovation", "authenticity", "growth", "learning"],
+                        work_style: {
+                            environment: "collaborative",
+                            pace: "steady",
+                            structure: "flexible"
+                        },
+                        personality_traits: {
+                            openness: "high",
+                            conscientiousness: "moderate",
+                            extraversion: "balanced",
+                            agreeableness: "high",
+                            neuroticism: "low"
                         }
                     }
+
+                    const { error: insertError } = await supabase
+                        .from('soulprints')
+                        .insert({
+                            user_id: currentUser.id,
+                            soulprint_data: defaultSoulprintData
+                        })
+
+                    if (insertError) {
+                        console.error('Failed to create soulprint:', insertError)
+                        throw new Error('Failed to initialize soulprint')
+                    }
+                    console.log('✅ Default soulprint created successfully')
                 }
 
-                // 3. Check for existing API keys
-                const { keys } = await listApiKeys()
-
-                if (keys && keys.length > 0) {
-                    const storedKey = localStorage.getItem("soulprint_internal_key")
-                    if (storedKey) {
+                // 3. GUARANTEE API key exists
+                // Check localStorage first
+                const storedKey = localStorage.getItem("soulprint_internal_key")
+                if (storedKey && storedKey.startsWith('sk-soulprint-')) {
+                    // Verify key still exists in database
+                    const { keys } = await listApiKeys()
+                    if (keys && keys.length > 0) {
                         setApiKey(storedKey)
                         setInitializing(false)
+                        console.log('✅ Using existing API key from localStorage')
                         return
                     }
                 }
 
-                // 4. If no key usable, try to generate a new one
-                try {
-                    const { apiKey: newKey } = await generateApiKey("Internal Chat Key")
-                    if (newKey) {
-                        setApiKey(newKey)
-                        localStorage.setItem("soulprint_internal_key", newKey)
-                    }
-                } catch (apiKeyError) {
-                    console.error('Failed to generate API key:', apiKeyError)
-                    // Set a fallback API key for demo purposes
-                    const fallbackKey = "sk-soulprint-demo-fallback-123456"
-                    setApiKey(fallbackKey)
-                    localStorage.setItem("soulprint_internal_key", fallbackKey)
-                    console.log('Using fallback API key for demo mode')
+                // Generate new API key if needed
+                console.log('Generating new API key...')
+                const { apiKey: newKey, error: keyError } = await generateApiKey("Internal Chat Key")
+
+                if (newKey) {
+                    setApiKey(newKey)
+                    localStorage.setItem("soulprint_internal_key", newKey)
+                    console.log('✅ New API key generated successfully')
+                } else if (keyError) {
+                    console.error('Failed to generate API key:', keyError)
+                    throw new Error('Failed to generate API key')
                 }
+
             } catch (error) {
-                console.error('Initialization error:', error)
+                console.error('❌ Initialization error:', error)
+                setMessages([{
+                    role: "assistant",
+                    content: `Initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please refresh the page or contact support.`
+                }])
             } finally {
                 setInitializing(false)
             }
@@ -204,7 +200,11 @@ export default function ChatPage() {
             const data = await res.json()
 
             if (data.error) {
-                setMessages(prev => [...prev, { role: "assistant", content: `Error: ${data.error} ` }])
+                // Handle error - stringify if it's an object
+                const errorMsg = typeof data.error === 'object'
+                    ? JSON.stringify(data.error, null, 2)
+                    : data.error
+                setMessages(prev => [...prev, { role: "assistant", content: `Error: ${errorMsg}` }])
             } else {
                 const botMsg = data.choices[0].message.content
                 setMessages(prev => [...prev, { role: "assistant", content: botMsg }])
