@@ -38,7 +38,7 @@ CREATE TABLE public.profiles (
 -- Create soulprints table (for storing user soulprint data)
 CREATE TABLE public.soulprints (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id TEXT NOT NULL, -- Changed to TEXT to support "drew" demo ID
+  user_id TEXT NOT NULL, -- Changed to TEXT to support "test" demo ID
   soulprint_data JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL

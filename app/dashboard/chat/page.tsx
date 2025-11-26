@@ -18,31 +18,89 @@ export default function ChatPage() {
     const [loading, setLoading] = useState(false)
     const [apiKey, setApiKey] = useState<string | null>(null)
     const [initializing, setInitializing] = useState(true)
+    const [user, setUser] = useState<any>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const supabase = createClient()
 
-    // Initialize: Get or Create API Key
+    // Initialize: Get user, API Key, and ensure soulprint exists
     useEffect(() => {
         async function init() {
-            // 1. Check for existing keys
-            const { keys } = await listApiKeys()
+            try {
+                // 1. Get current user
+                const { data: { user: currentUser } } = await supabase.auth.getUser()
+                setUser(currentUser)
 
-            if (keys && keys.length > 0) {
-                const storedKey = localStorage.getItem("soulprint_internal_key")
-                if (storedKey) {
-                    setApiKey(storedKey)
-                    setInitializing(false)
-                    return
+                // 2. Ensure soulprint exists for demo user or current user
+                if (currentUser) {
+                    // For demo user (test@soulprint.ai), ensure soulprint data exists
+                    if (currentUser.email === 'test@soulprint.ai') {
+                        const { data: existingSoulprint } = await supabase
+                            .from('soulprints')
+                            .select('soulprint_data')
+                            .eq('user_id', currentUser.id)
+                            .single()
+
+                        if (!existingSoulprint) {
+                            // Create soulprint for demo user
+                            const demoSoulprintData = {
+                                communication_style: {
+                                    formality: "casual",
+                                    directness: "direct",
+                                    humor: "moderate"
+                                },
+                                decision_making: {
+                                    approach: "analytical",
+                                    speed: "balanced",
+                                    collaboration: "high"
+                                },
+                                values: ["innovation", "authenticity", "growth"],
+                                work_style: {
+                                    environment: "collaborative",
+                                    pace: "steady",
+                                    structure: "flexible"
+                                },
+                                personality_traits: {
+                                    openness: "high",
+                                    conscientiousness: "moderate",
+                                    extraversion: "balanced",
+                                    agreeableness: "high",
+                                    neuroticism: "low"
+                                }
+                            }
+
+                            await supabase
+                                .from('soulprints')
+                                .upsert({
+                                    user_id: currentUser.id,
+                                    soulprint_data: demoSoulprintData
+                                }, { onConflict: 'user_id' })
+                        }
+                    }
                 }
-            }
 
-            // 2. If no key usable, generate a new one
-            const { apiKey: newKey } = await generateApiKey("Internal Chat Key")
-            if (newKey) {
-                setApiKey(newKey)
-                localStorage.setItem("soulprint_internal_key", newKey)
+                // 3. Check for existing API keys
+                const { keys } = await listApiKeys()
+
+                if (keys && keys.length > 0) {
+                    const storedKey = localStorage.getItem("soulprint_internal_key")
+                    if (storedKey) {
+                        setApiKey(storedKey)
+                        setInitializing(false)
+                        return
+                    }
+                }
+
+                // 4. If no key usable, generate a new one
+                const { apiKey: newKey } = await generateApiKey("Internal Chat Key")
+                if (newKey) {
+                    setApiKey(newKey)
+                    localStorage.setItem("soulprint_internal_key", newKey)
+                }
+            } catch (error) {
+                console.error('Initialization error:', error)
+            } finally {
+                setInitializing(false)
             }
-            setInitializing(false)
         }
 
         init()
@@ -53,10 +111,10 @@ export default function ChatPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }, [messages])
 
+    // Function to set demo personality (only shown for non-demo users)
     async function handleLoadDemoData() {
         setLoading(true)
         try {
-            const { data: { user } } = await supabase.auth.getUser()
             if (!user) {
                 alert("Please sign in first")
                 return
@@ -150,18 +208,26 @@ export default function ChatPage() {
                     </div>
                     <div>
                         <h2 className="font-semibold text-white">SoulPrint GPT-4</h2>
-                        <p className="text-xs text-gray-500">Personalized with your SoulPrint</p>
+                        <p className="text-xs text-gray-500">
+                            {user?.email === 'test@soulprint.ai'
+                                ? 'Demo mode - Pre-configured personality'
+                                : 'Personalized with your SoulPrint'
+                            }
+                        </p>
                     </div>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLoadDemoData}
-                    className="border-orange-500/50 text-orange-500 hover:bg-orange-500/10"
-                >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Set Demo Personality
-                </Button>
+                {/* Only show Set Demo Personality button for non-demo users */}
+                {user && user.email !== 'test@soulprint.ai' && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleLoadDemoData}
+                        className="border-orange-500/50 text-orange-500 hover:bg-orange-500/10"
+                    >
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Set Demo Personality
+                    </Button>
+                )}
             </div>
 
             {/* Messages */}

@@ -136,7 +136,7 @@ export default function QuestionnairePage() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                user_id: 'drew', // Demo mode user ID
+                user_id: 'test', // Demo mode user ID
                 answers: finalAnswers
             }),
         });

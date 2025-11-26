@@ -25,15 +25,6 @@ export async function generateApiKey(label: string = "Default Key") {
 
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user) {
-        // For Demo Drew mode, we might need a bypass or just fail.
-        // Assuming real auth for now, or we can mock for demo.
-        if (process.env.NODE_ENV === 'development') {
-            // Mock user for dev if needed, but better to enforce auth
-        }
-        // return { error: "Unauthorized" }
-    }
-
     // Generate a secure key
     // Format: sk-soulprint-[random-hex]
     const rawKey = 'sk-soulprint-' + randomBytes(24).toString('hex')
@@ -42,14 +33,14 @@ export async function generateApiKey(label: string = "Default Key") {
     const hashedKey = createHash('sha256').update(rawKey).digest('hex')
 
     // Store in Supabase
-    // Note: We need the service role key to write to this table if RLS is strict, 
-    // or ensure the user has insert rights. 
+    // Note: We need the service role key to write to this table if RLS is strict,
+    // or ensure the user has insert rights.
     // For now using the client context (RLS should allow user to insert their own keys).
 
     const { data, error } = await supabase
         .from('api_keys')
         .insert({
-            user_id: user?.id || '00000000-0000-0000-0000-000000000000', // Fallback for demo
+            user_id: user?.id || 'test', // Use 'test' for demo user fallback
             label,
             key_hash: hashedKey,
             // We don't store the raw key!
@@ -86,7 +77,7 @@ export async function listApiKeys() {
     const { data, error } = await supabase
         .from('api_keys')
         .select('*')
-        .eq('user_id', user?.id || '00000000-0000-0000-0000-000000000000')
+        .eq('user_id', user?.id || 'test') // Use 'test' for demo user fallback
         .order('created_at', { ascending: false })
 
     if (error) {

@@ -36,11 +36,38 @@ export async function POST(req: NextRequest) {
             .eq("user_id", keyData.user_id)
             .single();
 
+        if (soulprintError) {
+            console.error('Error fetching soulprint:', soulprintError);
+        }
+
+        // Safe JSON serialization function to handle circular references
+        function safeJsonStringify(obj: any): string {
+            try {
+                const seen = new WeakSet();
+                return JSON.stringify(obj, (key, val) => {
+                    if (val != null && typeof val === 'object') {
+                        if (seen.has(val)) {
+                            return '[Circular]';
+                        }
+                        seen.add(val);
+                    }
+                    // Filter out functions and undefined values
+                    if (typeof val === 'function' || val === undefined) {
+                        return undefined;
+                    }
+                    return val;
+                }, 2);
+            } catch (error) {
+                console.error('JSON Serialization Error:', error);
+                return '{}';
+            }
+        }
+
         let systemMessage = "You are a helpful AI assistant.";
 
         if (soulprint?.soulprint_data) {
-            const traits = JSON.stringify(soulprint.soulprint_data, null, 2);
-            systemMessage = `You are a personalized AI assistant for the user. 
+            const traits = safeJsonStringify(soulprint.soulprint_data);
+            systemMessage = `You are a personalized AI assistant for the user.
 Your personality and responses should be shaped by the following SoulPrint identity data:
 ${traits}
 
