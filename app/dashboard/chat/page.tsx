@@ -305,16 +305,21 @@ export default function ChatPage() {
 
             {/* Input */}
             <div className="border-t border-[#222] p-4">
+                {!apiKey && (
+                    <div className="mb-2 text-xs text-orange-500">
+                        ⚠️ API key not available. Please refresh the page or check your settings.
+                    </div>
+                )}
                 <div className="flex gap-2">
                     <input
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                        onKeyDown={(e) => e.key === "Enter" && !loading && apiKey && input.trim() && handleSend()}
                         placeholder="Type a message..."
                         className="flex-1 rounded-md border border-[#333] bg-[#0A0A0A] px-4 py-2 text-white placeholder:text-gray-600 focus:border-orange-500 focus:outline-none"
                         disabled={loading}
                     />
-                    <Button onClick={handleSend} disabled={loading || !input.trim()} className="bg-orange-600 hover:bg-orange-700">
+                    <Button onClick={handleSend} disabled={loading || !input.trim() || !apiKey} className="bg-orange-600 hover:bg-orange-700">
                         <Send className="h-4 w-4" />
                     </Button>
                 </div>
