@@ -32,8 +32,8 @@ export default function ChatPage() {
 
                 // 2. Ensure soulprint exists for demo user or current user
                 if (currentUser) {
-                    // For demo user (test@soulprint.ai), ensure soulprint data exists
-                    if (currentUser.email === 'test@soulprint.ai') {
+                    // For demo user (demo@soulprint.ai), ensure soulprint data exists
+                    if (currentUser.email === 'demo@soulprint.ai') {
                         // Try to find soulprint by current user's UUID first
                         let { data: existingSoulprint } = await supabase
                             .from('soulprints')
@@ -236,7 +236,7 @@ export default function ChatPage() {
                     <div>
                         <h2 className="font-semibold text-white">SoulPrint GPT-4</h2>
                         <p className="text-xs text-gray-500">
-                            {user?.email === 'test@soulprint.ai'
+                            {user?.email === 'demo@soulprint.ai'
                                 ? 'Demo mode - Pre-configured personality'
                                 : 'Personalized with your SoulPrint'
                             }
@@ -244,7 +244,7 @@ export default function ChatPage() {
                     </div>
                 </div>
                 {/* Only show Set Demo Personality button for non-demo users */}
-                {user && user.email !== 'test@soulprint.ai' && (
+                {user && user.email !== 'demo@soulprint.ai' && (
                     <Button
                         variant="outline"
                         size="sm"

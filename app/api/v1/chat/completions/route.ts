@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
         // Check for fallback demo API key
         if (rawKey === "sk-soulprint-demo-fallback-123456") {
             // Use fallback user ID for demo
-            keyData = { user_id: 'test', id: 'demo-fallback-id' };
+            keyData = { user_id: 'demo', id: 'demo-fallback-id' };
             keyError = null;
         } else {
             // Normal API key validation
