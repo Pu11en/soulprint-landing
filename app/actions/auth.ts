@@ -50,10 +50,13 @@ export async function signOut() {
 export async function signInWithGoogle() {
     const supabase = await createClient()
 
+    // Get the base URL (works for both local and production)
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/callback`,
+            redirectTo: `${baseUrl}/auth/callback?next=/questionnaire`,
         },
     })
 
