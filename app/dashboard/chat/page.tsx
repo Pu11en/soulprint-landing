@@ -34,46 +34,64 @@ export default function ChatPage() {
                 if (currentUser) {
                     // For demo user (test@soulprint.ai), ensure soulprint data exists
                     if (currentUser.email === 'test@soulprint.ai') {
-                        const { data: existingSoulprint } = await supabase
+                        // Try to find soulprint by current user's UUID first
+                        let { data: existingSoulprint } = await supabase
                             .from('soulprints')
                             .select('soulprint_data')
                             .eq('user_id', currentUser.id)
                             .single()
 
                         if (!existingSoulprint) {
-                            // Create soulprint for demo user
-                            const demoSoulprintData = {
-                                communication_style: {
-                                    formality: "casual",
-                                    directness: "direct",
-                                    humor: "moderate"
-                                },
-                                decision_making: {
-                                    approach: "analytical",
-                                    speed: "balanced",
-                                    collaboration: "high"
-                                },
-                                values: ["innovation", "authenticity", "growth"],
-                                work_style: {
-                                    environment: "collaborative",
-                                    pace: "steady",
-                                    structure: "flexible"
-                                },
-                                personality_traits: {
-                                    openness: "high",
-                                    conscientiousness: "moderate",
-                                    extraversion: "balanced",
-                                    agreeableness: "high",
-                                    neuroticism: "low"
-                                }
-                            }
-
-                            await supabase
+                            // Also try fallback to 'test' string for compatibility
+                            const { data: fallbackSoulprint } = await supabase
                                 .from('soulprints')
-                                .upsert({
-                                    user_id: currentUser.id,
-                                    soulprint_data: demoSoulprintData
-                                }, { onConflict: 'user_id' })
+                                .select('soulprint_data')
+                                .eq('user_id', 'test')
+                                .single()
+
+                            if (fallbackSoulprint) {
+                                // Copy fallback data to current user
+                                await supabase
+                                    .from('soulprints')
+                                    .insert({
+                                        user_id: currentUser.id,
+                                        soulprint_data: fallbackSoulprint.soulprint_data
+                                    })
+                            } else {
+                                // Create new soulprint for demo user
+                                const demoSoulprintData = {
+                                    communication_style: {
+                                        formality: "casual",
+                                        directness: "direct",
+                                        humor: "moderate"
+                                    },
+                                    decision_making: {
+                                        approach: "analytical",
+                                        speed: "balanced",
+                                        collaboration: "high"
+                                    },
+                                    values: ["innovation", "authenticity", "growth"],
+                                    work_style: {
+                                        environment: "collaborative",
+                                        pace: "steady",
+                                        structure: "flexible"
+                                    },
+                                    personality_traits: {
+                                        openness: "high",
+                                        conscientiousness: "moderate",
+                                        extraversion: "balanced",
+                                        agreeableness: "high",
+                                        neuroticism: "low"
+                                    }
+                                }
+
+                                await supabase
+                                    .from('soulprints')
+                                    .insert({
+                                        user_id: currentUser.id,
+                                        soulprint_data: demoSoulprintData
+                                    })
+                            }
                         }
                     }
                 }
