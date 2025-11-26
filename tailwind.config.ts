@@ -15,6 +15,7 @@ const config: Config = {
                 sans: ["var(--font-inter)", "sans-serif"],
                 koulen: ["var(--font-koulen)", "sans-serif"],
                 geist: ["var(--font-geist)", "sans-serif"],
+                "host-grotesk": ["var(--font-host-grotesk)", "sans-serif"],
             },
             colors: {
                 border: "hsl(var(--border))",

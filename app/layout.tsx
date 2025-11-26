@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Koulen, Geist } from "next/font/google";
+import { Inter, Koulen, Geist, Host_Grotesk } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,10 @@ const koulen = Koulen({
 const geist = Geist({
   subsets: ["latin"],
   variable: "--font-geist",
+});
+const hostGrotesk = Host_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-host-grotesk",
 });
 
 export const metadata: Metadata = {
@@ -31,7 +35,8 @@ export default function RootLayout({
         "min-h-screen bg-background font-sans antialiased",
         inter.variable,
         koulen.variable,
-        geist.variable
+        geist.variable,
+        hostGrotesk.variable
       )}>
         <ThemeProvider
           attribute="class"

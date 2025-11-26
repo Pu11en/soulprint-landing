@@ -6,6 +6,7 @@ import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Moon, Sun } from "lucide-react"
 import { useEffect, useState } from "react"
+import { SignUpModal } from "@/components/auth/signup-modal"
 
 export function Navbar() {
     const { theme, setTheme } = useTheme()
@@ -72,7 +73,9 @@ export function Navbar() {
 
                     <div className="hidden md:flex gap-2">
                         <Button variant="ghost">Sign In</Button>
-                        <Button>Get Started</Button>
+                        <SignUpModal>
+                            <Button>Get Started</Button>
+                        </SignUpModal>
                     </div>
                 </div>
             </div>
