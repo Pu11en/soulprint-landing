@@ -220,14 +220,14 @@ export default function ChatPage() {
     return (
         <div className="relative flex h-[calc(100vh-8rem)] flex-col rounded-xl border border-[#222] overflow-hidden">
             {/* Animated Background */}
-            <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
+            <div className="absolute inset-0 z-0 opacity-60 pointer-events-none">
                 <SoulprintBackground personality={personality} />
             </div>
             {/* Gradient overlay for text contrast */}
-            <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+            <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-black/20 via-transparent to-black/60" />
             
             {/* Main content - above background */}
-            <div className="relative z-10 flex flex-col h-full bg-[#111]/80 backdrop-blur-sm">
+            <div className="relative z-10 flex flex-col h-full bg-[#111]/60 backdrop-blur-sm">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-[#222] p-4">
                     <div className="flex items-center gap-3">
