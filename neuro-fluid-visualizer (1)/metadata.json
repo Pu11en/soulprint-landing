@@ -1,0 +1,5 @@
+{
+  "name": "Neuro-Fluid Visualizer",
+  "description": "A personality-driven particle field generator that translates text prompts into fluid abstract visualizations using simplex noise and physics.",
+  "requestFramePermissions": []
+}

@@ -1,12 +1,19 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { generateApiKey, listApiKeys } from "@/app/actions/api-keys"
 import { getChatHistory, saveChatMessage, clearChatHistory } from "@/app/actions/chat-history"
 import { Send, Bot, User, Loader2, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+
+// Dynamic import to avoid SSR issues with canvas
+const SoulprintBackground = dynamic(
+    () => import("@/components/visualizer/SoulprintBackground"),
+    { ssr: false }
+)
 
 interface Message {
     role: "user" | "assistant"
@@ -20,6 +27,7 @@ export default function ChatPage() {
     const [apiKey, setApiKey] = useState<string | null>(null)
     const [initializing, setInitializing] = useState(true)
     const [user, setUser] = useState<{ id?: string; email?: string } | null>(null)
+    const [personality, setPersonality] = useState<string>("Default System")
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const supabase = createClient()
 
@@ -51,6 +59,26 @@ export default function ChatPage() {
                     return
                 }
                 console.log('✅ Soulprint found for user')
+
+                // Extract personality string for visualizer
+                try {
+                    let soulprintData = existingSoulprint.soulprint_data
+                    if (typeof soulprintData === 'string') {
+                        soulprintData = JSON.parse(soulprintData)
+                    }
+                    // Use archetype or core_essence as personality seed
+                    const personalityStr = 
+                        soulprintData?.profile_summary?.archetype ||
+                        soulprintData?.profile_summary?.core_essence ||
+                        soulprintData?.full_system_prompt?.substring(0, 100) ||
+                        currentUser.email ||
+                        'Default System'
+                    setPersonality(personalityStr)
+                    console.log('✅ Personality set:', personalityStr.substring(0, 50) + '...')
+                } catch (e) {
+                    console.log('Could not parse personality, using default')
+                    setPersonality(currentUser.email || 'Default System')
+                }
 
                 // 3. Load chat history
                 const history = await getChatHistory()
@@ -190,32 +218,41 @@ export default function ChatPage() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-8rem)] flex-col rounded-xl border border-[#222] bg-[#111]">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-[#222] p-4">
-                <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20 text-green-500">
-                        <Bot className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <h2 className="font-semibold text-white">SoulPrint GPT-4</h2>
-                        <p className="text-xs text-gray-500">
-                            {user?.email ? `Personalized for ${user.email}` : 'Loading...'}
-                        </p>
-                    </div>
-                </div>
-                {messages.length > 0 && (
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={handleClearHistory}
-                        className="text-gray-400 hover:text-red-400"
-                    >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Clear
-                    </Button>
-                )}
+        <div className="relative flex h-[calc(100vh-8rem)] flex-col rounded-xl border border-[#222] overflow-hidden">
+            {/* Animated Background */}
+            <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
+                <SoulprintBackground personality={personality} />
             </div>
+            {/* Gradient overlay for text contrast */}
+            <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+            
+            {/* Main content - above background */}
+            <div className="relative z-10 flex flex-col h-full bg-[#111]/80 backdrop-blur-sm">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-[#222] p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20 text-green-500">
+                            <Bot className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h2 className="font-semibold text-white">SoulPrint GPT-4</h2>
+                            <p className="text-xs text-gray-500">
+                                {user?.email ? `Personalized for ${user.email}` : 'Loading...'}
+                            </p>
+                        </div>
+                    </div>
+                    {messages.length > 0 && (
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={handleClearHistory}
+                            className="text-gray-400 hover:text-red-400"
+                        >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Clear
+                        </Button>
+                    )}
+                </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -276,13 +313,14 @@ export default function ChatPage() {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && !loading && apiKey && input.trim() && handleSend()}
                         placeholder="Type a message..."
-                        className="flex-1 rounded-md border border-[#333] bg-[#0A0A0A] px-4 py-2 text-white placeholder:text-gray-600 focus:border-orange-500 focus:outline-none"
+                        className="flex-1 rounded-md border border-[#333] bg-[#0A0A0A]/80 px-4 py-2 text-white placeholder:text-gray-600 focus:border-orange-500 focus:outline-none"
                         disabled={loading}
                     />
                     <Button onClick={handleSend} disabled={loading || !input.trim() || !apiKey} className="bg-orange-600 hover:bg-orange-700">
                         <Send className="h-4 w-4" />
                     </Button>
                 </div>
+            </div>
             </div>
         </div>
     )
