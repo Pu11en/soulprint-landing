@@ -134,12 +134,17 @@ export default function QuestionnairePage() {
 
                     setMessages(prev => [...prev, {
                         role: "bot",
-                        content: "🎉 Your SoulPrint has been created! Your AI will now understand you better.",
+                        content: "🎉 Your SoulPrint has been created! Redirecting to chat...",
                         timestamp: new Date()
                     }]);
                     setIsComplete(true);
                     localStorage.removeItem("soulprint_answers");
                     localStorage.removeItem("soulprint_current_q");
+                    
+                    // Auto-redirect to chat after 2 seconds
+                    setTimeout(() => {
+                        router.push('/dashboard/chat');
+                    }, 2000);
                 } catch (error) {
                     console.error("Submission error:", error);
                     setMessages(prev => [...prev, {

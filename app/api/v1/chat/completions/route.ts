@@ -18,6 +18,9 @@ export async function POST(req: NextRequest) {
 
         const rawKey = authHeader.replace("Bearer ", "");
         const hashedKey = createHash("sha256").update(rawKey).digest("hex");
+        
+        console.log('🔑 Validating API key...');
+        console.log('🔑 Key hash:', hashedKey.substring(0, 20) + '...');
 
         // 2. Validate Key
         let keyData, keyError;
@@ -37,11 +40,16 @@ export async function POST(req: NextRequest) {
 
             keyData = result.data;
             keyError = result.error;
+            
+            console.log('🔑 DB lookup result:', { keyData, keyError });
         }
 
         if (keyError || !keyData) {
+            console.log('❌ API key validation failed');
             return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
         }
+        
+        console.log('✅ API key valid for user:', keyData.user_id);
 
         // 3. Fetch User's SoulPrint (System Message)
         const { data: soulprint, error: soulprintError } = await supabaseAdmin
@@ -55,6 +63,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({
                 error: "Failed to fetch user's SoulPrint data. Please ensure your account is properly set up."
             }, { status: 500 });
+        }
+
+        console.log('📋 SoulPrint data found:', soulprint ? 'YES' : 'NO');
+        if (soulprint?.soulprint_data) {
+            console.log('📋 SoulPrint preview:', JSON.stringify(soulprint.soulprint_data).substring(0, 500) + '...');
         }
 
         if (!soulprint) {
@@ -88,12 +101,29 @@ export async function POST(req: NextRequest) {
         let systemMessage = "You are a helpful AI assistant.";
 
         if (soulprint?.soulprint_data) {
-            const traits = safeJsonStringify(soulprint.soulprint_data);
-            systemMessage = `You are a personalized AI assistant for the user.
+            // Parse the soulprint data if it's a string
+            let soulprintObj = soulprint.soulprint_data;
+            if (typeof soulprintObj === 'string') {
+                try {
+                    soulprintObj = JSON.parse(soulprintObj);
+                } catch (e) {
+                    console.error('Failed to parse soulprint_data:', e);
+                }
+            }
+            
+            // Use the full_system_prompt if available, otherwise fall back to the whole object
+            if (soulprintObj?.full_system_prompt) {
+                systemMessage = soulprintObj.full_system_prompt;
+                console.log('📋 Using full_system_prompt from SoulPrint');
+            } else {
+                const traits = JSON.stringify(soulprintObj, null, 2);
+                systemMessage = `You are a personalized AI assistant for the user.
 Your personality and responses should be shaped by the following SoulPrint identity data:
 ${traits}
 
 Always stay in character based on these traits.`;
+                console.log('📋 Using raw SoulPrint data as system message');
+            }
         }
 
         // 4. Prepare Request to OpenAI
@@ -121,13 +151,24 @@ Always stay in character based on these traits.`;
         });
 
         if (!openAIResponse.ok) {
-            const error = await openAIResponse.json();
-            // Ensure error message is properly formatted
-            const errorMessage = error.error?.message || error.message || 'OpenAI API request failed';
-            return NextResponse.json({
-                error: errorMessage,
-                details: error
-            }, { status: openAIResponse.status });
+            const responseText = await openAIResponse.text();
+            let errorMessage = 'OpenAI API request failed';
+            
+            // Try to parse as JSON, but handle HTML error pages
+            try {
+                const error = JSON.parse(responseText);
+                errorMessage = error.error?.message || error.message || errorMessage;
+                return NextResponse.json({
+                    error: errorMessage,
+                    details: error
+                }, { status: openAIResponse.status });
+            } catch {
+                // OpenAI returned HTML (error page) instead of JSON
+                console.error('OpenAI returned non-JSON response:', responseText.substring(0, 200));
+                return NextResponse.json({
+                    error: 'OpenAI service temporarily unavailable. Please try again.',
+                }, { status: 503 });
+            }
         }
 
         // 6. Handle Response (Streaming vs Non-Streaming)

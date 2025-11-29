@@ -34,85 +34,62 @@ export default function ChatPage() {
                     return
                 }
                 setUser(currentUser)
+                console.log('✅ Current user:', currentUser.email)
 
-                // 2. GUARANTEE soulprint exists for ALL users
-                const { data: existingSoulprint, error: soulprintCheckError } = await supabase
+                // 2. Check if soulprint exists for this user
+                const { data: existingSoulprint } = await supabase
                     .from('soulprints')
                     .select('soulprint_data')
                     .eq('user_id', currentUser.email)
                     .maybeSingle()
 
                 if (!existingSoulprint) {
-                    console.log('No soulprint found, creating default soulprint for user:', currentUser.email)
+                    console.log('No soulprint found for user:', currentUser.email)
+                    // Redirect to questionnaire if no soulprint
+                    window.location.href = '/questionnaire'
+                    return
+                }
+                console.log('✅ Soulprint found for user')
 
-                    // Default soulprint for ANY user
-                    const defaultSoulprintData = {
-                        communication_style: {
-                            formality: "casual",
-                            directness: "direct",
-                            humor: "moderate",
-                            tone: "friendly"
-                        },
-                        decision_making: {
-                            approach: "analytical",
-                            speed: "balanced",
-                            collaboration: "high",
-                            risk_tolerance: "moderate"
-                        },
-                        values: ["innovation", "authenticity", "growth", "learning"],
-                        work_style: {
-                            environment: "collaborative",
-                            pace: "steady",
-                            structure: "flexible"
-                        },
-                        personality_traits: {
-                            openness: "high",
-                            conscientiousness: "moderate",
-                            extraversion: "balanced",
-                            agreeableness: "high",
-                            neuroticism: "low"
-                        }
-                    }
-
-                    const { error: insertError } = await supabase
-                        .from('soulprints')
-                        .insert({
-                            user_id: currentUser.email,
-                            soulprint_data: defaultSoulprintData
-                        })
-
-                    if (insertError) {
-                        console.error('Failed to create soulprint:', insertError)
-                        throw new Error('Failed to initialize soulprint')
-                    }
-                    console.log('✅ Default soulprint created successfully')
+                // 3. Get API key - check if user has one in database first
+                const { keys, error: keysError } = await listApiKeys()
+                
+                if (keysError) {
+                    console.error('Error fetching keys:', keysError)
                 }
 
-                // 3. GUARANTEE API key exists
-                // Check localStorage first
+                // Check localStorage for the raw key
                 const storedKey = localStorage.getItem("soulprint_internal_key")
-                if (storedKey && storedKey.startsWith('sk-soulprint-')) {
-                    // Verify key still exists in database
-                    const { keys } = await listApiKeys()
-                    if (keys && keys.length > 0) {
-                        setApiKey(storedKey)
-                        setInitializing(false)
-                        console.log('✅ Using existing API key from localStorage')
-                        return
+                
+                if (keys && keys.length > 0 && storedKey && storedKey.startsWith('sk-soulprint-')) {
+                    // User has keys in DB and a stored key - use it
+                    setApiKey(storedKey)
+                    console.log('✅ Using existing API key')
+                } else if (keys && keys.length > 0) {
+                    // User has keys but no localStorage - need to generate new one
+                    console.log('Keys exist in DB but not in localStorage, generating new key...')
+                    localStorage.removeItem("soulprint_internal_key") // Clear any stale key
+                    const { apiKey: newKey, error: keyError } = await generateApiKey("Internal Chat Key")
+                    if (newKey) {
+                        setApiKey(newKey)
+                        localStorage.setItem("soulprint_internal_key", newKey)
+                        console.log('✅ New API key generated')
+                    } else {
+                        console.error('Failed to generate key:', keyError)
                     }
-                }
-
-                // Generate new API key if needed
-                console.log('Generating new API key...')
-                const { apiKey: newKey, error: keyError } = await generateApiKey("Internal Chat Key")
-
-                if (newKey) {
-                    setApiKey(newKey)
-                    localStorage.setItem("soulprint_internal_key", newKey)
-                    console.log('✅ New API key generated successfully')
-                } else if (keyError) {
-                    console.error('Failed to generate API key:', keyError)
-                    throw new Error('Failed to generate API key')
+                } else {
+                    // No keys at all - generate one
+                    console.log('No API keys found, generating new key...')
+                    localStorage.removeItem("soulprint_internal_key")
+                    const { apiKey: newKey, error: keyError } = await generateApiKey("Internal Chat Key")
+                    if (newKey) {
+                        setApiKey(newKey)
+                        localStorage.setItem("soulprint_internal_key", newKey)
+                        console.log('✅ New API key generated')
+                    } else {
+                        console.error('Failed to generate key:', keyError)
+                        throw new Error('Failed to generate API key')
+                    }
                 }
 
             } catch (error) {
@@ -236,25 +213,10 @@ export default function ChatPage() {
                     <div>
                         <h2 className="font-semibold text-white">SoulPrint GPT-4</h2>
                         <p className="text-xs text-gray-500">
-                            {user?.email === 'demo@soulprint.ai'
-                                ? 'Demo mode - Pre-configured personality'
-                                : 'Personalized with your SoulPrint'
-                            }
+                            {user?.email ? `Personalized for ${user.email}` : 'Loading...'}
                         </p>
                     </div>
                 </div>
-                {/* Only show Set Demo Personality button for non-demo users */}
-                {user && user.email !== 'demo@soulprint.ai' && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleLoadDemoData}
-                        className="border-orange-500/50 text-orange-500 hover:bg-orange-500/10"
-                    >
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Set Demo Personality
-                    </Button>
-                )}
             </div>
 
             {/* Messages */}
