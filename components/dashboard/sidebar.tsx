@@ -12,11 +12,12 @@ import {
     LifeBuoy
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 const sidebarItems = [
     { icon: SquareTerminal, label: "Questionnaire", href: "/questionnaire" },
-    { icon: Bot, label: "Dashboard", href: "/dashboard" },
-    { icon: CodeXml, label: "Code", href: "/dashboard/code" },
+    { icon: Bot, label: "Chat", href: "/dashboard/chat" },
+    { icon: CodeXml, label: "Identity Reactor", href: "/dashboard" },
     { icon: Book, label: "Docs", href: "/dashboard/docs" },
     { icon: Settings2, label: "Settings", href: "/dashboard/settings" },
 ]
@@ -25,48 +26,52 @@ export function Sidebar() {
     const pathname = usePathname()
 
     return (
-        <div className="flex h-screen w-16 flex-col items-center justify-between border-r border-[#333] bg-[#0A0A0A] py-4">
-            <div className="flex flex-col items-center gap-6">
-                {/* Logo Placeholder */}
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-600 text-white">
-                    <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" />
-                        <path d="M12 2V22" stroke="currentColor" strokeWidth="2" />
-                        <path d="M2 12H22" stroke="currentColor" strokeWidth="2" />
-                    </svg>
+        <div className="flex h-screen w-14 flex-col items-center justify-between border-r border-[#222] bg-[#111111] py-2">
+            {/* Logo Section */}
+            <div className="flex flex-col items-center border-b border-[#222] pb-2 w-full">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md overflow-hidden shadow-sm">
+                    <Image
+                        src="/images/Soulprintengine-logo.png"
+                        alt="SoulPrint"
+                        width={36}
+                        height={36}
+                        className="object-cover"
+                    />
                 </div>
-
-                <nav className="flex flex-col gap-4">
-                    {sidebarItems.map((item) => {
-                        const isActive = pathname === item.href
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={cn(
-                                    "flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-white/10",
-                                    isActive ? "bg-orange-600 text-white" : "text-gray-400"
-                                )}
-                            >
-                                <item.icon className="h-5 w-5" />
-                                <span className="sr-only">{item.label}</span>
-                            </Link>
-                        )
-                    })}
-                </nav>
             </div>
 
-            <div className="flex flex-col items-center gap-4">
-                <button className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-white/10">
+            {/* Main Nav */}
+            <nav className="flex flex-1 flex-col items-center gap-1 py-2">
+                {sidebarItems.map((item) => {
+                    // Check if this nav item is active
+                    const isActive = pathname === item.href || 
+                        (item.href === "/dashboard" && pathname === "/dashboard")
+                    
+                    return (
+                        <Link
+                            key={item.label}
+                            href={item.href}
+                            className={cn(
+                                "flex h-10 w-10 items-center justify-center rounded-md transition-colors",
+                                isActive 
+                                    ? "bg-orange-600 text-white" 
+                                    : "text-[#e5e5e5] hover:bg-white/5"
+                            )}
+                            title={item.label}
+                        >
+                            <item.icon className="h-5 w-5" />
+                            <span className="sr-only">{item.label}</span>
+                        </Link>
+                    )
+                })}
+            </nav>
+
+            {/* Bottom Nav */}
+            <div className="flex flex-col items-center gap-1 py-2">
+                <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#e5e5e5] transition-colors hover:bg-white/5">
                     <LifeBuoy className="h-5 w-5" />
                 </button>
-                <button className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-white/10">
+                <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#e5e5e5] transition-colors hover:bg-white/5">
                     <User className="h-5 w-5" />
                 </button>
             </div>

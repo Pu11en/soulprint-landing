@@ -1,17 +1,16 @@
-import { LLMSelector } from "@/components/dashboard/llm-selector"
-import { SoulPrintVisualizer } from "@/components/dashboard/soulprint-visualizer"
+import { IdentityReactor } from "@/components/dashboard/identity-reactor"
 
 export default function DashboardPage() {
     return (
-        <div className="mx-auto max-w-6xl space-y-12">
-            <div className="flex items-center justify-between font-mono text-sm text-gray-400">
-                <div>SOULPRINT ENGINE / LLM SENDOFF</div>
-                <div>[ SOULPRINT USERNAME ]</div>
+        <div className="flex h-full flex-col gap-4">
+            {/* Header */}
+            <div className="font-mono text-sm tracking-wider text-gray-500">
+                SOULPRINT ENGINE / IDENTITY REACTOR
             </div>
 
-            <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-                <LLMSelector />
-                <SoulPrintVisualizer />
+            {/* Main Content */}
+            <div className="flex-1">
+                <IdentityReactor />
             </div>
         </div>
     )

@@ -1,0 +1,12 @@
+# SoulPrint Prosody Analysis Dependencies
+# Install with: pip install -r requirements.txt
+
+# Parselmouth - Python wrapper for Praat
+# Used for pitch, intensity, duration, and voice quality analysis
+praat-parselmouth>=0.4.3
+
+# NumPy - Numerical computing
+numpy>=1.21.0
+
+# SciPy - Scientific computing (for audio processing)
+scipy>=1.7.0

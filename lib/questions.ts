@@ -3,6 +3,11 @@ export interface Question {
     question: string;
     category: "personal" | "communication" | "emotional" | "decision" | "social" | "cognitive" | "conflict";
     placeholder?: string;
+    type?: "text" | "voice";  // Default is "text"
+    voicePrompt?: string;     // Prompt shown for voice questions
+    minDuration?: number;     // Min recording duration for voice (seconds)
+    maxDuration?: number;     // Max recording duration for voice (seconds)
+    pillarId?: string;        // SoulPrint pillar ID for voice analysis
 }
 
 export const questions: Question[] = [
@@ -23,6 +28,16 @@ export const questions: Question[] = [
         question: "What emotion is hardest for you to express out loud?",
         category: "emotional",
         placeholder: "e.g., Anger, sadness, vulnerability..."
+    },
+    {
+        id: "q4",
+        question: "Now, tell me a short story using your voice. Describe a moment when you felt truly understood by someone.",
+        category: "emotional",
+        type: "voice",
+        voicePrompt: "Take a moment to recall a specific time when someone really 'got' you. Describe what happened, how it felt, and why that moment stood out. Speak naturally, as if you're telling a friend.",
+        minDuration: 1,
+        maxDuration: 120,
+        pillarId: "emotional_alignment"
     }
 ];
 
