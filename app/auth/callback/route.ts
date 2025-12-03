@@ -18,6 +18,17 @@ export async function GET(request: Request) {
         const { data: { user } } = await supabase.auth.getUser()
         
         if (user?.email) {
+            // BYPASS: Demo/Test/Elon users go straight to chat
+            const isDemoUser = 
+                user.email.includes('demo') || 
+                user.email.includes('test') || 
+                user.email === 'elon@soulprint.ai' ||
+                user.user_metadata?.is_demo === true;
+
+            if (isDemoUser) {
+                return NextResponse.redirect(new URL('/dashboard/chat', requestUrl.origin))
+            }
+
             const { data: existingSoulprint } = await supabase
                 .from('soulprints')
                 .select('id')

@@ -43,17 +43,17 @@ export default function ChatPage() {
                     return
                 }
                 setUser(currentUser)
-                console.log('✅ Current user:', currentUser.email)
+                console.log('✅ Current user:', currentUser.email, 'ID:', currentUser.id)
 
-                // 2. Check if soulprint exists for this user
+                // 2. Check if soulprint exists for this user (by UUID)
                 const { data: existingSoulprint } = await supabase
                     .from('soulprints')
                     .select('soulprint_data')
-                    .eq('user_id', currentUser.email)
+                    .eq('user_id', currentUser.id)
                     .maybeSingle()
 
                 if (!existingSoulprint) {
-                    console.log('No soulprint found for user:', currentUser.email)
+                    console.log('No soulprint found for user ID:', currentUser.id)
                     // Redirect to questionnaire if no soulprint
                     window.location.href = '/questionnaire'
                     return
@@ -218,7 +218,7 @@ export default function ChatPage() {
     }
 
     return (
-        <div className="relative flex h-[calc(100vh-8rem)] flex-col rounded-xl border border-[#222] overflow-hidden">
+        <div className="relative flex h-full flex-col rounded-xl border border-[#222] overflow-hidden">
             {/* Animated Background */}
             <div className="absolute inset-0 z-0 opacity-80 pointer-events-none">
                 <SoulprintBackground personality={personality} />

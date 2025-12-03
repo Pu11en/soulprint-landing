@@ -25,11 +25,12 @@ export async function POST(req: NextRequest) {
         // 2. Validate Key
         let keyData, keyError;
 
-        // Check for fallback demo API key
+        // Check for fallback demo API key - uses Elon Musk persona
         if (rawKey === "sk-soulprint-demo-fallback-123456") {
-            // Use fallback user ID for demo
-            keyData = { user_id: 'demo', id: 'demo-fallback-id' };
+            // Use Elon's UUID for demo mode (same as test@soulprint.ai user)
+            keyData = { user_id: '4316c8f3-a383-4260-8cbc-daadea2ad142', id: 'demo-fallback-id' };
             keyError = null;
+            console.log('🎭 Demo mode activated - using Elon Musk persona');
         } else {
             // Normal API key validation
             const result = await supabaseAdmin

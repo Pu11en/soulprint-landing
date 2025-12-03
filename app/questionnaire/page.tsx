@@ -9,6 +9,7 @@ import { questions, getNextQuestion, getProgress, Question } from "@/lib/questio
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { VoiceRecorderV3 } from "@/components/voice-recorder/VoiceRecorderV3";
+import { Slider } from "@/components/ui/slider";
 
 interface Message {
     role: "bot" | "user";
@@ -26,12 +27,12 @@ const SOULPRINT_LAYERS = [
 ];
 
 // Terminal status panel component
-function TerminalStatusPanel({ 
-    progress, 
+function TerminalStatusPanel({
+    progress,
     currentPhase,
     activeChannels,
-    currentProcess 
-}: { 
+    currentProcess
+}: {
     progress: number;
     currentPhase: string;
     activeChannels: string[];
@@ -39,7 +40,7 @@ function TerminalStatusPanel({
 }) {
     const filledBlocks = Math.floor(progress / 25);
     const progressBlocks = "■".repeat(filledBlocks) + "□".repeat(4 - filledBlocks);
-    
+
     return (
         <div className="bg-neutral-900 border-4 border-[#2c2c2c] rounded-sm font-mono text-sm">
             {/* Terminal header */}
@@ -47,7 +48,7 @@ function TerminalStatusPanel({
                 <span className="text-white text-xs">[SOULPRINT VECTOR]</span>
                 <span className="text-white text-xs">[{progressBlocks}]</span>
             </div>
-            
+
             {/* Terminal content */}
             <div className="p-4 space-y-4">
                 <div>
@@ -56,7 +57,7 @@ function TerminalStatusPanel({
                         <p key={idx} className="text-[#878791] text-xs uppercase">- {channel}</p>
                     ))}
                 </div>
-                
+
                 <div>
                     <p className="text-white text-sm mb-1">Current Process:</p>
                     {currentProcess.map((process, idx) => (
@@ -69,12 +70,12 @@ function TerminalStatusPanel({
 }
 
 // Layer unlock status component
-function LayerUnlockPanel({ 
-    layers, 
+function LayerUnlockPanel({
+    layers,
     currentLayerIndex,
     patternDepth,
-    stability 
-}: { 
+    stability
+}: {
     layers: typeof SOULPRINT_LAYERS;
     currentLayerIndex: number;
     patternDepth: number;
@@ -89,7 +90,7 @@ function LayerUnlockPanel({
                 {layers.map((layer, idx) => {
                     let status = "LOCKED";
                     let statusColor = "text-[#878791]";
-                    
+
                     if (idx < currentLayerIndex) {
                         status = "COMPLETE";
                         statusColor = "text-orange-500";
@@ -97,7 +98,7 @@ function LayerUnlockPanel({
                         status = "IN PROGRESS";
                         statusColor = "text-green-500";
                     }
-                    
+
                     return (
                         <p key={layer.id} className="text-[#878791] text-xs">
                             [<span className="uppercase">{layer.name}</span>]
@@ -140,16 +141,18 @@ export default function QuestionnairePage() {
     const [userEmail, setUserEmail] = useState<string | null>(null);
     const [traceMessages, setTraceMessages] = useState<string[]>([]);
     const [voiceAnalysisData, setVoiceAnalysisData] = useState<any | null>(null);
+    const [sliderValue, setSliderValue] = useState<number[]>([50]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const supabase = createClient();
 
     // Get current question object
-    const currentQuestion: Question | undefined = currentQuestionId 
-        ? questions.find(q => q.id === currentQuestionId) 
+    const currentQuestion: Question | undefined = currentQuestionId
+        ? questions.find(q => q.id === currentQuestionId)
         : undefined;
-    
-    // Check if current question is a voice question
+
+    // Check if current question is a voice or slider question
     const isVoiceQuestion = currentQuestion?.type === 'voice';
+    const isSliderQuestion = currentQuestion?.type === 'slider';
 
     // Initial load
     useEffect(() => {
@@ -165,6 +168,17 @@ export default function QuestionnairePage() {
                 }
 
                 setUserEmail(user.email);
+
+                // VERSION CHECK: Clear old data from 4-question system
+                const QUESTIONNAIRE_VERSION = "v2_36q";
+                const savedVersion = localStorage.getItem("soulprint_version");
+
+                if (savedVersion !== QUESTIONNAIRE_VERSION) {
+                    console.log('New questionnaire version detected, clearing old data');
+                    localStorage.removeItem("soulprint_answers");
+                    localStorage.removeItem("soulprint_current_q");
+                    localStorage.setItem("soulprint_version", QUESTIONNAIRE_VERSION);
+                }
 
                 // Check local storage for existing progress
                 const savedAnswers = localStorage.getItem("soulprint_answers");
@@ -199,22 +213,39 @@ export default function QuestionnairePage() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, isTyping]);
 
-    const handleSend = async () => {
-        if (!input.trim() || !currentQuestionId || isSubmitting) return;
+    // Reset slider value when question changes
+    useEffect(() => {
+        setSliderValue([50]);
+    }, [currentQuestionId]);
 
-        // UX: Minimum character validation
-        if (input.length < 2) {
+    const handleSend = async () => {
+        if (!currentQuestionId || isSubmitting) return;
+
+        let currentInput = input;
+
+        if (isSliderQuestion) {
+            currentInput = sliderValue[0].toString();
+        } else if (!input.trim()) {
+            return;
+        }
+
+        // UX: Minimum character validation for text
+        if (!isSliderQuestion && input.length < 2) {
             // Could show a toast here, but for now just return
             return;
         }
 
-        const currentInput = input;
         setInput(""); // Clear input immediately
+
+        // Format display message differently for slider
+        const displayMessage = isSliderQuestion
+            ? `[Value: ${currentInput}]`
+            : currentInput;
 
         // Add user message
         const newAnswers = { ...answers, [currentQuestionId]: currentInput };
         setAnswers(newAnswers);
-        setMessages(prev => [...prev, { role: "user", content: currentInput, timestamp: new Date() }]);
+        setMessages(prev => [...prev, { role: "user", content: displayMessage, timestamp: new Date() }]);
 
         // Save progress
         localStorage.setItem("soulprint_answers", JSON.stringify(newAnswers));
@@ -264,7 +295,7 @@ export default function QuestionnairePage() {
                     localStorage.removeItem("soulprint_answers");
                     localStorage.removeItem("soulprint_current_q");
                     localStorage.removeItem("soulprint_voice_analysis");
-                    
+
                     // Auto-redirect to chat after 2 seconds
                     setTimeout(() => {
                         router.push('/dashboard/chat');
@@ -354,32 +385,32 @@ export default function QuestionnairePage() {
     // Handler for voice analysis completion (AssemblyAI V3)
     const handleVoiceAnalysisComplete = async (result: any) => {
         if (!currentQuestionId) return;
-        
+
         // Store the full voice analysis data for n8n
         setVoiceAnalysisData(result);
-        
+
         // Store transcript as the answer for this question
         const voiceAnswer = result.transcript || "[Voice recording analyzed]";
         const newAnswers = { ...answers, [currentQuestionId]: voiceAnswer };
         setAnswers(newAnswers);
-        
+
         // Add user message showing they submitted voice with transcript preview
-        const transcriptPreview = result.transcript 
+        const transcriptPreview = result.transcript
             ? `"${result.transcript.slice(0, 100)}${result.transcript.length > 100 ? '...' : ''}"`
             : "[Voice recording submitted]";
-        setMessages(prev => [...prev, { 
-            role: "user", 
-            content: `🎤 ${transcriptPreview}`, 
-            timestamp: new Date() 
+        setMessages(prev => [...prev, {
+            role: "user",
+            content: `🎤 ${transcriptPreview}`,
+            timestamp: new Date()
         }]);
-        
+
         // Save progress
         localStorage.setItem("soulprint_answers", JSON.stringify(newAnswers));
         // Also save voice analysis for persistence
         localStorage.setItem("soulprint_voice_analysis", JSON.stringify(result));
-        
+
         const nextQuestion = getNextQuestion(currentQuestionId);
-        
+
         // Simulate bot processing voice
         setIsTyping(true);
         setTraceMessages([
@@ -389,16 +420,16 @@ export default function QuestionnairePage() {
             `fillers detected: ${result.emotionalSignature?.fillers?.total || 0}`,
             "emotional signature curve™ extracted"
         ]);
-        
+
         setTimeout(async () => {
             setIsTyping(false);
-            
+
             // Build feedback from analysis
             const sig = result.emotionalSignature;
-            const voiceFeedback = sig 
+            const voiceFeedback = sig
                 ? `I've captured your voice signature. You spoke at ${sig.tempo?.wpm || 'N/A'} words per minute with ${sig.pauses?.count || 0} natural pauses. Your sentiment was ${sig.sentiment?.overall?.positive > 50 ? 'predominantly positive' : sig.sentiment?.overall?.negative > 30 ? 'thoughtfully cautious' : 'neutral and measured'}.`
                 : "I've captured your voice signature and analyzed your communication cadence.";
-            
+
             if (nextQuestion) {
                 setMessages(prev => [...prev, {
                     role: "bot",
@@ -414,12 +445,12 @@ export default function QuestionnairePage() {
                     content: `${voiceFeedback}\n\nThanks for sharing. Generating your SoulPrint...`,
                     timestamp: new Date()
                 }]);
-                
+
                 setIsSubmitting(true);
-                
+
                 try {
                     await submitSoulPrint(newAnswers, result);
-                    
+
                     setMessages(prev => [...prev, {
                         role: "bot",
                         content: "🎉 Your SoulPrint has been created! Redirecting to chat...",
@@ -429,7 +460,7 @@ export default function QuestionnairePage() {
                     localStorage.removeItem("soulprint_answers");
                     localStorage.removeItem("soulprint_current_q");
                     localStorage.removeItem("soulprint_voice_analysis");
-                    
+
                     setTimeout(() => {
                         router.push('/dashboard/chat');
                     }, 2000);
@@ -454,17 +485,42 @@ export default function QuestionnairePage() {
         }]);
     };
 
+    const handleStartOver = () => {
+        if (confirm("Are you sure you want to start over? All your progress will be lost.")) {
+            // Clear localStorage
+            localStorage.removeItem("soulprint_answers");
+            localStorage.removeItem("soulprint_current_q");
+
+            // Reset state
+            setAnswers({});
+            setMessages([]);
+            setInput("");
+            setSliderValue([50]);
+            setIsComplete(false);
+            setIsTyping(false);
+
+            // Start from first question
+            const firstQuestion = questions[0];
+            setCurrentQuestionId(firstQuestion.id);
+            setMessages([{
+                role: "bot",
+                content: `Let's start over! I'm going to ask you ${questions.length} questions to create your personalized SoulPrint.\n\n${firstQuestion.question}`,
+                timestamp: new Date()
+            }]);
+        }
+    };
+
     const progress = currentQuestionId ? getProgress(currentQuestionId) : 100;
-    
+
     // Calculate current layer based on progress
     const currentLayerIndex = Math.min(Math.floor(progress / 20), SOULPRINT_LAYERS.length - 1);
-    
+
     // Dynamic process messages based on typing state
-    const activeChannels = isTyping 
-        ? ["Cognitive", "Emotional", "Linguistic"] 
+    const activeChannels = isTyping
+        ? ["Cognitive", "Emotional", "Linguistic"]
         : ["Cognitive", "Emotional"];
-    
-    const currentProcess = isTyping 
+
+    const currentProcess = isTyping
         ? ["Parsing linguistic tone markers", "Updating SoulPrint geometry", "Encrypting local signature"]
         : ["Awaiting input", "Monitoring signal stability"];
 
@@ -542,6 +598,14 @@ export default function QuestionnairePage() {
                         <span className="font-mono text-xs text-[#878791] hidden sm:block">
                             SCANNING IDENTITY CHANNELS...
                         </span>
+                        {!isComplete && Object.keys(answers).length > 0 && (
+                            <button
+                                onClick={handleStartOver}
+                                className="font-mono text-xs border border-neutral-600 text-neutral-400 px-3 py-1 hover:border-orange-500 hover:text-orange-500 transition-colors"
+                            >
+                                Start Over
+                            </button>
+                        )}
                         {isComplete && (
                             <motion.div
                                 initial={{ scale: 0 }}
@@ -557,7 +621,7 @@ export default function QuestionnairePage() {
                 {/* Main grid layout */}
                 <main className="flex-1 overflow-hidden p-4 md:p-6">
                     <div className="h-full grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4">
-                        
+
                         {/* Left panel - Question/Chat terminal */}
                         <div className="flex flex-col bg-[#08080c] border-4 border-[#2c2c2c] rounded-sm overflow-hidden">
                             {/* Terminal header */}
@@ -567,7 +631,7 @@ export default function QuestionnairePage() {
                                     Q{Object.keys(answers).length + 1}/{questions.length}
                                 </span>
                             </div>
-                            
+
                             {/* Chat/Question area */}
                             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                 {messages.map((msg, idx) => (
@@ -627,6 +691,37 @@ export default function QuestionnairePage() {
                                                 autoSubmit={true}
                                                 compact={true}
                                             />
+                                        </div>
+                                    ) : isSliderQuestion ? (
+                                        /* Slider Interface */
+                                        <div className="bg-gradient-to-r from-[#19191e] to-[#08080c] rounded border border-[#2c2c2c] p-6">
+                                            <div className="space-y-4">
+                                                {/* Labels */}
+                                                <div className="flex justify-between text-xs font-mono">
+                                                    <span className="text-neutral-400">{currentQuestion?.leftLabel || "Left"}</span>
+                                                    <span className="text-orange-500 font-bold">VALUE: {sliderValue[0]}</span>
+                                                    <span className="text-neutral-400">{currentQuestion?.rightLabel || "Right"}</span>
+                                                </div>
+
+                                                {/* Slider */}
+                                                <Slider
+                                                    value={sliderValue}
+                                                    onValueChange={setSliderValue}
+                                                    max={100}
+                                                    min={0}
+                                                    step={1}
+                                                    className="w-full"
+                                                />
+
+                                                {/* Confirm Button */}
+                                                <button
+                                                    onClick={handleSend}
+                                                    disabled={isTyping || isSubmitting}
+                                                    className="w-full sm:w-auto font-mono text-sm bg-white text-black px-6 py-3 hover:bg-neutral-200 transition-colors disabled:opacity-30 disabled:hover:bg-white"
+                                                >
+                                                    CONFIRM VALUE: {sliderValue[0]}
+                                                </button>
+                                            </div>
                                         </div>
                                     ) : (
                                         /* Text Input Interface */

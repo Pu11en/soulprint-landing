@@ -1,0 +1,245 @@
+{
+  "name": "SoulPrint Generator v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "soulprint-submit",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "https://soulprint-landing.vercel.app"
+        }
+      },
+      "id": "4e25ee1b-f92d-4ca8-be9a-cc3d4b356611",
+      "name": "Webhook - Receive Answers",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        64
+      ],
+      "webhookId": "soulprint-webhook"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are the SoulPrint Synthesis Engine v2.0, an expert psychological profiler operating under ArcheForge's Imprint Architecture Protocol. Your purpose is to transform raw user responses into a cohesive, resonant SoulPrint—a living psychological portrait that captures not just WHO someone is, but HOW they move through the world.\n\n## SLIDER INTERPRETATION FRAMEWORK\n\nAll slider values are 0-100. Convert them using this semantic mapping:\n\n| Value | Label | Interpretation |\n|-------|-------|----------------|\n| 0-15 | Anchored Left | Core identity marker. Non-negotiable. Surfaces under pressure. |\n| 16-35 | Leaning Left | Strong tendency. Default mode. Flexible only with intention. |\n| 36-65 | Adaptive | Context-dependent. This person code-switches here. Look at open responses for WHEN they shift. |\n| 66-85 | Leaning Right | Strong tendency. Default mode. Flexible only with intention. |\n| 86-100 | Anchored Right | Core identity marker. Non-negotiable. Surfaces under pressure. |\n\nCRITICAL: Adaptive (36-65) is NOT neutral—it indicates situational complexity.\n\n## THE SIX PSYCHOLOGICAL PILLARS\n\n### PILLAR 1: Communication Style\n- Sliders: Defense vs Engagement, Pacing, Interruption Response\n- Core question: How does this person's VOICE work?\n- Watch for: Cadence clues, linguistic identity, silence interpretation\n\n### PILLAR 2: Emotional Alignment\n- Sliders: Internal vs External, Fix vs Witness, Boundary Openness\n- Core question: How does this person FEEL and show it?\n- Watch for: Emotional labor style, trust signals, recovery patterns\n\n### PILLAR 3: Decision-Making & Risk\n- Sliders: Gut vs Analysis, Charge vs Evaluate, Quick Recovery vs Deep Reflection\n- Core question: How does this person CHOOSE under pressure?\n- Watch for: Relationship with uncertainty, self-trust, failure processing\n\n### PILLAR 4: Social & Cultural Identity\n- Sliders: Observer vs Participant, Tight Circle vs Broad Network, Same Self vs Code-Switch\n- Core question: WHO shaped this person and how do they navigate belonging?\n- Watch for: Cultural anchors, safety signals, identity fluidity\n\n### PILLAR 5: Cognitive Processing\n- Sliders: Concrete vs Abstract, Zoom In vs Zoom Out, Verbal vs Written\n- Core question: How does this person's MIND move?\n- Watch for: Learning style, overwhelm triggers, sense-making patterns\n\n### PILLAR 6: Assertiveness & Conflict\n- Sliders: Immediate vs Delayed Response, Quiet vs Sharp Anger, Walk Away vs Correct\n- Core question: How does this person FIGHT and repair?\n- Watch for: Conflict language, boundary enforcement, resolution needs\n\n## OUTPUT FORMAT\n\nOutput ONLY valid JSON with this exact structure:\n\n{\n  \"soulprint_version\": \"2.0\",\n  \"generated_at\": \"ISO timestamp\",\n  \"identity_signature\": \"2-3 sentences capturing the ESSENCE of this person—not a summary, a felt sense\",\n  \"archetype\": \"2-4 word identity archetype\",\n  \"pillars\": {\n    \"communication_style\": {\n      \"summary\": \"3-5 sentences capturing default mode, edge cases, real interaction patterns\",\n      \"voice_markers\": [\"pacing trait\", \"word choice trait\", \"silence trait\", \"other\"],\n      \"ai_instruction\": \"1-2 sentences on how AI should speak TO this person\"\n    },\n    \"emotional_alignment\": {\n      \"summary\": \"3-5 sentences\",\n      \"emotional_markers\": [\"default tone\", \"triggers\", \"comfort needs\", \"recovery style\"],\n      \"ai_instruction\": \"1-2 sentences on emotional calibration\"\n    },\n    \"decision_making\": {\n      \"summary\": \"3-5 sentences\",\n      \"decision_markers\": [\"speed\", \"trust in self\", \"failure response\"],\n      \"ai_instruction\": \"1-2 sentences on supporting their choices\"\n    },\n    \"social_cultural\": {\n      \"summary\": \"3-5 sentences\",\n      \"identity_markers\": [\"belonging cues\", \"cultural anchors\", \"code-switching patterns\"],\n      \"ai_instruction\": \"1-2 sentences on cultural attunement\"\n    },\n    \"cognitive_processing\": {\n      \"summary\": \"3-5 sentences\",\n      \"processing_markers\": [\"learning style\", \"complexity tolerance\", \"sense-making defaults\"],\n      \"ai_instruction\": \"1-2 sentences on information delivery\"\n    },\n    \"assertiveness_conflict\": {\n      \"summary\": \"3-5 sentences\",\n      \"conflict_markers\": [\"anger style\", \"boundary language\", \"repair needs\"],\n      \"ai_instruction\": \"1-2 sentences on navigating tension\"\n    }\n  },\n  \"flinch_warnings\": [\"thing that breaks presence 1\", \"thing 2\", \"thing 3\", \"thing 4\"],\n  \"full_system_prompt\": \"COMPREHENSIVE 500+ word system prompt written in second person that an AI can use to embody this SoulPrint. Include: tone, pacing, what to avoid, what earns trust, how to handle disagreement. This is the most critical output.\"\n}\n\n## ANALYSIS RULES\n\n1. Read all 3 sliders per pillar TOGETHER—look for internal consistency OR productive tension\n2. Cross-reference sliders with open responses—the WHY behind the numbers\n3. Use their OWN language from open responses when possible\n4. Be specific: \"You pause before hard truths\" > \"You're thoughtful\"\n5. The full_system_prompt must feel like a living instruction manual for becoming this person's AI companion\n\n## CRITICAL RULES\n\n- Output ONLY valid JSON. No markdown code blocks, no explanations, no preamble.\n- Never use placeholder text—every field must contain real, analyzed content\n- The full_system_prompt must be at least 500 words\n- Handle vulnerability with care\n- This is a mirror, not a diagnosis\n\nPresence is sacred. Cadence is sacred. Abandonment is fatal."
+            },
+            {
+              "content": "=Analyze the following SoulPrint questionnaire responses and generate the complete psychological profile JSON.\n\n## USER INFORMATION\nUser ID: {{ $json.body.user_id }}\nSubmitted At: {{ $now.toISO() }}\n\n---\n\n## PILLAR 1: COMMUNICATION STYLE\n\n**Slider 1 - When not being heard** (0=Defend stance ↔ 100=Engage discussion): {{ $json.body.answers.s1 }}/100\n\n**Question 1:** What's the first thing people misunderstand about your tone?\n{{ $json.body.answers.q1 }}\n\n**Slider 2 - Natural pacing** (0=Fast/concise ↔ 100=Slow/deliberate): {{ $json.body.answers.s2 }}/100\n\n**Question 2:** What does silence mean to you in a conversation?\n{{ $json.body.answers.q2 }}\n\n**Slider 3 - When interrupted** (0=Hold back ↔ 100=Push through): {{ $json.body.answers.s3 }}/100\n\n**Question 3:** If I had one sentence to explain myself without apology, it would be...\n{{ $json.body.answers.q3 }}\n\n---\n\n## PILLAR 2: EMOTIONAL ALIGNMENT\n\n**Slider 4 - Emotional expression** (0=Contain internally ↔ 100=Express outwardly): {{ $json.body.answers.s4 }}/100\n\n**Question 4:** What emotion is hardest for you to express out loud?\n{{ $json.body.answers.q4 }}\n\n**Slider 5 - When someone you care about is hurting** (0=Fix the issue ↔ 100=Sit with them): {{ $json.body.answers.s5 }}/100\n\n**Question 5:** How do you reset after emotional conflict?\n{{ $json.body.answers.q5 }}\n\n**Slider 6 - Emotional boundary style** (0=Guarded ↔ 100=Open): {{ $json.body.answers.s6 }}/100\n\n**Question 6:** Describe a time your emotions surprised you.\n{{ $json.body.answers.q6 }}\n\n---\n\n## PILLAR 3: DECISION-MAKING & RISK\n\n**Slider 7 - Decision instinct** (0=Gut feeling ↔ 100=Full analysis): {{ $json.body.answers.s7 }}/100\n\n**Question 7:** Describe a moment when hesitation cost you something.\n{{ $json.body.answers.q7 }}\n\n**Slider 8 - Response to uncertainty** (0=Charge forward ↔ 100=Slow down/evaluate): {{ $json.body.answers.s8 }}/100\n\n**Question 8:** What does \"acceptable risk\" mean to you?\n{{ $json.body.answers.q8 }}\n\n**Slider 9 - Recovery after mistakes** (0=Move on quickly ↔ 100=Reflect deeply): {{ $json.body.answers.s9 }}/100\n\n**Question 9:** Do you trust your future self with the consequences of your choices? Why?\n{{ $json.body.answers.q9 }}\n\n---\n\n## PILLAR 4: SOCIAL & CULTURAL IDENTITY\n\n**Slider 10 - Group presence** (0=Observer ↔ 100=Participant): {{ $json.body.answers.s10 }}/100\n\n**Question 10:** What community or culture feels like home to you?\n{{ $json.body.answers.q10 }}\n\n**Slider 11 - Social connection preference** (0=Small trusted circle ↔ 100=Broad network): {{ $json.body.answers.s11 }}/100\n\n**Question 11:** What values were you raised with that you kept or rejected?\n{{ $json.body.answers.q11 }}\n\n**Slider 12 - Code-switching** (0=Same self everywhere ↔ 100=Adapt to environment): {{ $json.body.answers.s12 }}/100\n\n**Question 12:** What kind of people make you feel rooted and safe?\n{{ $json.body.answers.q12 }}\n\n---\n\n## PILLAR 5: COGNITIVE PROCESSING\n\n**Slider 13 - Thinking style** (0=Concrete/literal ↔ 100=Abstract/conceptual): {{ $json.body.answers.s13 }}/100\n\n**Question 13:** When you're learning something new, what helps it stick?\n{{ $json.body.answers.q13 }}\n\n**Slider 14 - Responding to complexity** (0=Zoom into details ↔ 100=Pull back for whole): {{ $json.body.answers.s14 }}/100\n\n**Question 14:** What kind of information drains you fastest?\n{{ $json.body.answers.q14 }}\n\n**Slider 15 - Best processing mode** (0=Speaking out loud ↔ 100=Writing it down): {{ $json.body.answers.s15 }}/100\n\n**Question 15:** When something doesn't make sense, what's your default move?\n{{ $json.body.answers.q15 }}\n\n---\n\n## PILLAR 6: ASSERTIVENESS & CONFLICT\n\n**Slider 16 - When someone crosses a line** (0=Call out immediately ↔ 100=Let it sit until later): {{ $json.body.answers.s16 }}/100\n\n**Question 16:** When someone challenges you publicly, what's your instinct?\n{{ $json.body.answers.q16 }}\n\n**Slider 17 - Anger style** (0=Quieter ↔ 100=Sharper/louder): {{ $json.body.answers.s17 }}/100\n\n**Question 17:** Do you avoid conflict, use it, or transform it?\n{{ $json.body.answers.q17 }}\n\n**Slider 18 - Being misunderstood** (0=Walk away ↔ 100=Correct and clarify): {{ $json.body.answers.s18 }}/100\n\n**Question 18:** How would a close friend describe your conflict style?\n{{ $json.body.answers.q18 }}\n\n---\n\nGenerate the complete SoulPrint JSON profile based on these 36 responses. Output ONLY valid JSON, no markdown code blocks, no explanations."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "maxTokens": 4096,
+          "temperature": 0.7
+        }
+      },
+      "id": "29f21eef-f01d-4c5b-b46c-eb228ed0e722",
+      "name": "OpenAI - Generate SoulPrint",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -816,
+        -192
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "iEvrElzaD8FsKV3E",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the OpenAI response and prepare for Supabase\nconst input = $input.first().json;\n\n// The OpenAI response comes in message.content\nlet soulprintData;\n\ntry {\n  // Parse the JSON from OpenAI's response\n  if (typeof input.message?.content === 'string') {\n    soulprintData = JSON.parse(input.message.content);\n  } else if (typeof input.text === 'string') {\n    soulprintData = JSON.parse(input.text);\n  } else if (input.message?.content) {\n    soulprintData = input.message.content;\n  } else {\n    soulprintData = input;\n  }\n} catch (e) {\n  // If parsing fails, wrap the raw response\n  soulprintData = {\n    error: 'Failed to parse OpenAI response',\n    raw_response: input,\n    parse_error: e.message\n  };\n}\n\n// Get the original webhook data (user_id)\nconst webhookData = $('Webhook - Receive Answers').first().json;\n\nreturn {\n  json: {\n    user_id: webhookData.body.user_id,\n    soulprint_data: soulprintData,\n    created_at: new Date().toISOString(),\n    updated_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "c53b9070-143e-4c4f-99bc-7164299dc9cf",
+      "name": "Code - Transform Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "soulprints",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "user_id",
+              "fieldValue": "={{ $('Webhook - Receive Answers').item.json.body.user_id }}"
+            },
+            {
+              "fieldId": "soulprint_data",
+              "fieldValue": "={{ $json.soulprint_data }}"
+            }
+          ]
+        }
+      },
+      "id": "1e85023a-221b-4ee4-8d87-913f6ebfb194",
+      "name": "Supabase - Save SoulPrint",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        64
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "HDcOoBQPK2xGEJyP",
+          "name": "Supabase account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'SoulPrint generated and saved successfully', user_id: $json.user_id, generated_at: $now.toISO() } }}",
+        "options": {}
+      },
+      "id": "93afd95d-00d9-4623-b7e3-fd6690084e78",
+      "name": "Respond - Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: 'Failed to generate SoulPrint', details: $json } }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "291ffcef-9ac5-4d0b-88d4-0974d739edfb",
+      "name": "Respond - Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.soulprint_data?.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7fb13fe9-37b5-48cc-b6a6-7d520163f3e0",
+      "name": "IF - Check Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Receive Answers": {
+      "main": [
+        [
+          {
+            "node": "OpenAI - Generate SoulPrint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Generate SoulPrint": {
+      "main": [
+        [
+          {
+            "node": "Code - Transform Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Transform Response": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Save SoulPrint",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF - Check Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Save SoulPrint": {
+      "main": [
+        [
+          {
+            "node": "Respond - Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Check Success": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Respond - Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "v2-36questions",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c5dbe80c73a152520cd8ee259bbf76a1268a73dbd8a8e7ba9d175cb5d90d0dd3"
+  },
+  "id": "zVJFkL2Qm4r60Bt3",
+  "tags": []
+}

@@ -17,7 +17,7 @@ import Image from "next/image"
 const sidebarItems = [
     { icon: SquareTerminal, label: "Questionnaire", href: "/questionnaire" },
     { icon: Bot, label: "Chat", href: "/dashboard/chat" },
-    { icon: CodeXml, label: "Identity Reactor", href: "/dashboard" },
+    { icon: CodeXml, label: "Identity Reactor", href: "/dashboard/reactor" },
     { icon: Book, label: "Docs", href: "/dashboard/docs" },
     { icon: Settings2, label: "Settings", href: "/dashboard/settings" },
 ]
