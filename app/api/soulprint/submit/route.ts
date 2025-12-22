@@ -4,6 +4,8 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
     generateSoulPrint,
     createFileSearchStore,
+    uploadToFileSearchStore,
+    soulPrintToDocument,
 } from '@/lib/gemini';
 import type { QuestionnaireAnswers } from '@/lib/gemini';
 import { saveSoulPrint } from '@/lib/soulprint/db';
