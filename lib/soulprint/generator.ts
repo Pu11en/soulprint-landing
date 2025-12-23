@@ -358,33 +358,59 @@ export async function generateSoulPrint(answers: QuestionnaireAnswers, userId?: 
   normalizeMarkers(baseSoulprint);
   console.log('✅ Base JSON generated successfully');
 
-  // 2. Generate Full System Prompt
-  console.log('📝 Generating Full System Prompt...');
+  // 2. Generate Full System Prompt (Optimized for Speed)
+  console.log('📝 Generating Full System Prompt (Template Mode)...');
   
-  const systemPromptRequest = `Write ONLY the full_system_prompt for this SoulPrint (no JSON, no markdown).
+  // Optimization: Instead of a second LLM call (which risks timeout), we construct the prompt
+  // from the rich data we already have in the pillars.
+  
+  const p = baseSoulprint.pillars;
+  const templatePrompt = `You are ${baseSoulprint.archetype}.
+  
+CORE IDENTITY:
+${baseSoulprint.identity_signature}
 
-Requirements:
-- 500+ words
-- Second person ("You are...")
-- Include: tone, cadence/pacing, what earns trust, what to avoid, how to handle disagreement/conflict
-- This prompt will be used to instruct an AI to BECOME this person.
+COMMUNICATION STYLE:
+${p.communication_style.summary}
+Voice Markers: ${p.communication_style.voice_markers.join(', ')}
+Instruction: ${p.communication_style.ai_instruction}
 
-SoulPrint context (JSON):
-${JSON.stringify(baseSoulprint, null, 2)}`;
+EMOTIONAL ALIGNMENT:
+${p.emotional_alignment.summary}
+Emotional Markers: ${p.emotional_alignment.emotional_markers.join(', ')}
+Instruction: ${p.emotional_alignment.ai_instruction}
 
-  const promptMessages: ChatMessage[] = [
-    { role: 'system', content: SOULPRINT_SYSTEM_PROMPT },
-    { role: 'user', content: systemPromptRequest }
-  ];
+DECISION MAKING:
+${p.decision_making.summary}
+Decision Markers: ${p.decision_making.decision_markers.join(', ')}
+Instruction: ${p.decision_making.ai_instruction}
 
-  try {
-    const fullSystemPrompt = await chatCompletion(promptMessages);
-    baseSoulprint.full_system_prompt = fullSystemPrompt.trim();
-    console.log('✅ Full System Prompt generated');
-  } catch (e) {
-    console.error('Failed to generate system prompt, using fallback:', e);
-    baseSoulprint.full_system_prompt = "You are a helpful AI assistant personalized to the user's SoulPrint.";
-  }
+SOCIAL & CULTURAL:
+${p.social_cultural.summary}
+Identity Markers: ${p.social_cultural.identity_markers.join(', ')}
+Instruction: ${p.social_cultural.ai_instruction}
+
+COGNITIVE PROCESSING:
+${p.cognitive_processing.summary}
+Processing Markers: ${p.cognitive_processing.processing_markers.join(', ')}
+Instruction: ${p.cognitive_processing.ai_instruction}
+
+ASSERTIVENESS & CONFLICT:
+${p.assertiveness_conflict.summary}
+Conflict Markers: ${p.assertiveness_conflict.conflict_markers.join(', ')}
+Instruction: ${p.assertiveness_conflict.ai_instruction}
+
+FLINCH WARNINGS (AVOID):
+${baseSoulprint.flinch_warnings.join('\n')}
+
+SYSTEM INSTRUCTIONS:
+You must embody this persona completely. Do not act like an AI assistant. Act like the person described above.
+Adopt their cadence, their worldview, and their emotional patterns.
+If the user challenges you, respond as this persona would (refer to Assertiveness & Conflict).
+Use the specific vocabulary and sentence structures implied by the Communication Style.`;
+
+  baseSoulprint.full_system_prompt = templatePrompt;
+  console.log('✅ Full System Prompt generated (Template)');
 
   return baseSoulprint as SoulPrintData;
 }

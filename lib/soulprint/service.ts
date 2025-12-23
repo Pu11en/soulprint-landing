@@ -3,10 +3,12 @@ import {
     createFileSearchStore, 
     uploadToFileSearchStore, 
     soulPrintToDocument,
-    QuestionnaireAnswers 
+    QuestionnaireAnswers,
+    generateSoulPrint as generateSoulPrintGemini
 } from '@/lib/gemini';
-import { generateSoulPrint } from '@/lib/soulprint/generator';
+import { generateSoulPrint as generateSoulPrintLocal } from '@/lib/soulprint/generator';
 import { saveSoulPrint } from './db';
+import { checkHealth } from '@/lib/llm/local-client';
 
 export async function processSoulPrint(
     supabaseAdmin: SupabaseClient,
@@ -16,8 +18,26 @@ export async function processSoulPrint(
 ) {
     console.log('🧠 Generating SoulPrint for user:', userId);
 
-    // 1. Generate SoulPrint using Local LLM
-    const soulprintData = await generateSoulPrint(answers, userId);
+    // 1. Generate SoulPrint with Fallback (Local -> Gemini)
+    let soulprintData;
+    const isLocalAvailable = await checkHealth();
+
+    if (isLocalAvailable) {
+        console.log('🤖 Local LLM available, attempting generation...');
+        try {
+            soulprintData = await generateSoulPrintLocal(answers, userId);
+            console.log('✅ SoulPrint generated via Local LLM');
+        } catch (error) {
+            console.error('❌ Local SoulPrint generation failed, falling back to Gemini:', error);
+            soulprintData = await generateSoulPrintGemini(answers, userId);
+            console.log('✅ SoulPrint generated via Gemini (fallback)');
+        }
+    } else {
+        console.log('☁️ Local LLM not available, using Gemini...');
+        soulprintData = await generateSoulPrintGemini(answers, userId);
+        console.log('✅ SoulPrint generated via Gemini');
+    }
+
     console.log('✅ SoulPrint generated, archetype:', soulprintData.archetype);
 
     // 2. Save to Supabase soulprints table

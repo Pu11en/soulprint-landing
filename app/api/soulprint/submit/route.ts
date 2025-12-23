@@ -4,6 +4,9 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { processSoulPrint } from '@/lib/soulprint/service';
 import type { QuestionnaireAnswers } from '@/lib/gemini';
 
+export const maxDuration = 60; // Allow up to 60 seconds for processing
+export const runtime = 'edge'; // Use Edge Runtime for longer timeout on Hobby plan
+
 // Supabase admin client
 const supabaseAdmin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

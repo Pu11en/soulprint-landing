@@ -12,9 +12,13 @@ https://df20b581af74.ngrok-free.app
 ## 2. Configure Vercel Environment Variables
 1. Go to your project settings in Vercel.
 2. Navigate to **Environment Variables**.
-3. Add a new variable:
+3. Add these variables:
    - **Key**: `OLLAMA_URL`
    - **Value**: `https://df20b581af74.ngrok-free.app`
+   - **Environments**: Production, Preview, Development
+   
+   - **Key**: `GEMINI_API_KEY`
+   - **Value**: (Your Google Gemini API Key)
    - **Environments**: Production, Preview, Development
 
 ## 3. Redeploy
