@@ -320,7 +320,7 @@ Generate the complete SoulPrint JSON profile based on these 36 responses. Output
 /**
  * Generate a SoulPrint from questionnaire answers using Gemini
  */
-export async function generateSoulPrint(answers: QuestionnaireAnswers): Promise<SoulPrintData> {
+export async function generateSoulPrint(answers: QuestionnaireAnswers, userId?: string): Promise<SoulPrintData> {
   const userPrompt = buildUserPrompt(answers);
 
   // 1) Generate compact JSON (no full_system_prompt) to avoid truncation.

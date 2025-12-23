@@ -5,7 +5,7 @@ Since your AI is running locally on your computer, Vercel needs a way to reach i
 ## 1. Get Your Ngrok URL
 Your current active ngrok URL is:
 ```
-https://df20b581af74.ngrok-free.app
+https://9369552735ba.ngrok-free.app
 ```
 *(Note: If you restart ngrok, this URL will change)*
 
@@ -14,7 +14,7 @@ https://df20b581af74.ngrok-free.app
 2. Navigate to **Environment Variables**.
 3. Add these variables:
    - **Key**: `OLLAMA_URL`
-   - **Value**: `https://df20b581af74.ngrok-free.app`
+   - **Value**: `https://9369552735ba.ngrok-free.app`
    - **Environments**: Production, Preview, Development
    
    - **Key**: `GEMINI_API_KEY`

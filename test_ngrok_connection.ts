@@ -1,7 +1,7 @@
 import { checkHealth } from './lib/llm/local-client';
 
 // Simulate Vercel Environment
-process.env.OLLAMA_URL = 'https://df20b581af74.ngrok-free.app';
+process.env.OLLAMA_URL = 'https://9369552735ba.ngrok-free.app';
 
 async function testConnection() {
     console.log(`Testing connection to: ${process.env.OLLAMA_URL}`);
