@@ -187,11 +187,11 @@ function normalizeMarkers(soulprint: any) {
   }
 }
 
-function buildUserPrompt(answers: SoulPrintAnswers, userId?: string): string {
+function buildUserPrompt(answers: QuestionnaireAnswers, userId?: string): string {
   return `Analyze the following SoulPrint questionnaire responses and generate the complete psychological profile JSON.
 
 ## USER INFORMATION
-User ID: ${userId || answers.user_id || 'anonymous'}
+User ID: ${userId || (answers as any).user_id || 'anonymous'}
 Submitted At: ${new Date().toISOString()}
 
 ---

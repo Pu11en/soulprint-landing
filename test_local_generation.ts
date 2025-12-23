@@ -1,9 +1,9 @@
-import { generateSoulPrint, SoulPrintAnswers } from './lib/soulprint/generator';
+import { generateSoulPrint } from './lib/soulprint/generator';
 import { checkHealth } from './lib/llm/local-client';
+import { QuestionnaireAnswers } from './lib/gemini/types';
 
 // Mock Answers (Elon Musk Style)
-const mockAnswers: SoulPrintAnswers = {
-    user_id: 'test-user-123',
+const mockAnswers: QuestionnaireAnswers = {
     s1: 85, q1: "I don't have a tone, I have a mission. People mistake intensity for aggression.",
     s2: 20, q2: "Inefficiency. If you're not adding value, you're subtracting it.",
     s3: 95, q3: "We're going to Mars, get on or get out of the way.",
