@@ -39,19 +39,19 @@ export function Navbar() {
 
                     <div className="hidden md:flex gap-6">
                         <Link
-                            href="#"
+                            href="/#features"
                             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                         >
                             Features
                         </Link>
                         <Link
-                            href="#"
+                            href="/#faq"
                             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                         >
                             FAQ
                         </Link>
                         <Link
-                            href="#"
+                            href="/#about"
                             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                         >
                             About

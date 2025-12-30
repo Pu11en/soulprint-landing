@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 export function AboutSection() {
     return (
-        <section className="relative w-full bg-black py-32 text-white overflow-hidden">
+        <section id="about" className="relative w-full bg-black py-32 text-white overflow-hidden">
 
             {/* Background Gradient */}
             <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-neutral-900/30 via-black to-black pointer-events-none" />

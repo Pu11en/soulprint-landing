@@ -40,7 +40,7 @@ const faqs = [
 
 export function FaqSection() {
     return (
-        <section className="w-full bg-[#0A0A0A] py-24 text-white">
+        <section id="faq" className="w-full bg-[#0A0A0A] py-24 text-white">
             <div className="mx-auto max-w-3xl px-6 md:px-12">
                 <h2 className="mb-12 font-koulen text-4xl uppercase leading-none md:text-5xl text-center text-white">
                     Frequently Asked Questions

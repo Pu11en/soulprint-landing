@@ -93,7 +93,7 @@ const PlusIcon = ({ className }: { className?: string }) => (
 
 export default function RuixenBentoCards() {
     return (
-        <section className="bg-black border-t border-gray-800">
+        <section id="features" className="bg-black border-t border-gray-800">
             <div className="mx-auto container border-x border-gray-800 py-12 px-4">
                 {/* Section Header */}
                 <div className="max-w-3xl mx-auto text-center px-4 mb-12 lg:mb-20">
