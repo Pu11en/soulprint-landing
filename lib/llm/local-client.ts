@@ -19,14 +19,13 @@ export async function checkHealth(): Promise<boolean> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 1000); // 1s timeout
 
-        const res = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' },
-            signal: controller.signal
+        const res = await fetch(`${OLLAMA_BASE_URL}/api/tags`, { 
+            signal: controller.signal 
         });
         clearTimeout(timeoutId);
-
+        
         if (!res.ok) return false;
-
+        
         const data = await res.json();
         // Check if hermes3 (or similar) is in the list
         const hasModel = data.models?.some((m: any) => m.name.includes('hermes3'));
@@ -46,10 +45,7 @@ export async function* streamChatCompletion(
     try {
         const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model,
                 messages,
@@ -107,10 +103,7 @@ export async function chatCompletion(
     try {
         const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model,
                 messages,
@@ -120,7 +113,7 @@ export async function chatCompletion(
         });
 
         if (!response.ok) throw new Error('Ollama API failed');
-
+        
         const data = await response.json();
         return data.message?.content || '';
     } catch (error) {
