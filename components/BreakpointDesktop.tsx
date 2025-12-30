@@ -35,7 +35,7 @@ export default function BreakpointDesktop() {
           <div className="relative flex min-h-[250px] w-full items-center justify-center lg:min-h-[350px]">
             <div className="relative h-full w-full max-w-[500px]">
               <Image
-                src="/images/Group 2.png"
+                src="/images/vector-personalized.png"
                 alt="SoulPrint Logo"
                 width={500}
                 height={400}

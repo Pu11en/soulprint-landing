@@ -18,9 +18,17 @@ export function Navbar() {
 
     return (
         <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex h-16 w-full items-center justify-between px-6 md:px-12 lg:px-24 xl:px-32">
-                <div className="flex items-center gap-8">
-                    <Link href="/" className="flex items-center space-x-2">
+            <div className="flex h-16 w-full items-center justify-between">
+                {/* Left side: uniform gap-6 spacing (same as Features/FAQ) */}
+                <div className="flex items-center gap-6 pl-6">
+                    <Image
+                        src="/images/vector-personalized.png"
+                        alt="SoulPrint Icon"
+                        width={40}
+                        height={40}
+                        className="h-10 w-10"
+                    />
+                    <Link href="/" className="flex items-center">
                         <Image
                             src="/images/SoulPrintEngine-title-logo.png"
                             alt="SoulPrint"
@@ -51,7 +59,7 @@ export function Navbar() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 pr-3 md:pr-6 lg:pr-12 xl:pr-16">
                     {mounted && (
                         <Button
                             variant="ghost"

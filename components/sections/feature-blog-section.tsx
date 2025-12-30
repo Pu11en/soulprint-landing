@@ -7,17 +7,22 @@ const features = [
     {
         title: "Your Identity, Captured",
         description: "A deep identity profile that learns your cadence, vocabulary, and decision-making style. SoulPrint doesn't just store data; it understands the nuance of who you are.",
-        image: "/images/16BACDBA-C5FD-4549-B8E0-10832C3E5A12.png",
+        image: "/images/aspect-ratio1.png",
     },
     {
         title: "Independent by Design",
         description: "SoulPrint is a standalone identity engine. It does not live inside any LLM. It is the bridge that carries your unique signature to any intelligence you choose to engage with.",
-        image: "/images/F780675A-81CC-4A2D-93AE-3A3E7DC16F78.png",
+        image: "/images/aspect-ratio.png",
     },
     {
         title: "Your AI, Finally Personalized",
         description: "Persistent identity aligning to mood, goals, tone, and pace. Stop prompting from scratch. Start every interaction with an AI that already knows you.",
-        image: "/images/Soulprintengine-logo.png",
+        image: "/images/vector-personalized.png",
+    },
+    {
+        title: "Private by Default",
+        description: "Your data stays on your device. Encrypted. Under your control. No tracking, no cloud surveillance — just pure, personal AI that respects your privacy.",
+        image: "/images/aspect-ratio3.png",
     },
 ];
 
@@ -45,12 +50,12 @@ export function FeatureBlogSection() {
                 <div className="grid w-full grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
                     {features.map((feature, index) => (
                         <div key={index} className="flex flex-col gap-4">
-                            <AspectRatio ratio={4 / 3} className="overflow-hidden bg-neutral-100">
+                            <AspectRatio ratio={4 / 3} className="overflow-hidden bg-black">
                                 <Image
                                     src={feature.image}
                                     alt={feature.title}
                                     fill
-                                    className="object-cover transition-transform duration-300 hover:scale-105"
+                                    className="object-contain p-4 transition-transform duration-300 hover:scale-105"
                                 />
                             </AspectRatio>
                             <div className="flex flex-col gap-3">
