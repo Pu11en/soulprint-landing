@@ -13,12 +13,6 @@ export const sendConfirmationEmail = async (email: string, name: string) => {
       }
     });
 
-    // DEBUG LOGGING
-    console.log("Email Config Check:");
-    console.log("- User:", process.env.GMAIL_USER);
-    console.log("- ClientID Length:", process.env.GMAIL_CLIENT_ID?.length);
-    console.log("- Secret Length:", process.env.GMAIL_CLIENT_SECRET?.length);
-    console.log("- RefreshToken Length:", process.env.GMAIL_REFRESH_TOKEN?.length);
 
     const mailOptions = {
       from: process.env.GMAIL_USER,
