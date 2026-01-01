@@ -1,23 +1,30 @@
 import nodemailer from 'nodemailer';
 
 export const sendConfirmationEmail = async (email: string, name: string) => {
-    try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                type: "OAuth2",
-                user: process.env.GMAIL_USER,
-                clientId: process.env.GMAIL_CLIENT_ID,
-                clientSecret: process.env.GMAIL_CLIENT_SECRET,
-                refreshToken: process.env.GMAIL_REFRESH_TOKEN
-            }
-        });
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: "OAuth2",
+        user: process.env.GMAIL_USER,
+        clientId: process.env.GMAIL_CLIENT_ID,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET,
+        refreshToken: process.env.GMAIL_REFRESH_TOKEN
+      }
+    });
 
-        const mailOptions = {
-            from: process.env.GMAIL_USER,
-            to: email,
-            subject: "Welcome to the SoulPrint Exclusive Waitlist",
-            html: `
+    // DEBUG LOGGING
+    console.log("Email Config Check:");
+    console.log("- User:", process.env.GMAIL_USER);
+    console.log("- ClientID Length:", process.env.GMAIL_CLIENT_ID?.length);
+    console.log("- Secret Length:", process.env.GMAIL_CLIENT_SECRET?.length);
+    console.log("- RefreshToken Length:", process.env.GMAIL_REFRESH_TOKEN?.length);
+
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: email,
+      subject: "Welcome to the SoulPrint Exclusive Waitlist",
+      html: `
         <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
           <h2 style="color: #2c3e50; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;">Welcome to SoulPrint</h2>
           
@@ -38,13 +45,13 @@ export const sendConfirmationEmail = async (email: string, name: string) => {
           </div>
         </div>
       `,
-        };
+    };
 
-        await transporter.sendMail(mailOptions);
-        console.log(`Confirmation email sent to ${email}`);
-        return true;
-    } catch (error) {
-        console.error("Error sending email:", error);
-        return false;
-    }
+    await transporter.sendMail(mailOptions);
+    console.log(`Confirmation email sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending email:", error);
+    return false;
+  }
 };
