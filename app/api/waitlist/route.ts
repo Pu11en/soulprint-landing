@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { sendConfirmationEmail } from '@/lib/email';
+
 
 // Streak Configuration
 const STREAK_API_KEY = 'strk_LitL1WFFkGdFSuTpHRQDNYIZQ2l';
@@ -64,6 +66,10 @@ export async function POST(request: Request) {
                 })
             }
         );
+
+        // 3. Send Confirmation Email
+        await sendConfirmationEmail(email, name);
+
 
         return NextResponse.json({ success: true, boxKey });
     } catch (error) {
