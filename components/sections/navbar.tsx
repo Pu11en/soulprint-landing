@@ -11,6 +11,7 @@ import { useEffect, useState } from "react"
 export function Navbar() {
     const { theme, setTheme } = useTheme()
     const [mounted, setMounted] = useState(false)
+    const LOGIN_ENABLED = true; // Toggle this to enable/disable login button
 
     useEffect(() => {
         setMounted(true)
@@ -74,6 +75,11 @@ export function Navbar() {
                     )}
 
                     <div className="hidden md:flex gap-2">
+                        {LOGIN_ENABLED && (
+                            <Link href="/login">
+                                <Button variant="ghost">Log In</Button>
+                            </Link>
+                        )}
                         <Link href="/waitlist">
                             <Button>Join the Waitlist</Button>
                         </Link>
