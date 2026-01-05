@@ -76,81 +76,44 @@ export async function POST(req: NextRequest) {
         const { data: soulprint } = await soulprintQuery.maybeSingle();
 
         // ============================================================
-        // 🚀 LOCAL AI PATH (Hermes 3 + Letta Memory)
+        // 🚀 UNIFIED LLM PATH (Local Hermes 3 -> Gemini Fallback)
         // ============================================================
-        const isLocalUp = await checkHealth();
-
-        if (isLocalUp) {
-            console.log('🚀 Using Local Hermes 3 + Letta Memory');
-
-            // A. Load Letta Memory
-            const memory = await loadMemory(keyData.user_id);
-
-            // B. Build "Mirror" System Prompt
+        try {
+            // Build Context
             let soulprintObj = soulprint?.soulprint_data;
             if (typeof soulprintObj === 'string') {
                 try { soulprintObj = JSON.parse(soulprintObj); } catch (e) { }
             }
+
+            // Prepare Messages (Prepend System Prompt if found)
+            const memory = await loadMemory(keyData.user_id);
             const systemPrompt = buildSystemPrompt(soulprintObj, memory);
 
-            // C. Prepare Messages (Prepend System Prompt)
-            const localMessages: ChatMessage[] = [
+            const processedMessages: ChatMessage[] = [
                 { role: 'system', content: systemPrompt },
                 ...messages.map((m: any) => ({ role: m.role, content: m.content }))
             ];
 
-            // D. Stream Response
-            if (stream) {
-                const generator = streamChatCompletion(localMessages);
-                const encoder = new TextEncoder();
+            // Use Unified Client for resilient generation
+            const { unifiedChatCompletion } = await import("@/lib/llm/unified-client");
+            const content = await unifiedChatCompletion(processedMessages);
 
-                const stream = new ReadableStream({
-                    async start(controller) {
-                        try {
-                            for await (const text of generator) {
-                                // Match OpenAI SSE format for frontend compatibility
-                                const data = JSON.stringify({
-                                    choices: [{ delta: { content: text } }]
-                                });
-                                controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-                            }
-                            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                            controller.close();
-                        } catch (e) {
-                            controller.error(e);
-                        }
-                    }
-                });
-
-                return new NextResponse(stream, {
-                    headers: {
-                        'Content-Type': 'text/event-stream',
-                        'Cache-Control': 'no-cache',
-                        'Connection': 'keep-alive',
-                    },
-                });
-            } else {
-                // Standard Response
-                const content = await chatCompletion(localMessages);
-                return NextResponse.json({
-                    id: `chatcmpl-local-${Date.now()}`,
-                    object: 'chat.completion',
-                    created: Math.floor(Date.now() / 1000),
-                    model: 'hermes3',
-                    choices: [{
-                        index: 0,
-                        message: { role: 'assistant', content },
-                        finish_reason: 'stop'
-                    }]
-                });
-            }
-        } else {
-            // ============================================================
-            // ❌ LOCAL AI OFFLINE - NO FALLBACK
-            // ============================================================
-            console.error('❌ Local AI Offline - Gemini Fallback Disabled');
             return NextResponse.json({
-                error: "Local AI is offline. Please ensure the SoulPrint Engine is running and accessible."
+                id: `chatcmpl-${Date.now()}`,
+                object: 'chat.completion',
+                created: Math.floor(Date.now() / 1000),
+                model: 'soulprint-hybrid',
+                choices: [{
+                    index: 0,
+                    message: { role: 'assistant', content },
+                    finish_reason: 'stop'
+                }]
+            });
+
+        } catch (llmError: any) {
+            console.error('❌ LLM Generation Failed:', llmError);
+            return NextResponse.json({
+                error: `Generation failed: ${llmError.message || 'Unknown error'}`
             }, { status: 503 });
         }
 

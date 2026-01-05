@@ -14,14 +14,14 @@ export async function getChatHistory(): Promise<ChatMessage[]> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) {
+  if (!user?.id) {
     return [];
   }
 
   const { data, error } = await supabase
-    .from("chat_messages")
+    .from("chat_logs")
     .select("id, role, content, created_at")
-    .eq("user_id", user.email)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -37,14 +37,14 @@ export async function saveChatMessage(message: ChatMessage): Promise<boolean> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) {
+  if (!user?.id) {
     return false;
   }
 
   const { error } = await supabase
-    .from("chat_messages")
+    .from("chat_logs")
     .insert({
-      user_id: user.email,
+      user_id: user.id,
       role: message.role,
       content: message.content,
     });
@@ -62,18 +62,18 @@ export async function saveChatMessages(messages: ChatMessage[]): Promise<boolean
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) {
+  if (!user?.id) {
     return false;
   }
 
   const messagesWithUser = messages.map(msg => ({
-    user_id: user.email,
+    user_id: user.id,
     role: msg.role,
     content: msg.content,
   }));
 
   const { error } = await supabase
-    .from("chat_messages")
+    .from("chat_logs")
     .insert(messagesWithUser);
 
   if (error) {
@@ -89,14 +89,14 @@ export async function clearChatHistory(): Promise<boolean> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) {
+  if (!user?.id) {
     return false;
   }
 
   const { error } = await supabase
-    .from("chat_messages")
+    .from("chat_logs")
     .delete()
-    .eq("user_id", user.email);
+    .eq("user_id", user.id);
 
   if (error) {
     console.error("Error clearing chat history:", error);
@@ -111,14 +111,14 @@ export async function hasCompletedQuestionnaire(): Promise<boolean> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) {
+  if (!user?.id) {
     return false;
   }
 
   const { data, error } = await supabase
     .from("soulprints")
     .select("id")
-    .eq("user_id", user.email)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (error) {
