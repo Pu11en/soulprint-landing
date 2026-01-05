@@ -40,3 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 node_modules
+
+# Soulprint exports (sensitive data)
+all_soulprints.txt
+full_soulprints_export.json
+soulprints_export.csv
