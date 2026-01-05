@@ -4,9 +4,9 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Download, RefreshCw, Loader2, Brain, Heart, Scale, Users, Cpu, Shield, Plus, Trash2, ArrowLeft } from "lucide-react"
+import { Download, RefreshCw, Loader2, Brain, Heart, Scale, Users, Cpu, Shield, Plus, Trash2, ArrowLeft, Pencil, Check, X } from "lucide-react"
 import { listMySoulPrints, switchSoulPrint } from "@/app/actions/soulprint-selection"
-import { deleteSoulPrint } from "@/app/actions/soulprint-management"
+import { deleteSoulPrint, updateSoulPrintName } from "@/app/actions/soulprint-management"
 import type { SoulPrintData } from "@/lib/gemini/types"
 
 const pillarIcons: Record<string, React.ReactNode> = {
@@ -36,6 +36,10 @@ export default function ProfilePage() {
     const [selectedSoulprint, setSelectedSoulprint] = useState<SoulPrintData | null>(null)
     const [loading, setLoading] = useState(true)
     const [actionLoading, setActionLoading] = useState(false)
+
+    // Inline editing state
+    const [editingId, setEditingId] = useState<string | null>(null)
+    const [editingName, setEditingName] = useState("")
 
     // Load list on mount
     useEffect(() => {
@@ -89,6 +93,35 @@ export default function ProfilePage() {
         handleViewDetail(id)
     }
 
+    // Inline name editing handlers
+    function startEditing(sp: any) {
+        setEditingId(sp.id)
+        setEditingName(sp.name || "")
+    }
+
+    async function saveNameEdit() {
+        if (!editingId || !editingName.trim()) {
+            setEditingId(null)
+            return
+        }
+
+        setActionLoading(true)
+        const result = await updateSoulPrintName(editingId, editingName)
+        if (result.success) {
+            // Update local state
+            setSoulprints(prev => prev.map(sp =>
+                sp.id === editingId ? { ...sp, name: editingName.trim() } : sp
+            ))
+        }
+        setEditingId(null)
+        setActionLoading(false)
+    }
+
+    function cancelEditing() {
+        setEditingId(null)
+        setEditingName("")
+    }
+
     const handleExport = () => {
         if (!selectedSoulprint) return
         const blob = new Blob([JSON.stringify(selectedSoulprint, null, 2)], { type: 'application/json' })
@@ -117,19 +150,53 @@ export default function ProfilePage() {
             <div className="max-w-4xl space-y-8 pb-12">
                 <div>
                     <h1 className="text-2xl font-bold text-white">My SoulPrints</h1>
-                    <p className="text-gray-400">Manage your different AI personalities.</p>
+                    <p className="text-gray-400">Manage your AI companions. Click the name to personalize it.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {soulprints.map(sp => (
                         <div key={sp.id} className="group relative overflow-hidden rounded-xl border border-[#333] bg-[#111] p-6 transition-all hover:border-orange-500/50 hover:bg-[#161616]">
                             <div className="flex items-start justify-between">
-                                <div className="space-y-1">
-                                    <h3 className="text-xl font-bold text-white">{sp.name || "SoulPrint"}</h3>
+                                <div className="space-y-1 flex-1">
+                                    {editingId === sp.id ? (
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                value={editingName}
+                                                onChange={(e) => setEditingName(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') saveNameEdit()
+                                                    if (e.key === 'Escape') cancelEditing()
+                                                }}
+                                                autoFocus
+                                                className="text-xl font-bold text-white bg-transparent border-b border-orange-500 outline-none max-w-[200px]"
+                                                placeholder="Name your companion..."
+                                            />
+                                            <button onClick={saveNameEdit} className="text-green-500 hover:text-green-400">
+                                                <Check className="h-4 w-4" />
+                                            </button>
+                                            <button onClick={cancelEditing} className="text-gray-500 hover:text-gray-400">
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 group/name">
+                                            <h3
+                                                className="text-xl font-bold text-white cursor-pointer hover:text-orange-400 transition-colors"
+                                                onClick={() => startEditing(sp)}
+                                            >
+                                                {sp.name || "Name me..."}
+                                            </h3>
+                                            <Pencil
+                                                className="h-3 w-3 text-gray-600 opacity-0 group-hover/name:opacity-100 transition-opacity cursor-pointer hover:text-orange-500"
+                                                onClick={() => startEditing(sp)}
+                                            />
+                                        </div>
+                                    )}
                                     <p className="text-sm text-gray-500 font-mono uppercase">{sp.archetype}</p>
                                 </div>
-                                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-orange-900/20 text-orange-500">
-                                    {sp.name?.[0] || 'S'}
+                                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-orange-900/20 text-orange-500 font-bold">
+                                    {(sp.name || sp.archetype || 'S')[0].toUpperCase()}
                                 </div>
                             </div>
 

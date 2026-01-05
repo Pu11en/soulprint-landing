@@ -3,8 +3,64 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
-import { switchSoulPrint } from "./soulprint-selection"
 
+/**
+ * Update the custom name for a SoulPrint
+ */
+export async function updateSoulPrintName(soulprintId: string, newName: string) {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: { getAll() { return cookieStore.getAll() } }
+        }
+    )
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+        return { error: "Not authenticated" }
+    }
+
+    // Fetch current soulprint data
+    const { data: current, error: fetchError } = await supabase
+        .from('soulprints')
+        .select('soulprint_data')
+        .eq('id', soulprintId)
+        .eq('user_id', user.id)
+        .single()
+
+    if (fetchError || !current) {
+        return { error: "SoulPrint not found" }
+    }
+
+    // Update the name within the soulprint_data JSON
+    const updatedData = {
+        ...current.soulprint_data,
+        name: newName.trim()
+    }
+
+    const { error: updateError } = await supabase
+        .from('soulprints')
+        .update({
+            soulprint_data: updatedData,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', soulprintId)
+        .eq('user_id', user.id)
+
+    if (updateError) {
+        console.error("Failed to update SoulPrint name:", updateError)
+        return { error: updateError.message }
+    }
+
+    revalidatePath("/dashboard")
+    return { success: true, name: newName.trim() }
+}
+
+/**
+ * Delete a SoulPrint
+ */
 export async function deleteSoulPrint(soulprintId: string) {
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -16,9 +72,10 @@ export async function deleteSoulPrint(soulprintId: string) {
     )
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: "Unauthorized" }
+    if (!user) {
+        return { error: "Not authenticated" }
+    }
 
-    // 1. Delete the SoulPrint
     const { error } = await supabase
         .from('soulprints')
         .delete()
@@ -26,38 +83,8 @@ export async function deleteSoulPrint(soulprintId: string) {
         .eq('user_id', user.id)
 
     if (error) {
-        console.error("Delete failed:", error)
-        return { error: "Failed to delete SoulPrint" }
-    }
-
-    // 2. Check if we deleted the current active one
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('current_soulprint_id')
-        .eq('id', user.id)
-        .single()
-
-    // If the DB context was pointing to this deleted ID (or null/invalid), we need to switch
-    // Note: The delete might have set 'current_soulprint_id' to NULL via ON DELETE SET NULL constraint?
-    // Let's check if we have any left.
-
-    const { data: remaining } = await supabase
-        .from('soulprints')
-        .select('id')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-    if (remaining && remaining.length > 0) {
-        // Switch to the newest remaining one
-        await switchSoulPrint(remaining[0].id)
-    } else {
-        // None left
-        // Set context to null? switchSoulPrint handles string...
-        // We might need to handle empty state in switchSoulPrint or just clear
-        // Ideally we update profile to NULL.
-        await supabase.from('profiles').update({ current_soulprint_id: null }).eq('id', user.id)
-        cookieStore.delete("soulprint_focus_id")
+        console.error("Failed to delete SoulPrint:", error)
+        return { error: error.message }
     }
 
     revalidatePath("/dashboard")
