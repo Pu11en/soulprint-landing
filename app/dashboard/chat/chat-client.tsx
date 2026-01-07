@@ -32,7 +32,14 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
     const [personality, setPersonality] = useState<string>("Default System")
     const [displayName, setDisplayName] = useState<string>("SoulPrint")
     const [shouldAutoScroll, setShouldAutoScroll] = useState(false)
-    const [sidebarOpen, setSidebarOpen] = useState(true)
+    const [sidebarOpen, setSidebarOpen] = useState(false) // Default closed for mobile safety
+
+    // Initialize sidebar state based on screen width
+    useEffect(() => {
+        if (window.innerWidth >= 768) {
+            setSidebarOpen(true)
+        }
+    }, [])
 
     // Use prop for ID
     const selectedSoulprintId = initialSoulprintId
@@ -303,10 +310,18 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
             {/* Content Container with Sidebar */}
             <div className="relative z-10 flex h-full w-full bg-[#111]/60 backdrop-blur-sm">
 
+                {/* Mobile Backdrop to close sidebar */}
+                {sidebarOpen && (
+                    <div
+                        className="absolute inset-0 z-20 bg-black/50 backdrop-blur-[1px] md:hidden"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+
                 {/* Session Sidebar */}
                 <div className={cn(
-                    "flex flex-col border-r border-[#222] bg-[#0A0A0A]/90 transition-all duration-300 ease-in-out md:static absolute inset-y-0 left-0 z-20",
-                    sidebarOpen ? "w-64 translate-x-0" : "w-0 -translate-x-full md:w-0 md:translate-x-0 md:opacity-0 md:overflow-hidden"
+                    "flex flex-col border-r border-[#222] bg-[#0A0A0A] shadow-xl md:shadow-none transition-all duration-300 ease-in-out md:static absolute inset-y-0 left-0 z-30",
+                    sidebarOpen ? "w-[80%] max-w-[300px] md:w-64 translate-x-0" : "w-0 -translate-x-full md:w-0 md:translate-x-0 md:opacity-0 md:overflow-hidden"
                 )}>
                     <div className="p-4 border-b border-[#222] flex items-center justify-between">
                         <Button
@@ -372,23 +387,22 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                     </div>
 
                     {/* Chat Header */}
-                    <div className="flex items-center justify-between border-b border-[#222] p-4 pl-12 md:pl-6">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20 text-green-500">
+                    <div className="flex items-center justify-between border-b border-[#222] bg-[#111]/95 p-3 pl-14 md:pl-6 min-h-[60px] relative z-20">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/20 text-green-500">
                                 <Bot className="h-5 w-5" />
                             </div>
-                            <div>
-                                <h2 className="font-semibold text-white">{displayName}</h2>
-                                <p className="text-xs text-gray-500">
-                                    {/* Show Session Info if available, else user email */}
-                                    {currentSessionId ? 'Active Session' : 'New Session'} • {user?.email}
+                            <div className="min-w-0 flex-1">
+                                <h2 className="font-semibold text-white truncate text-sm md:text-base">{displayName}</h2>
+                                <p className="text-xs text-gray-500 truncate">
+                                    {currentSessionId ? 'Active Session' : 'New Session'} • {user?.email?.split('@')[0]}
                                 </p>
                             </div>
                         </div>
                         {messages.length > 0 && (
-                            <Button variant="ghost" size="sm" onClick={handleClearHistory} className="text-gray-400 hover:text-red-400">
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Clear
+                            <Button variant="ghost" size="sm" onClick={handleClearHistory} className="text-gray-400 hover:text-red-400 shrink-0 ml-2">
+                                <Trash2 className="h-4 w-4 md:mr-1" />
+                                <span className="hidden md:inline">Clear</span>
                             </Button>
                         )}
                     </div>
