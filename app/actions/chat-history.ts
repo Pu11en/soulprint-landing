@@ -24,14 +24,12 @@ export async function getChatSessions(): Promise<ChatSession[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user?.id) return [];
 
-  // Group by session_id and get metadata
-  // Note: Since we don't have a sessions table, we infer sessions from logs
-  // We'll get the latest message for each session
-  const { data, error } = await supabase
+  // 1. Get messages with sessions
+  const { data: sessionMessages, error } = await supabase
     .from("chat_logs")
     .select("session_id, content, created_at")
     .eq("user_id", user.id)
-    .not("session_id", "is", null) // Exclude legacy messages without session
+    .not("session_id", "is", null) // Exclude legacy messages here
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -39,21 +37,47 @@ export async function getChatSessions(): Promise<ChatSession[]> {
     return [];
   }
 
-  // Manually group by session_id (since we can't do complex GROUP BY via simple query easily)
   const sessionsMap = new Map<string, ChatSession>();
 
-  data?.forEach(msg => {
+  // 2. Process Session Messages
+  sessionMessages?.forEach(msg => {
     if (msg.session_id && !sessionsMap.has(msg.session_id)) {
       sessionsMap.set(msg.session_id, {
         session_id: msg.session_id,
         created_at: msg.created_at,
         last_message: msg.content.substring(0, 50) + (msg.content.length > 50 ? "..." : ""),
-        message_count: 1 // Placeholder, calculating count would require more query
+        message_count: 1
       });
     }
   });
 
-  return Array.from(sessionsMap.values());
+  // 3. Check for Legacy Messages (NULL session_id)
+  const { data: legacyMsg } = await supabase
+    .from("chat_logs")
+    .select("content, created_at")
+    .eq("user_id", user.id)
+    .is("session_id", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (legacyMsg) {
+    // Add a virtual "Legacy" session
+    const legacySession: ChatSession = {
+      session_id: "legacy",
+      created_at: legacyMsg.created_at, // Use date of most recent legacy msg
+      last_message: "Legacy History", // Or use legacyMsg.content
+      message_count: 1
+    };
+    // We can add it to the map or array. 
+    // Let's add it to the map with a key that won't collide with UUIDs
+    sessionsMap.set("legacy", legacySession);
+  }
+
+  // Convert map to array and sort by date descending
+  return Array.from(sessionsMap.values()).sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 }
 
 // Get chat history for the current user, optionally filtered by session
@@ -70,13 +94,20 @@ export async function getChatHistory(sessionId?: string): Promise<ChatMessage[]>
     .select("id, session_id, role, content, created_at")
     .eq("user_id", user.id);
 
-  if (sessionId) {
+  if (sessionId === "legacy") {
+    // Fetch messages where session_id IS NULL
+    query = query.is("session_id", null);
+  } else if (sessionId) {
     query = query.eq("session_id", sessionId);
   } else {
-    // If no session ID provided, maybe fetch messages with NO session ID?
-    // Or just all messages? Usually we want a specific session.
-    // For backward compatibility, if no session ID, we fetch everything or just legacy?
-    // Let's fetch everything for now as default behavior.
+    // If no session ID provided, fetch nothing or default?
+    // Current behavior in UI is we provide ID. 
+    // If called without ID in legacy code, maybe fetch everything?
+    // Let's safe default to nothing if strict, or all if loose.
+    // Given the new UI requires explicit session selection, let's return [] if no ID to prevent mixing.
+    // BUT legacy UI might call without ID.
+    // Let's match legacy behavior: fetch messages with NULL session_id (Legacy main view)
+    query = query.is("session_id", null);
   }
 
   const { data, error } = await query.order("created_at", { ascending: true });
