@@ -29,6 +29,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
     const [user, setUser] = useState<{ id?: string; email?: string } | null>(null)
     const [personality, setPersonality] = useState<string>("Default System")
     const [displayName, setDisplayName] = useState<string>("SoulPrint")
+    const [shouldAutoScroll, setShouldAutoScroll] = useState(false)
 
     // Use prop for ID
     const selectedSoulprintId = initialSoulprintId
@@ -145,16 +146,19 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
         init()
     }, [selectedSoulprintId]) // Re-run when ID changes
 
-    // Auto-scroll
+    // Auto-scroll only when user sends a message (not on initial load)
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-    }, [messages])
+        if (shouldAutoScroll) {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+        }
+    }, [messages, shouldAutoScroll])
 
     async function handleSend() {
         if (!input.trim() || !apiKey) return
 
         const userMsg = input
         setInput("")
+        setShouldAutoScroll(true) // Enable auto-scroll when user sends
         setMessages(prev => [...prev, { role: "user", content: userMsg }])
         setLoading(true)
 
