@@ -31,7 +31,14 @@ export function Sidebar({ hasSoulprint }: SidebarProps) {
     return (
         <div className="flex h-screen w-14 flex-col items-center justify-between border-r border-[#222] bg-[#111111] py-2">
             {/* Empty top section for alignment */}
-            <div className="h-[52px] w-full" />
+            {/* Logo Section */}
+            <div className="flex h-[52px] w-full items-center justify-center border-b border-[#222]">
+                <img
+                    src="/images/vector-personalized.png"
+                    alt="SoulPrint"
+                    className="h-8 w-8 object-contain"
+                />
+            </div>
 
             {/* Main Nav */}
             <nav className="flex flex-1 flex-col items-center gap-1 py-2">

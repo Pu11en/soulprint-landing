@@ -33,14 +33,8 @@ export function TopBar() {
     return (
         <header className="flex h-[52px] items-center justify-between border-b border-[#111111] bg-[#111111] px-4">
             {/* Left side - SoulPrint Engine branding */}
-            <div className="flex items-center gap-2 pl-2">
-                <Image
-                    src="/images/vector-personalized.png"
-                    alt="SoulPrint"
-                    width={28}
-                    height={28}
-                    className="object-contain"
-                />
+            <div className="flex items-center gap-2">
+
                 <span className="font-koulen text-[22px] leading-[26px] text-white tracking-wide">
                     SOULPRINT
                 </span>
