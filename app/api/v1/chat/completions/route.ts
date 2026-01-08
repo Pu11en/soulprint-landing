@@ -44,6 +44,34 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
         }
 
+        // ===================================
+        // 🚦 USAGE LIMIT CHECK (Gate Logic)
+        // ===================================
+        // Skip limit for Demo User (Elon)
+        if (keyData.user_id !== 'dadb8b23-5684-4d86-9021-e457267e75c7') {
+            const { data: profile } = await supabaseAdmin
+                .from('profiles')
+                .select('usage_count, usage_limit')
+                .eq('id', keyData.user_id)
+                .single();
+
+            const limit = profile?.usage_limit ?? 20; // Default hard limit
+            const count = profile?.usage_count ?? 0;
+
+            if (count >= limit) {
+                return NextResponse.json({
+                    error: "SoulPrint Trial Limit Reached (20 Interactions). Access is currently restricted."
+                }, { status: 403 });
+            }
+
+            // Increment Usage (Blocking to ensure enforcement)
+            await supabaseAdmin
+                .from('profiles')
+                .update({ usage_count: count + 1 })
+                .eq('id', keyData.user_id);
+        }
+
+
         // 3. Parse Request Body
         const body = await req.json();
         const { messages, model = 'hermes3', stream = false, soulprint_id } = body;

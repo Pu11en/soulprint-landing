@@ -44,11 +44,11 @@ export function Hero() {
 
                     {/* Actions */}
                     <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:mt-6 lg:gap-4">
-                        <Link href="/waitlist">
+                        <Link href="/enter">
                             <Button
                                 className="h-11 w-full rounded-lg bg-[#EA580C] px-5 py-3 font-geist text-base font-medium text-[#FAFAFA] transition-all hover:bg-[#EA580C]/90 hover:scale-[1.02] active:scale-[0.98] sm:w-auto lg:h-14 lg:px-10 lg:text-lg"
                             >
-                                Join the Waitlist
+                                Enter SoulPrint
                             </Button>
                         </Link>
                     </div>
