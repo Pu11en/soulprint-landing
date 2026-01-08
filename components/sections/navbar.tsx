@@ -45,13 +45,8 @@ export function Navbar() {
 
                 {/* Desktop Buttons (Hidden on mobile) */}
                 <div className="hidden md:flex items-center gap-2">
-                    {LOGIN_ENABLED && (
-                        <Link href="/login">
-                            <Button variant="ghost">Log In</Button>
-                        </Link>
-                    )}
-                    <Link href="/waitlist">
-                        <Button>Join the Waitlist</Button>
+                    <Link href="/enter">
+                        <Button className="bg-[#EA580C] text-white hover:bg-[#EA580C]/90">Enter SoulPrint</Button>
                     </Link>
                 </div>
 
@@ -79,13 +74,8 @@ export function Navbar() {
                     </div>
                     <div className="h-px bg-white/10 w-full" />
                     <div className="flex flex-col gap-3">
-                        {LOGIN_ENABLED && (
-                            <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                                <Button variant="outline" className="w-full h-12 text-white border-white/20">Log In</Button>
-                            </Link>
-                        )}
-                        <Link href="/waitlist" onClick={() => setIsMenuOpen(false)}>
-                            <Button className="w-full h-12">Join the Waitlist</Button>
+                        <Link href="/enter" onClick={() => setIsMenuOpen(false)}>
+                            <Button className="w-full h-12 bg-[#EA580C] text-white hover:bg-[#EA580C]/90">Enter SoulPrint</Button>
                         </Link>
                     </div>
                 </div>
