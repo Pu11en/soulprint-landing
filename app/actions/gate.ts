@@ -8,14 +8,21 @@ export async function registerFromGate(prevState: any, formData: FormData) {
     const name = formData.get('name') as string
     const email = formData.get('email') as string
     const password = formData.get('password') as string
+    const accessCode = formData.get('accessCode') as string
     const nda = formData.get('nda') === 'on'
 
-    if (!email || !password || !name) {
+    if (!email || !password || !name || !accessCode) {
         return { error: 'Missing required fields' }
     }
 
     if (!nda) {
         return { error: 'You must agree to the NDA to enter.' }
+    }
+
+    // Access Code Validation
+    if (accessCode !== '7423') {
+        // We could log this attempt or create a 'waitlist-only' lead, but for now we block.
+        return { error: 'Invalid Access Code. Entry denied.' }
     }
 
     const supabase = await createClient()

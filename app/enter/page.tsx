@@ -215,6 +215,18 @@ export default function GatePage() {
                     />
                 </div>
 
+                <div className="space-y-1">
+                    <label htmlFor="accessCode" className="text-xs font-medium uppercase tracking-wider text-neutral-400">Access Code *</label>
+                    <input
+                        required
+                        name="accessCode"
+                        id="accessCode"
+                        type="text"
+                        placeholder="Enter code provided in email"
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:border-white/20 focus:outline-none focus:ring-0"
+                    />
+                </div>
+
                 <div className="flex items-start gap-3 py-2">
                     <div className="flex h-5 items-center">
                         <input
