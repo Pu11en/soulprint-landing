@@ -3,6 +3,38 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { env } from '@/lib/env'
+
+/**
+ * Verify access PIN server-side (prevents exposing the PIN in client code)
+ * Uses constant-time comparison to prevent timing attacks
+ */
+export async function verifyAccessPin(pin: string): Promise<boolean> {
+    const validPin = env.gate.accessCode;
+
+    // Prevent timing attacks with constant-time comparison
+    if (pin.length !== validPin.length) {
+        // Still do a fake comparison to maintain constant time
+        let dummy = 0;
+        for (let i = 0; i < validPin.length; i++) {
+            dummy |= validPin.charCodeAt(i) ^ 0;
+        }
+        return false;
+    }
+
+    let result = 0;
+    for (let i = 0; i < pin.length; i++) {
+        result |= pin.charCodeAt(i) ^ validPin.charCodeAt(i);
+    }
+    return result === 0;
+}
+
+/**
+ * Check if demo mode is enabled (based on environment variables)
+ */
+export async function isDemoEnabled(): Promise<boolean> {
+    return env.demo.enabled;
+}
 
 export async function signUp(formData: FormData) {
     const supabase = await createClient()
@@ -94,11 +126,16 @@ export async function signInWithGoogle() {
 }
 
 export async function signInAsDemo() {
+    // Check if demo mode is enabled
+    if (!env.demo.enabled) {
+        return { error: 'Demo mode is not enabled' }
+    }
+
     const supabase = await createClient()
 
     const { error } = await supabase.auth.signInWithPassword({
-        email: 'demo@soulprint.ai',
-        password: 'demoPassword123!'
+        email: env.demo.email,
+        password: env.demo.password
     })
 
     if (error) {

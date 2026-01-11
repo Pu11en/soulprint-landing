@@ -3,6 +3,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { randomBytes, createHash } from "crypto"
+import { encryptApiKey, decryptApiKey, isEncryptedApiKey } from "@/lib/env"
 
 export async function generateApiKey(label: string = "Default Key", status: 'active' | 'inactive' = 'active') {
     const cookieStore = await cookies()
@@ -46,33 +47,48 @@ export async function generateApiKey(label: string = "Default Key", status: 'act
             await supabase.from('api_keys').delete().in('id', idsToDelete)
         }
 
-        // If existing key has viewable value, return it
+        // If existing key has viewable value, decrypt and return it
         if (activeKey.encrypted_key) {
-            return {
-                apiKey: activeKey.encrypted_key,
-                id: activeKey.id,
-                status: activeKey.status
+            try {
+                const decryptedKey = decryptApiKey(activeKey.encrypted_key);
+                return {
+                    apiKey: decryptedKey,
+                    id: activeKey.id,
+                    status: activeKey.status
+                }
+            } catch (e) {
+                // Key can't be decrypted (maybe encryption secret changed)
+                // Delete and regenerate
+                console.warn("Could not decrypt existing key, regenerating...");
+                await supabase.from('api_keys').delete().eq('id', activeKey.id)
             }
+        } else {
+            // If legacy key (no raw value stored), delete and regenerate so user can view it
+            await supabase.from('api_keys').delete().eq('id', activeKey.id)
         }
-
-        // If legacy key (no raw value stored), delete and regenerate so user can view it
-        await supabase.from('api_keys').delete().eq('id', activeKey.id)
     }
 
     // 2. Generate new key
     const rawKey = 'sk-soulprint-' + randomBytes(24).toString('hex')
     const hashedKey = createHash('sha256').update(rawKey).digest('hex')
 
-    // Store in Supabase
-    // Note: Storing rawKey in 'encrypted_key' for MVP visibility. 
-    // Ideally encrypt this with a server secret.
+    // Encrypt the raw key for secure storage
+    let encryptedKey: string;
+    try {
+        encryptedKey = encryptApiKey(rawKey);
+    } catch (encryptError) {
+        console.error("Encryption error:", encryptError);
+        return { error: "Failed to secure API key. Contact support." }
+    }
+
+    // Store in Supabase with encrypted key
     const { data, error } = await supabase
         .from('api_keys')
         .insert({
             user_id: user.id,
             label,
             key_hash: hashedKey,
-            encrypted_key: rawKey,
+            encrypted_key: encryptedKey,
             status
         })
         .select()
@@ -83,6 +99,7 @@ export async function generateApiKey(label: string = "Default Key", status: 'act
         return { error: error.message }
     }
 
+    // Return the raw key to the user (only time it's visible)
     return { apiKey: rawKey, id: data.id, status: data.status }
 }
 
@@ -152,11 +169,22 @@ export async function listApiKeys() {
         }
     }
 
-    // Map to include displayable key
-    const keys = data.map(k => ({
-        ...k,
-        display_key: k.encrypted_key // Expose the stored key for UI
-    }))
+    // Map to include displayable key (decrypt if needed)
+    const keys = data.map(k => {
+        let displayKey = '';
+        try {
+            if (k.encrypted_key) {
+                displayKey = decryptApiKey(k.encrypted_key);
+            }
+        } catch (e) {
+            console.error("Failed to decrypt key:", e);
+            displayKey = '[encrypted - unable to display]';
+        }
+        return {
+            ...k,
+            display_key: displayKey
+        };
+    });
 
     return { keys }
 }

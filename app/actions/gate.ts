@@ -3,25 +3,50 @@
 import { createClient } from '@/lib/supabase/server'
 import { createStreakLead } from '@/lib/streak'
 import { redirect } from 'next/navigation'
+import { env } from '@/lib/env'
 
-export async function registerFromGate(prevState: any, formData: FormData) {
-    const name = formData.get('name') as string
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
-    const accessCode = formData.get('accessCode') as string
-    const nda = formData.get('nda') === 'on'
+// Constants for validation
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_NAME_LENGTH = 100;
+const MAX_EMAIL_LENGTH = 254;
 
+export async function registerFromGate(prevState: unknown, formData: FormData) {
+    const name = (formData.get('name') as string)?.trim();
+    const email = (formData.get('email') as string)?.trim().toLowerCase();
+    const password = formData.get('password') as string;
+    const accessCode = (formData.get('accessCode') as string)?.trim();
+    const nda = formData.get('nda') === 'on';
+
+    // Input validation
     if (!email || !password || !name || !accessCode) {
         return { error: 'Missing required fields' }
+    }
+
+    // Validate name length
+    if (name.length > MAX_NAME_LENGTH) {
+        return { error: 'Name is too long' }
+    }
+
+    // Validate email format and length
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > MAX_EMAIL_LENGTH) {
+        return { error: 'Invalid email format' }
+    }
+
+    // Validate password strength
+    if (password.length < MIN_PASSWORD_LENGTH) {
+        return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }
     }
 
     if (!nda) {
         return { error: 'You must agree to the NDA to enter.' }
     }
 
-    // Access Code Validation
-    if (accessCode !== '7423') {
-        // We could log this attempt or create a 'waitlist-only' lead, but for now we block.
+    // Access Code Validation - uses environment variable with fallback
+    const validAccessCode = env.gate.accessCode;
+    if (accessCode !== validAccessCode) {
+        // Log failed attempt (without revealing the correct code)
+        console.warn(`Invalid access code attempt from: ${email}`);
         return { error: 'Invalid Access Code. Entry denied.' }
     }
 

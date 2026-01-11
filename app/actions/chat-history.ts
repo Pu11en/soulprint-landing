@@ -2,6 +2,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+// Constants for pagination
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 100;
+
 export interface ChatMessage {
   id?: string;
   session_id?: string;
@@ -15,6 +19,13 @@ export interface ChatSession {
   created_at: string;
   last_message: string;
   message_count: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  hasMore: boolean;
+  nextCursor?: string;
+  total?: number;
 }
 
 // Get all unique chat sessions for the current user
@@ -81,13 +92,24 @@ export async function getChatSessions(): Promise<ChatSession[]> {
 }
 
 // Get chat history for the current user, optionally filtered by session
-export async function getChatHistory(sessionId?: string): Promise<ChatMessage[]> {
+// Now supports pagination with cursor-based navigation
+export async function getChatHistory(
+  sessionId?: string,
+  options?: {
+    limit?: number;
+    cursor?: string;  // Message ID to start after
+    direction?: 'older' | 'newer';
+  }
+): Promise<PaginatedResult<ChatMessage>> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user?.id) {
-    return [];
+    return { data: [], hasMore: false };
   }
+
+  const limit = Math.min(options?.limit || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+  const direction = options?.direction || 'newer';
 
   let query = supabase
     .from("chat_logs")
@@ -95,29 +117,53 @@ export async function getChatHistory(sessionId?: string): Promise<ChatMessage[]>
     .eq("user_id", user.id);
 
   if (sessionId === "legacy") {
-    // Fetch messages where session_id IS NULL
     query = query.is("session_id", null);
   } else if (sessionId) {
     query = query.eq("session_id", sessionId);
   } else {
-    // If no session ID provided, fetch nothing or default?
-    // Current behavior in UI is we provide ID. 
-    // If called without ID in legacy code, maybe fetch everything?
-    // Let's safe default to nothing if strict, or all if loose.
-    // Given the new UI requires explicit session selection, let's return [] if no ID to prevent mixing.
-    // BUT legacy UI might call without ID.
-    // Let's match legacy behavior: fetch messages with NULL session_id (Legacy main view)
     query = query.is("session_id", null);
   }
 
-  const { data, error } = await query.order("created_at", { ascending: true });
+  // Apply cursor-based pagination
+  if (options?.cursor) {
+    if (direction === 'older') {
+      query = query.lt("id", options.cursor);
+    } else {
+      query = query.gt("id", options.cursor);
+    }
+  }
+
+  // Fetch one extra to check if there are more
+  const { data, error } = await query
+    .order("created_at", { ascending: direction === 'newer' })
+    .limit(limit + 1);
 
   if (error) {
     console.error("Error fetching chat history:", error);
-    return [];
+    return { data: [], hasMore: false };
   }
 
-  return data || [];
+  const hasMore = (data?.length || 0) > limit;
+  const results = data?.slice(0, limit) || [];
+
+  // If fetching older, reverse to maintain chronological order
+  if (direction === 'older') {
+    results.reverse();
+  }
+
+  return {
+    data: results,
+    hasMore,
+    nextCursor: hasMore && results.length > 0
+      ? results[results.length - 1].id
+      : undefined
+  };
+}
+
+// Legacy function for backwards compatibility
+export async function getChatHistoryLegacy(sessionId?: string): Promise<ChatMessage[]> {
+  const result = await getChatHistory(sessionId, { limit: MAX_PAGE_SIZE });
+  return result.data;
 }
 
 // Save a message to chat history

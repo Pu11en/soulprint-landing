@@ -1,14 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { signIn, signInWithGoogle, signInAsDemo } from "@/app/actions/auth";
-import { useState } from "react";
+import { signIn, signInWithGoogle, signInAsDemo, verifyAccessPin, isDemoEnabled } from "@/app/actions/auth";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock } from "lucide-react";
-
-const ACCESS_PIN = "7423";
 
 export function LoginForm() {
     const router = useRouter();
@@ -19,16 +17,27 @@ export function LoginForm() {
     const [pin, setPin] = useState("");
     const [pinError, setPinError] = useState("");
     const [pinVerified, setPinVerified] = useState(false);
+    const [demoEnabled, setDemoEnabled] = useState(false);
 
-    const handlePinSubmit = (e: React.FormEvent) => {
+    // Check if demo mode is enabled on mount
+    useEffect(() => {
+        isDemoEnabled().then(setDemoEnabled);
+    }, []);
+
+    const handlePinSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (pin === ACCESS_PIN) {
+        setLoading(true);
+
+        const isValid = await verifyAccessPin(pin);
+
+        if (isValid) {
             setPinVerified(true);
             setPinError("");
         } else {
             setPinError("Invalid PIN. Please try again.");
             setPin("");
         }
+        setLoading(false);
     };
 
     const handleEmailSignIn = async (e: React.FormEvent) => {
@@ -63,9 +72,10 @@ export function LoginForm() {
     };
 
     const handleDemoSignIn = async () => {
-        // Visual feedback: pre-fill the form so the user sees something happening
-        setEmail("demo@soulprint.ai");
-        setPassword("demoPassword123!");
+        if (!demoEnabled) {
+            setError("Demo mode is not available");
+            return;
+        }
 
         setLoading(true);
         const result = await signInAsDemo();
@@ -261,16 +271,18 @@ export function LoginForm() {
                             Google
                         </Button>
 
-                        {/* Demo Mode Button */}
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={handleDemoSignIn}
-                            disabled={loading}
-                            className="w-full h-12 sm:h-10 text-[#ea580c] font-host-grotesk font-medium text-base sm:text-sm hover:bg-[#ea580c]/5 hover:text-[#ea580c] transition-colors rounded-xl sm:rounded-[10px]"
-                        >
-                            🎯 Try Demo Mode (Elon Musk)
-                        </Button>
+                        {/* Demo Mode Button - Only shown if demo mode is enabled */}
+                        {demoEnabled && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={handleDemoSignIn}
+                                disabled={loading}
+                                className="w-full h-12 sm:h-10 text-[#ea580c] font-host-grotesk font-medium text-base sm:text-sm hover:bg-[#ea580c]/5 hover:text-[#ea580c] transition-colors rounded-xl sm:rounded-[10px]"
+                            >
+                                Try Demo Mode
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>

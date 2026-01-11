@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { generateApiKey, listApiKeys } from "@/app/actions/api-keys"
-import { getChatHistory, saveChatMessage, clearChatHistory, getChatSessions, type ChatSession } from "@/app/actions/chat-history"
+import { getChatHistory, saveChatMessage, clearChatHistory, getChatSessions, type ChatSession, type PaginatedResult } from "@/app/actions/chat-history"
 import { Send, Bot, User, Loader2, Trash2, Plus, MessageSquare, ChevronLeft, ChevronRight, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -104,7 +104,8 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                         setPersonality("Elon Musk Demo Mode");
                         setDisplayName("Elon Musk");
                     }
-                } catch (e) {
+                } catch (parseError) {
+                    console.error('Error parsing soulprint data:', parseError)
                     setPersonality(currentUser.email || 'Default System')
                     setDisplayName("SoulPrint")
                 }
@@ -152,10 +153,10 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
             }
 
             setLoading(true)
-            const history = await getChatHistory(currentSessionId)
+            const result = await getChatHistory(currentSessionId, { limit: 50 })
 
-            if (history.length > 0) {
-                const formattedHistory = history
+            if (result.data.length > 0) {
+                const formattedHistory = result.data
                     .filter(msg => msg.role === 'user' || msg.role === 'assistant')
                     .map(msg => ({
                         role: msg.role as "user" | "assistant",
@@ -182,6 +183,14 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
         }
     }, [messages, shouldAutoScroll])
 
+    // Use a ref to track the current session ID to avoid race conditions
+    const sessionIdRef = useRef<string | null>(null);
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        sessionIdRef.current = currentSessionId;
+    }, [currentSessionId]);
+
     async function handleSend() {
         if (!input.trim() || !apiKey) return
 
@@ -191,11 +200,12 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
         setMessages(prev => [...prev, { role: "user", content: userMsg }])
         setLoading(true)
 
-        // Determine Session ID
-        let sessionIdToUse = currentSessionId;
+        // Determine Session ID - use ref to prevent race condition
+        let sessionIdToUse = sessionIdRef.current;
         if (!sessionIdToUse) {
             sessionIdToUse = crypto.randomUUID();
-            setCurrentSessionId(sessionIdToUse);
+            sessionIdRef.current = sessionIdToUse; // Update ref immediately
+            setCurrentSessionId(sessionIdToUse);   // Update state for UI
         }
 
         // Save user message
@@ -252,7 +262,12 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                     if (lastMsg.role === "assistant") lastMsg.content = botMsg
                                     return newMessages
                                 })
-                            } catch (e) { }
+                            } catch (parseError) {
+                                // Log parse errors in development only (SSE chunks can be partial)
+                                if (process.env.NODE_ENV === 'development') {
+                                    console.debug('SSE parse error (may be partial chunk):', parseError)
+                                }
+                            }
                         }
                     }
                 }
@@ -268,8 +283,13 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                 loadSessions()
             }
 
-        } catch (e) {
-            setMessages(prev => [...prev, { role: "assistant", content: "Error: Failed to reply." }])
+        } catch (error) {
+            console.error('Chat API error:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            setMessages(prev => [...prev, {
+                role: "assistant",
+                content: `Error: ${errorMessage}. Please try again.`
+            }])
         } finally {
             setLoading(false)
         }

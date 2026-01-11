@@ -1,8 +1,9 @@
 import { sendConfirmationEmail } from '@/lib/email';
+import { env } from '@/lib/env';
 
-// Streak Configuration
-const STREAK_API_KEY = 'strk_LitL1WFFkGdFSuTpHRQDNYIZQ2l';
-const PIPELINE_KEY = 'agxzfm1haWxmb29nYWVyNQsSDE9yZ2FuaXphdGlvbiIOYXJjaGVmb3JnZS5jb20MCxIIV29ya2Zsb3cYgIClntjvsAoM';
+// Streak Configuration - Now uses environment variables
+const STREAK_API_KEY = env.streak.apiKey;
+const PIPELINE_KEY = env.streak.pipelineKey;
 const STAGE_KEY_LEAD_COLLECTED = '5001';
 
 /**
@@ -10,6 +11,14 @@ const STAGE_KEY_LEAD_COLLECTED = '5001';
  */
 export async function createStreakLead(name: string, email: string, ndaAgreed: boolean) {
     try {
+        // Check if Streak is configured
+        if (!STREAK_API_KEY || !PIPELINE_KEY) {
+            console.warn('⚠️ Streak CRM not configured - skipping lead creation. Set STREAK_API_KEY and STREAK_PIPELINE_KEY env vars.');
+            // Still send confirmation email even without CRM
+            await sendConfirmationEmail(email, name);
+            return { success: true, skipped: true, reason: 'Streak not configured' };
+        }
+
         console.log(`Creating Streak Lead for: ${email}`);
 
         // 1. Create the Box

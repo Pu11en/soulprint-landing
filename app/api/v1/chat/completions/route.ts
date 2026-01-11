@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createHash } from "crypto";
-// import { gemini, DEFAULT_MODEL } from "@/lib/gemini/client"; // Removed
 import { checkHealth, streamChatCompletion, chatCompletion, ChatMessage } from "@/lib/llm/local-client";
 import { loadMemory, buildSystemPrompt } from "@/lib/letta/soulprint-memory";
+import { rateLimiters, getRateLimitHeaders, getClientIP } from "@/lib/security";
+import { env } from "@/lib/env";
 
 // Initialize Supabase Admin client (to bypass RLS for key check)
 const supabaseAdmin = createClient(
@@ -11,8 +12,27 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY! || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Demo keys - only active when demo mode is enabled
+const DEMO_KEYS = env.demo.enabled
+    ? ['sk-soulprint-demo-fallback-123456', 'sk-soulprint-demo-internal-key']
+    : [];
+
 export async function POST(req: NextRequest) {
     try {
+        // 0. Rate Limiting
+        const clientIP = getClientIP(req.headers);
+        const rateLimitResult = rateLimiters.chat(clientIP);
+
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                { error: "Rate limit exceeded. Please try again later." },
+                {
+                    status: 429,
+                    headers: getRateLimitHeaders(rateLimitResult)
+                }
+            );
+        }
+
         // 1. Extract API Key
         const authHeader = req.headers.get("authorization");
         if (!authHeader || !authHeader.startsWith("Bearer sk-soulprint-")) {
@@ -26,8 +46,9 @@ export async function POST(req: NextRequest) {
         let keyData;
         let keyError;
 
-        if (rawKey === "sk-soulprint-demo-fallback-123456" || rawKey === "sk-soulprint-demo-internal-key") {
-            // Use Elon's UUID for demo mode
+        // Check if it's a demo key (only works when demo mode is enabled)
+        if (DEMO_KEYS.includes(rawKey)) {
+            // Use demo user ID
             keyData = { user_id: 'dadb8b23-5684-4d86-9021-e457267e75c7', id: 'demo-fallback-id' };
             keyError = null;
         } else {

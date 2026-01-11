@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sendConfirmationEmail } from '@/lib/email';
+import { env } from '@/lib/env';
+import { rateLimiters, getRateLimitHeaders, getClientIP, sanitizeInput } from '@/lib/security';
 
-
-// Streak Configuration
-const STREAK_API_KEY = 'strk_LitL1WFFkGdFSuTpHRQDNYIZQ2l';
-const PIPELINE_KEY = 'agxzfm1haWxmb29nYWVyNQsSDE9yZ2FuaXphdGlvbiIOYXJjaGVmb3JnZS5jb20MCxIIV29ya2Zsb3cYgIClntjvsAoM';
+// Streak Configuration - Now uses environment variables
+const STREAK_API_KEY = env.streak.apiKey;
+const PIPELINE_KEY = env.streak.pipelineKey;
 const STAGE_KEY_LEAD_COLLECTED = '5001';
 
 // Field Keys from your pipeline.json
@@ -15,14 +16,54 @@ const FIELD_KEYS = {
 
 export async function POST(request: Request) {
     try {
+        // Rate limiting
+        const clientIP = getClientIP(request.headers);
+        const rateLimitResult = rateLimiters.waitlist(clientIP);
+
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                { error: 'Too many requests. Please try again later.' },
+                {
+                    status: 429,
+                    headers: getRateLimitHeaders(rateLimitResult)
+                }
+            );
+        }
+
         const body = await request.json();
-        const { name, email } = body;
+        // Sanitize inputs
+        const name = sanitizeInput((body.name || '').trim());
+        const email = (body.email || '').trim().toLowerCase();
 
         if (!name || !email) {
             return NextResponse.json(
                 { error: 'Name and Email are required' },
                 { status: 400 }
             );
+        }
+
+        // Validate name length
+        if (name.length > 100) {
+            return NextResponse.json(
+                { error: 'Name is too long' },
+                { status: 400 }
+            );
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return NextResponse.json(
+                { error: 'Invalid email format' },
+                { status: 400 }
+            );
+        }
+
+        // Check if Streak is configured
+        if (!STREAK_API_KEY || !PIPELINE_KEY) {
+            console.warn('⚠️ Streak CRM not configured - sending confirmation email only');
+            await sendConfirmationEmail(email, name);
+            return NextResponse.json({ success: true, message: 'Added to waitlist' });
         }
 
         // 1. Create the Box
