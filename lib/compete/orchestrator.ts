@@ -30,9 +30,8 @@ import { detectEmotion, EmotionState } from '../personality/emotion-detector';
 import { buildCompanionPrompt, PromptContext, SoulPrintData } from '../prompt/dynamic-builder';
 import { logTrainingExample, updateQualitySignals, TrainingExample } from '../finetuning/collector';
 
-// Fallback imports
-import { chatWithFileSearch } from '../gemini';
-import { generateContent } from '../openai/client';
+// NO FALLBACKS - AWS vLLM is the only path
+// If AWS is down, the app is down. This is intentional.
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -100,42 +99,19 @@ export async function competeChatCompletion(context: ChatContext): Promise<Compe
     ...messages.filter(m => m.role !== 'system'),
   ];
 
-  // 8. Call LLM (with fallback chain)
-  let response: string;
-  let modelUsed: string;
+  // 8. Call AWS vLLM - NO FALLBACKS
+  const modelUsed = process.env.AWS_LLM_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
 
-  try {
-    // Try AWS vLLM first
-    const isAwsHealthy = await checkAwsHealth();
-    if (isAwsHealthy && process.env.ENABLE_COMPETE_STACK === 'true') {
-      response = await awsChatCompletion(fullMessages, {
-        temperature: 0.8,
-        max_tokens: 2048,
-      });
-      modelUsed = process.env.AWS_LLM_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
-    } else {
-      throw new Error('AWS vLLM not available');
-    }
-  } catch (awsError) {
-    console.warn('AWS vLLM failed, falling back:', awsError);
-
-    try {
-      // Fallback to Gemini
-      const geminiResponse = await chatWithFileSearch(
-        messages.map(m => ({ role: m.role, content: m.content })),
-        [],
-        systemPrompt
-      );
-      response = geminiResponse.text;
-      modelUsed = 'gemini-2.5-flash';
-    } catch (geminiError) {
-      console.warn('Gemini failed, falling back to OpenAI:', geminiError);
-
-      // Final fallback to OpenAI
-      response = await generateContent(fullMessages, { temperature: 0.8 }) || '';
-      modelUsed = 'gpt-4o';
-    }
+  // Health check first - fail fast if AWS is down
+  const isAwsHealthy = await checkAwsHealth();
+  if (!isAwsHealthy) {
+    throw new Error('AWS vLLM is not healthy. No fallbacks configured - fix AWS infrastructure.');
   }
+
+  const response = await awsChatCompletion(fullMessages, {
+    temperature: 0.8,
+    max_tokens: 2048,
+  });
 
   const responseTime = Date.now() - startTime;
 
@@ -222,35 +198,22 @@ export async function* competeStreamChatCompletion(
     ...messages.filter(m => m.role !== 'system'),
   ];
 
-  // 7. Stream from LLM
+  // 7. Stream from AWS vLLM - NO FALLBACKS
   let fullResponse = '';
-  let modelUsed = process.env.AWS_LLM_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
+  const modelUsed = process.env.AWS_LLM_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
 
-  try {
-    const isAwsHealthy = await checkAwsHealth();
-    if (isAwsHealthy && process.env.ENABLE_COMPETE_STACK === 'true') {
-      for await (const chunk of awsStreamChatCompletion(fullMessages, {
-        temperature: 0.8,
-        max_tokens: 2048,
-      })) {
-        fullResponse += chunk;
-        yield chunk;
-      }
-    } else {
-      throw new Error('AWS vLLM not available');
-    }
-  } catch (error) {
-    console.warn('AWS streaming failed, using non-streaming fallback');
-    modelUsed = 'gemini-2.5-flash';
+  // Health check first - fail fast if AWS is down
+  const isAwsHealthy = await checkAwsHealth();
+  if (!isAwsHealthy) {
+    throw new Error('AWS vLLM is not healthy. No fallbacks configured - fix AWS infrastructure.');
+  }
 
-    // Non-streaming fallback
-    const geminiResponse = await chatWithFileSearch(
-      messages.map(m => ({ role: m.role, content: m.content })),
-      [],
-      systemPrompt
-    );
-    fullResponse = geminiResponse.text;
-    yield fullResponse;
+  for await (const chunk of awsStreamChatCompletion(fullMessages, {
+    temperature: 0.8,
+    max_tokens: 2048,
+  })) {
+    fullResponse += chunk;
+    yield chunk;
   }
 
   const responseTime = Date.now() - startTime;
