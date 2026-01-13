@@ -1,6 +1,6 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-01-12
+**Analysis Date:** 2026-01-13
 
 ## Directory Layout
 
@@ -15,29 +15,38 @@ Soulprint-roughdraft/
 │   ├── enter/              # Gate/access control page
 │   ├── login/              # Login page
 │   ├── questionnaire/      # SoulPrint questionnaire flow
+│   ├── signup/             # Signup page
 │   ├── globals.css         # Global styles
 │   ├── layout.tsx          # Root layout
 │   └── page.tsx            # Landing page
 ├── components/             # Reusable React components
 │   ├── auth/               # Auth-related components
 │   ├── dashboard/          # Dashboard UI components
+│   ├── providers/          # Context providers
 │   ├── sections/           # Landing page sections
-│   ├── ui/                 # Base UI primitives
+│   ├── ui/                 # Base UI primitives (Radix-based)
+│   ├── visualizer/         # 3D visualizer components
 │   └── voice-recorder/     # Voice recording components
 ├── lib/                    # Core business logic
-│   ├── supabase/           # Supabase client utilities
-│   ├── soulprint/          # SoulPrint generation logic
-│   ├── openai/             # OpenAI client and generators
 │   ├── gemini/             # Google Gemini client
-│   ├── llm/                # Unified LLM client
-│   ├── prosody/            # Voice cadence analysis
 │   ├── letta/              # Companion personality
-│   ├── questions.ts        # Questionnaire questions
+│   ├── llm/                # Unified LLM client
+│   ├── openai/             # OpenAI client and generators
+│   ├── prosody/            # Voice cadence analysis
+│   ├── soulprint/          # SoulPrint generation logic
+│   ├── supabase/           # Supabase client utilities
+│   ├── visualizer/         # 3D visualization logic
 │   ├── email.ts            # Email sending
+│   ├── env.ts              # Environment validation
+│   ├── questions.ts        # Questionnaire questions
 │   ├── streak.ts           # Streak CRM integration
 │   └── utils.ts            # Shared utilities
 ├── public/                 # Static assets
-│   └── images/             # Images
+├── scripts/                # Utility scripts
+├── supabase/               # Database configuration
+│   ├── migrations/         # SQL migrations
+│   └── schema.sql          # Full schema
+├── backend/                # Backend utilities (if used)
 ├── middleware.ts           # Auth middleware
 ├── package.json            # Dependencies and scripts
 ├── tsconfig.json           # TypeScript config
@@ -51,7 +60,7 @@ Soulprint-roughdraft/
 **app/:**
 - Purpose: Next.js App Router - pages, layouts, routes
 - Contains: Page components, route handlers, server actions
-- Key files: `layout.tsx`, `page.tsx`, `middleware.ts`
+- Key files: `layout.tsx`, `page.tsx`
 - Subdirectories: Route groups and nested routes
 
 **app/actions/:**
@@ -62,17 +71,17 @@ Soulprint-roughdraft/
 **app/api/:**
 - Purpose: API route handlers
 - Contains: REST endpoints for external integrations
-- Key files: `soulprint/generate/route.ts`, `waitlist/route.ts`, `v1/chat/completions/route.ts`
+- Key files: `soulprint/generate/route.ts`, `voice/analyze/route.ts`, `v1/chat/completions/route.ts`, `gemini/chat/route.ts`
 
 **app/dashboard/:**
 - Purpose: Main authenticated app interface
-- Contains: Dashboard pages (chat, profile, settings, reactor)
+- Contains: Dashboard pages (chat, profile, settings, reactor, bot, pricing, welcome)
 - Key files: `page.tsx` (redirect logic), `chat/page.tsx`, `welcome/page.tsx`
 
 **app/questionnaire/:**
 - Purpose: SoulPrint creation flow
 - Contains: Multi-step questionnaire, voice test, completion
-- Key files: `new/page.tsx`, `complete/page.tsx`
+- Key files: `new/page.tsx`, `complete/page.tsx`, `intro/page.tsx`, `voice-test/page.tsx`
 
 **components/:**
 - Purpose: Reusable UI components
@@ -91,37 +100,44 @@ Soulprint-roughdraft/
 
 **lib/soulprint/:**
 - Purpose: SoulPrint generation logic
-- Contains: `service.ts`, `generator.ts`, `db.ts`, `voice-analyzer.ts`
+- Contains: `service.ts`, `generator.ts`, `db.ts`, `voice-analyzer.ts`, `assemblyai-analyzer.ts`
 - Key files: `service.ts` (main orchestrator)
+
+**lib/gemini/:**
+- Purpose: Google Gemini AI integration
+- Contains: `client.ts`, `soulprint-generator.ts`, `file-search.ts`, `types.ts`
+- Key files: `client.ts` (singleton client)
+
+**supabase/:**
+- Purpose: Database schema and migrations
+- Contains: SQL files for schema management
+- Key files: `schema.sql`, `migrations/*.sql`
 
 ## Key File Locations
 
 **Entry Points:**
-- `app/layout.tsx` - Root layout, global providers
+- `app/layout.tsx` - Root layout, global providers, fonts
 - `app/page.tsx` - Landing page
 - `middleware.ts` - Auth middleware for protected routes
 
 **Configuration:**
 - `package.json` - Dependencies, scripts
-- `tsconfig.json` - TypeScript configuration
-- `tailwind.config.ts` - Tailwind CSS configuration
+- `tsconfig.json` - TypeScript configuration with `@/*` alias
+- `tailwind.config.ts` - Tailwind CSS with custom theme
 - `next.config.ts` - Next.js configuration
 - `.env.local` - Environment variables (gitignored)
 
 **Core Logic:**
 - `lib/soulprint/service.ts` - SoulPrint generation orchestration
 - `lib/supabase/server.ts` - Server-side Supabase client
-- `lib/openai/soulprint-generator.ts` - OpenAI generation
+- `lib/gemini/client.ts` - Gemini AI client singleton
 - `lib/questions.ts` - Questionnaire questions and categories
 - `app/actions/auth.ts` - Authentication actions
 
 **Authentication:**
 - `middleware.ts` - Route protection
 - `app/actions/auth.ts` - Auth server actions
-- `components/auth/login-form.tsx` - Login UI with PIN gate
-
-**Testing:**
-- Not detected (no test directory or config)
+- `lib/supabase/middleware.ts` - Session management
 
 ## Naming Conventions
 
@@ -139,7 +155,7 @@ Soulprint-roughdraft/
 **Special Patterns:**
 - `*.ts` for TypeScript modules
 - `*.tsx` for React components
-- `index.ts` not commonly used (direct imports preferred)
+- `index.ts` for barrel exports in some libs
 
 ## Where to Add New Code
 
@@ -181,7 +197,12 @@ Soulprint-roughdraft/
 - Source: `npm run build`
 - Committed: No (gitignored)
 
+**supabase/migrations/**
+- Purpose: Database migration history
+- Source: Manual SQL files
+- Committed: Yes
+
 ---
 
-*Structure analysis: 2026-01-12*
+*Structure analysis: 2026-01-13*
 *Update when directory structure changes*

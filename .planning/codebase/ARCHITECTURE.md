@@ -1,6 +1,6 @@
 # Architecture
 
-**Analysis Date:** 2026-01-12
+**Analysis Date:** 2026-01-13
 
 ## Pattern Overview
 
@@ -9,7 +9,7 @@
 **Key Characteristics:**
 - Server-side rendering with React Server Components
 - Server Actions for form handling and mutations
-- API routes for external integrations (webhooks, LLM)
+- API routes for external integrations (LLM, voice analysis)
 - Supabase for authentication and data persistence
 - Multi-step questionnaire flow for SoulPrint generation
 
@@ -30,7 +30,7 @@
 
 **API Layer (app/api/):**
 - Purpose: REST endpoints for external integrations
-- Contains: SoulPrint generation, chat completions, webhooks, waitlist
+- Contains: SoulPrint generation, chat completions, voice analysis
 - Location: `app/api/**/*.ts`
 - Depends on: LLM clients, Supabase, external services
 - Used by: Client-side fetch, external services
@@ -54,11 +54,11 @@
 **SoulPrint Generation Flow:**
 
 1. User completes questionnaire (`app/questionnaire/new/page.tsx`)
-2. Answers stored in localStorage
+2. Answers stored in localStorage during session
 3. Submit triggers `POST /api/soulprint/generate`
 4. `processSoulPrint()` in `lib/soulprint/service.ts`:
    - Checks local LLM availability
-   - Falls back to OpenAI GPT-4o
+   - Falls back to Gemini/OpenAI
    - Saves to Supabase `soulprints` table
 5. User names SoulPrint via `updateSoulPrintName()` action
 6. `switchSoulPrint()` sets context cookie
@@ -66,8 +66,8 @@
 
 **Authentication Flow:**
 
-1. User visits `/login` or `/enter`
-2. PIN gate (`7423`) required
+1. User visits `/enter` or `/login`
+2. Access code (`7423`) validation
 3. Credentials validated via Supabase Auth
 4. Session stored in HTTP-only cookies
 5. Middleware checks session on protected routes
@@ -93,8 +93,9 @@
 
 **LLM Clients:**
 - Purpose: AI text generation
-- OpenAI: `lib/openai/client.ts`, `lib/openai/soulprint-generator.ts`
 - Gemini: `lib/gemini/client.ts`, `lib/gemini/soulprint-generator.ts`
+- OpenAI: `lib/openai/client.ts`, `lib/openai/soulprint-generator.ts`
+- Unified: `lib/llm/unified-client.ts`
 - Pattern: Unified interface with provider-specific implementations
 
 **Voice Analyzer:**
@@ -124,8 +125,8 @@
 **Strategy:** Try/catch at action and API boundaries, error components for pages
 
 **Patterns:**
-- Server Actions: Return `{ success: boolean, error?: string }`
-- API Routes: Return appropriate HTTP status codes
+- Server Actions: Return `{ success: boolean, error?: string }` or use `redirect()`
+- API Routes: Return appropriate HTTP status codes with JSON error messages
 - Pages: `error.tsx` boundary components
 - Forms: Display error messages from action responses
 
@@ -138,6 +139,7 @@
 **Validation:**
 - Form validation in components
 - Server-side validation in actions
+- API route input validation
 
 **Authentication:**
 - Supabase Auth middleware in `middleware.ts`
@@ -146,5 +148,5 @@
 
 ---
 
-*Architecture analysis: 2026-01-12*
+*Architecture analysis: 2026-01-13*
 *Update when major patterns change*

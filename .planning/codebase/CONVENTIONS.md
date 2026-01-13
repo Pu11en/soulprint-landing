@@ -1,6 +1,6 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-01-12
+**Analysis Date:** 2026-01-13
 
 ## Naming Patterns
 
@@ -30,12 +30,13 @@
 **Formatting:**
 - 2 space indentation
 - Single quotes for strings (based on observed code)
-- Semicolons used inconsistently (should standardize)
-- No `.prettierrc` detected
+- Semicolons used (consistent)
+- No `.prettierrc` detected (uses defaults)
 
 **Linting:**
-- ESLint configured via Next.js (`next lint`)
-- No custom `.eslintrc` detected
+- ESLint 9.x with flat config (`eslint.config.mjs`)
+- Extends Next.js recommended rules
+- Run: `npm run lint`
 
 ## Import Organization
 
@@ -57,8 +58,8 @@
 ## Error Handling
 
 **Patterns:**
-- Server Actions return `{ success: boolean, error?: string }`
-- API routes return appropriate HTTP status codes
+- Server Actions return `{ success: boolean, error?: string }` or use `redirect()`
+- API routes return appropriate HTTP status codes with JSON
 - Try/catch at boundary level (actions, API routes)
 
 **Error Types:**
@@ -72,9 +73,10 @@ export async function signIn(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({...});
   if (error) {
-    return { success: false, error: error.message };
+    return { error: error.message };
   }
-  redirect("/dashboard");
+  revalidatePath('/', 'layout');
+  redirect('/dashboard/welcome');
 }
 ```
 
@@ -83,32 +85,36 @@ export async function signIn(formData: FormData) {
 **Framework:**
 - `console.log` for debugging
 - `console.error` for errors
+- `console.warn` for warnings
 - No structured logging framework
 
 **Patterns:**
-- Debug logs in development
-- Should remove console.log before production
+- Debug logs with `[Component]` prefixes in some files
+- API routes log request processing steps
+- Should consider structured logging for production
 
 ## Comments
 
 **When to Comment:**
-- Explain complex business logic
-- Document workarounds and TODOs
-- API endpoint descriptions
+- API endpoint descriptions (JSDoc-style headers)
+- Complex business logic
+- Configuration notes
 
 **JSDoc/TSDoc:**
-- Not consistently used
+- Used for API route documentation
+- Not consistently used elsewhere
 - Type annotations provide most documentation
 
 **TODO Comments:**
 - Format: `// TODO: description`
-- Some found in codebase (should track)
+- None found in current codebase (previously removed)
 
 ## Function Design
 
 **Size:**
 - Most functions under 50 lines
 - Server Actions tend to be longer (orchestration)
+- API routes well-structured with clear sections
 
 **Parameters:**
 - Use `FormData` for form actions
@@ -125,7 +131,7 @@ export async function signIn(formData: FormData) {
 **Exports:**
 - Named exports preferred
 - Default exports for page components (Next.js convention)
-- Re-export from index files not commonly used
+- Re-export from index files in some libs (`lib/gemini/index.ts`)
 
 **Server/Client:**
 - `"use server"` directive for Server Actions
@@ -146,7 +152,37 @@ export function LoginForm() {...}
 export default async function DashboardPage() {...}
 ```
 
+## React Patterns
+
+**Hooks:**
+- `useState` for local state
+- `useEffect` for side effects
+- `useRouter` for navigation
+- Custom hooks not detected
+
+**Component Structure:**
+```typescript
+"use client"
+
+import { useState } from "react"
+// ... other imports
+
+export function ComponentName() {
+    const [state, setState] = useState(...)
+
+    // handlers
+    const handleAction = () => {...}
+
+    // effects
+    useEffect(() => {...}, [deps])
+
+    return (
+        // JSX
+    )
+}
+```
+
 ---
 
-*Convention analysis: 2026-01-12*
+*Convention analysis: 2026-01-13*
 *Update when patterns change*

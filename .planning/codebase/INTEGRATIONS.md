@@ -1,53 +1,49 @@
 # External Integrations
 
-**Analysis Date:** 2026-01-12
+**Analysis Date:** 2026-01-13
 
 ## APIs & External Services
 
 **AI/LLM Services:**
-- OpenAI - Primary SoulPrint generation (GPT-4o)
-  - SDK/Client: `openai` npm package v4.x
-  - Auth: API key in `OPENAI_API_KEY` env var
-  - Location: `lib/openai/client.ts`, `lib/openai/soulprint-generator.ts`
-
-- Google Gemini - Alternative LLM provider
-  - SDK/Client: `@google/generative-ai`
+- Google Gemini - Primary SoulPrint generation and chat
+  - SDK/Client: `@google/genai` npm package v1.34.0
   - Auth: API key in `GEMINI_API_KEY` env var
+  - Model: `gemini-2.0-flash` (default)
   - Location: `lib/gemini/client.ts`, `lib/gemini/soulprint-generator.ts`
 
+- OpenAI - Alternative LLM provider
+  - SDK/Client: Custom client in `lib/openai/client.ts`
+  - Auth: API key in `OPENAI_API_KEY` env var
+  - Location: `lib/openai/soulprint-generator.ts`
+
 **Voice Processing:**
-- AssemblyAI - Voice transcription and analysis
+- AssemblyAI - Voice transcription and emotional analysis
   - SDK/Client: `assemblyai` v4.19.0
   - Auth: API key in `ASSEMBLYAI_API_KEY` env var
-  - Location: `lib/soulprint/assemblyai-analyzer.ts`
+  - Location: `lib/soulprint/assemblyai-analyzer.ts`, `app/api/voice/analyze/route.ts`
+  - Features: Transcription, sentiment analysis, word-level timestamps
 
 **Email:**
 - Gmail (via Nodemailer) - Transactional emails
   - SDK/Client: `nodemailer` with OAuth2 transport
-  - Auth: Gmail OAuth2 credentials (CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN)
+  - Auth: Gmail OAuth2 credentials in env vars
   - Location: `lib/email.ts`
-
-**CRM:**
-- Streak - Lead management and tracking
-  - Integration method: REST API via fetch
-  - Auth: API key hardcoded in `lib/streak.ts`
-  - Location: `lib/streak.ts`
-  - Note: Used for waitlist/gate registrations
 
 ## Data Storage
 
 **Databases:**
 - PostgreSQL on Supabase - Primary data store
-  - Connection: via `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
-  - Client: `@supabase/supabase-js` v2.x, `@supabase/ssr`
+  - Connection: via `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - Service Key: `SUPABASE_SERVICE_ROLE_KEY` for admin operations
+  - Client: `@supabase/supabase-js` v2.84.0, `@supabase/ssr` v0.7.0
   - Location: `lib/supabase/server.ts`, `lib/supabase/client.ts`
   - Tables: `soulprints`, `profiles`, `api_keys`, `chats`, `chat_history`
+  - Migrations: `supabase/migrations/*.sql`
 
 **File Storage:**
-- Supabase Storage - User uploads, audio files
+- Supabase Storage - Potential user uploads
   - SDK/Client: `@supabase/supabase-js`
   - Auth: Same as database
-  - Buckets: Not explicitly configured in code
 
 **Caching:**
 - None detected (no Redis or caching layer)
@@ -65,12 +61,11 @@
 - Google OAuth - Social sign-in
   - Credentials: Configured in Supabase dashboard
   - Location: `app/actions/auth.ts` (`signInWithGoogle`)
+  - Scopes: email, profile
 
 **Access Control:**
-- PIN Gate: Hardcoded `7423` for beta access
-  - Location: `components/auth/login-form.tsx`, `app/actions/gate.ts`
-- Access Code: `7423` for registration
-  - Location: `app/actions/gate.ts`
+- Access Code: `7423` for beta access
+  - Location: `app/actions/gate.ts`, `app/enter/page.tsx`
 
 ## Monitoring & Observability
 
@@ -90,7 +85,7 @@
 - Vercel - Next.js hosting
   - Deployment: Automatic on push (configured)
   - Environment vars: Vercel dashboard
-  - Location: `vercel.json` (if exists), `next.config.ts`
+  - Custom domain: `soulprintengine.ai`
 
 **CI Pipeline:**
 - Not detected (no GitHub Actions workflows)
@@ -101,16 +96,15 @@
 - Required env vars:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  - `SUPABASE_SERVICE_ROLE_KEY`
-  - `OPENAI_API_KEY`
-  - `GEMINI_API_KEY` (optional)
+  - `GEMINI_API_KEY`
   - `ASSEMBLYAI_API_KEY`
-  - Gmail OAuth credentials
+- Optional: Gmail OAuth credentials
 - Secrets location: `.env.local` (gitignored)
 
 **Production:**
 - Secrets management: Vercel environment variables
 - Same vars as development
+- Custom domain configured
 
 ## Webhooks & Callbacks
 
@@ -119,16 +113,15 @@
   - Purpose: Handle OAuth redirect from Supabase
   - Verification: Supabase handles token exchange
 
-**Outgoing:**
-- Streak CRM - On registration
-  - Endpoint: Streak API
-  - Location: `lib/streak.ts` (`createStreakLead`)
-  - Trigger: User completes gate registration
+- n8n Webhook - Voice analysis automation
+  - Endpoint: Configured via `NEXT_PUBLIC_N8N_SOULPRINT_WEBHOOK`
+  - Location: `lib/prosody/webhook.ts`
 
-- Gmail - On registration
-  - Endpoint: Gmail SMTP via OAuth2
-  - Location: `lib/email.ts` (`sendConfirmationEmail`)
-  - Trigger: User completes gate registration
+**Outgoing:**
+- n8n Automation - SoulPrint processing
+  - Endpoint: External webhook URL
+  - Location: `lib/prosody/webhook.ts`
+  - Trigger: Voice analysis completion
 
 ## API Endpoints
 
@@ -137,11 +130,10 @@
 - `POST /api/soulprint/submit` - Alternative submission endpoint
 - `POST /api/v1/chat/completions` - OpenAI-compatible chat API
 - `POST /api/gemini/chat` - Gemini chat endpoint
-- `POST /api/voice/analyze` - Voice analysis
+- `POST /api/voice/analyze` - AssemblyAI voice analysis
 - `POST /api/audio/analyze` - Audio analysis
-- `POST /api/waitlist` - Waitlist submission (Streak integration)
 
 ---
 
-*Integration audit: 2026-01-12*
+*Integration audit: 2026-01-13*
 *Update when adding/removing external services*

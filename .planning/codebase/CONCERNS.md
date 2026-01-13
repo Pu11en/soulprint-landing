@@ -1,160 +1,163 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-01-12
+**Analysis Date:** 2026-01-13
 
 ## Tech Debt
 
 **Hardcoded Access Codes:**
-- Issue: PIN (`7423`) and access code hardcoded in multiple files
-- Files: `components/auth/login-form.tsx`, `app/actions/gate.ts`
+- Issue: Access code (`7423`) hardcoded in multiple files
+- Files: `app/actions/gate.ts`, `app/enter/page.tsx`
 - Why: Quick beta access control
 - Impact: Can't change access without code deployment
-- Fix approach: Move to environment variables or database-driven access control
+- Fix approach: Move to environment variable or database-driven access control
 
-**Streak API Key Hardcoded:**
-- Issue: Streak API key directly in source code
-- File: `lib/streak.ts`
-- Why: Oversight during rapid development
-- Impact: Security risk if repo is public, can't rotate key easily
-- Fix approach: Move to `STREAK_API_KEY` environment variable
+**Supabase Admin Client Duplicated:**
+- Issue: Admin client created identically in multiple API routes
+- Files: `app/api/gemini/chat/route.ts`, `app/api/v1/chat/completions/route.ts`
+- Fix approach: Extract to `lib/supabase/admin.ts`
 
-**Waitlist/Gate System Complexity:**
-- Issue: Multiple overlapping access control systems (PIN gate, access code, waitlist)
-- Files: `app/enter/page.tsx`, `app/login/page.tsx`, `app/actions/gate.ts`, `components/auth/login-form.tsx`
-- Why: Evolved during beta testing
-- Impact: Confusing user experience, maintenance burden
-- Fix approach: Simplify to standard auth flow (remove PIN, access code, waitlist for public launch)
+**Multiple Voice Recorder Versions:**
+- Issue: Three versions of voice recorder component exist
+- Files: `components/voice-recorder/VoiceRecorder.tsx`, `VoiceRecorderV2.tsx`, `VoiceRecorderV3.tsx`
+- Impact: Maintenance burden, unclear which to use
+- Fix approach: Consolidate to single component, remove deprecated versions
 
-**Demo User Hardcoded:**
-- Issue: Demo credentials hardcoded in multiple places
-- Files: `app/actions/auth.ts`, `app/dashboard/page.tsx`
-- Why: Quick demo access for testing
-- Impact: Security risk, bypasses normal auth
-- Fix approach: Remove demo mode or use proper feature flag
+**Unsafe JSON.parse Operations:**
+- Issue: `JSON.parse()` without try/catch in client code
+- Files:
+  - `app/questionnaire/new/page.tsx`
+  - `app/dashboard/chat/chat-client.tsx`
+- Risk: Malformed localStorage data could crash the app
+- Fix approach: Wrap all JSON.parse in try/catch with fallback
 
-## Known Bugs
-
-**Race Condition in SoulPrint Status:**
-- Symptoms: User may see stale SoulPrint count after generation
-- Trigger: Fast navigation after SoulPrint generation
-- File: `app/dashboard/page.tsx` (redirect logic checks SoulPrint count)
-- Workaround: Page refresh shows correct state
-- Root cause: Server component cache not invalidated immediately
+---
 
 ## Security Considerations
 
-**No Input Sanitization on Questionnaire:**
-- Risk: XSS or injection via questionnaire answers stored and displayed
-- Files: `app/questionnaire/new/page.tsx`, stored in Supabase `soulprints.soulprint_data`
-- Current mitigation: React escapes output by default
-- Recommendations: Add explicit input validation before storage
+**Environment Variable Validation:**
+- Issue: `lib/env.ts` may not enforce all required vars at startup
+- Risk: Missing env vars cause runtime errors rather than startup failure
+- Files: `lib/env.ts`, `lib/gemini/client.ts`
+- Current mitigation: Gemini client has warning but uses dummy key
+- Recommendations: Add strict validation or use zod for env parsing
 
 **Sensitive Data in localStorage:**
-- Risk: Questionnaire answers (potentially personal) stored in browser localStorage
+- Risk: Questionnaire answers stored in browser localStorage
 - File: `app/questionnaire/new/page.tsx`
 - Current mitigation: Cleared after submission
 - Recommendations: Consider session storage or server-side storage
 
 **Missing Rate Limiting:**
 - Risk: API endpoints vulnerable to abuse
-- Files: `app/api/soulprint/generate/route.ts`, `app/api/waitlist/route.ts`
-- Current mitigation: None
-- Recommendations: Add rate limiting middleware or use Vercel edge config
+- Files: `app/api/soulprint/generate/route.ts`, `app/api/voice/analyze/route.ts`
+- Current mitigation: Usage limits per user (trial system)
+- Recommendations: Add rate limiting middleware
 
-**No CSRF Protection on Forms:**
-- Risk: Cross-site request forgery on forms
-- Files: All form submissions
-- Current mitigation: Supabase session cookies are SameSite
-- Recommendations: Add CSRF tokens for extra security
+---
 
 ## Performance Bottlenecks
 
 **SoulPrint Generation Latency:**
-- Problem: OpenAI API calls can take 5-15 seconds
-- File: `lib/soulprint/service.ts`, `app/api/soulprint/generate/route.ts`
-- Measurement: User-visible loading time during generation
-- Cause: Synchronous API call to OpenAI
+- Problem: LLM API calls can take 5-15 seconds
+- Files: `lib/soulprint/service.ts`, `app/api/soulprint/generate/route.ts`
 - Improvement path: Add streaming response, show progress indicators
 
-**No Database Indexing Strategy:**
-- Problem: Queries may be slow as data grows
-- File: Supabase table definitions (not in codebase)
-- Cause: No explicit index definitions
-- Improvement path: Add indexes on `user_id`, `created_at` for soulprints table
+**Large Client Components:**
+- Problem: Large files without code splitting
+- Files: `app/dashboard/chat/chat-client.tsx`, `app/questionnaire/new/page.tsx`
+- Improvement path: Dynamic imports with `React.lazy()`, component splitting
+
+**Voice Analysis Processing:**
+- Problem: AssemblyAI processing adds latency
+- File: `app/api/voice/analyze/route.ts`
+- Current: 60-second max duration configured
+- Improvement path: Background processing with status polling
+
+---
 
 ## Fragile Areas
 
 **Questionnaire Answer Storage:**
 - File: `app/questionnaire/new/page.tsx`
-- Why fragile: localStorage + complex state management for multi-step form
-- Common failures: Lost answers on browser refresh, localStorage quota issues
-- Safe modification: Test all question types after changes
+- Why fragile: localStorage + complex state management
+- Common failures: Lost answers on browser refresh
 - Test coverage: None
 
 **LLM Fallback Chain:**
 - File: `lib/soulprint/service.ts`
 - Why fragile: Multiple LLM providers with different APIs
 - Common failures: API changes, rate limits, timeout handling
-- Safe modification: Test each provider individually
 - Test coverage: None
+
+**Voice Processing Pipeline:**
+- Files: `lib/soulprint/assemblyai-analyzer.ts`, `components/voice-recorder/`
+- Why fragile: Depends on external API (AssemblyAI), browser APIs
+- Common failures: API failures, browser compatibility, network issues
+
+---
 
 ## Missing Critical Features
 
-**No Email Verification:**
-- Problem: Users can register with any email without verification
-- Current workaround: Trust user input
-- Blocks: Can't verify user identity
-- Implementation complexity: Low (Supabase has built-in email verification)
+**No Structured Logging:**
+- Problem: Only console.log for debugging
+- Impact: Can't debug production issues effectively
+- Fix: Add pino or winston
 
-**No Password Reset:**
-- Problem: Users can't recover accounts
-- Files: Not implemented
-- Current workaround: Manual intervention
-- Blocks: Self-service account recovery
-- Implementation complexity: Low (Supabase has built-in reset flow)
+**No Error Tracking:**
+- Problem: No Sentry or similar error tracking
+- Impact: Don't know when production breaks
+- Fix: Add Sentry Next.js SDK
 
-**No SoulPrint Export:**
-- Problem: Users can't export their SoulPrint data
-- Current workaround: Copy from UI
-- Blocks: Data portability, GDPR compliance
-- Implementation complexity: Low (JSON export endpoint)
+**No CI/CD Pipeline:**
+- Problem: No automated testing or deployment checks
+- Impact: Manual testing only, potential regressions
+- Fix: Add GitHub Actions workflow
+
+---
 
 ## Test Coverage Gaps
 
 **No Test Suite:**
-- What's not tested: Everything
-- Risk: Regressions on any code change, especially auth and SoulPrint generation
+- What's not tested: All application code
+- Risk: Regressions on any code change
 - Priority: High
-- Difficulty to test: Need to set up Vitest, mock Supabase and OpenAI
+- Recommended: Vitest + React Testing Library
 
 **Critical Untested Paths:**
-- Authentication flow (`app/actions/auth.ts`)
-- SoulPrint generation (`lib/soulprint/service.ts`)
-- Gate registration (`app/actions/gate.ts`)
-- API endpoints (`app/api/**/*.ts`)
-
-## Dependencies at Risk
-
-**React 19.2.0:**
-- Risk: Very recent version, ecosystem catching up
-- Impact: Some third-party components may not be compatible
-- Migration plan: Monitor for issues, have React 18 fallback ready
-
-## Documentation Gaps
-
-**Missing .env.example:**
-- Problem: No template for required environment variables
-- File: Should exist at root
-- Impact: New developers don't know required vars
-- Fix: Create `.env.example` with all required vars (no values)
-
-**No API Documentation:**
-- Problem: Internal API endpoints undocumented
-- Files: `app/api/**/*.ts`
-- Impact: Hard to understand expected request/response format
-- Fix: Add JSDoc comments or OpenAPI spec
+1. Authentication flow (`app/actions/auth.ts`)
+2. SoulPrint generation (`lib/soulprint/service.ts`)
+3. API key validation (`app/api/**/*.ts`)
+4. Voice analysis pipeline (`lib/soulprint/assemblyai-analyzer.ts`)
 
 ---
 
-*Concerns audit: 2026-01-12*
+## Dependencies at Risk
+
+**React 19 + Next.js 16:**
+- Risk: Very recent versions, ecosystem catching up
+- Impact: Some third-party packages may not be compatible
+- Mitigation: Monitor for issues, test updates carefully
+
+**@google/genai:**
+- Risk: Newer package, API may evolve
+- Impact: Breaking changes possible
+- Mitigation: Pin version, review changelogs before updates
+
+---
+
+## Scaling Limits
+
+**Supabase Free/Pro Tier:**
+- Current: Using Supabase for all data
+- Limit: Connection limits, storage limits per tier
+- Scaling path: Monitor usage, upgrade tier as needed
+
+**Vercel Serverless:**
+- Current: API routes as serverless functions
+- Limit: 10s default timeout (can extend)
+- Note: Voice analysis has 60s timeout configured
+
+---
+
+*Concerns audit: 2026-01-13*
 *Update as issues are fixed or new ones discovered*
