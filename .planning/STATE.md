@@ -10,11 +10,23 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 ## Current Position
 
 Phase: 2 of 6 (LLM Integration)
-Plan: 02-01 complete, ready for 02-02
-Status: SageMaker client and API route created, ready to deploy model
-Last activity: 2026-01-13 — Plan 02-01 completed
+Plan: 02-01 in progress (deployment step incomplete)
+Status: **BLOCKED** - SageMaker JumpStart deployment not completing
+Last activity: 2026-01-13 — Deployment attempted, not finishing
 
-Progress: ██░░░░░░░░ 20%
+Progress: ██░░░░░░░░ 15%
+
+### HANDOFF: What Needs to Happen
+
+The LLM deployment to SageMaker is not working. Multiple approaches tried:
+
+1. **Custom container (TGI)** - Container health check failed
+2. **JumpStart (current attempt)** - Script runs but no AWS resources created after 20+ min
+
+**Options for next AI:**
+1. Debug JumpStart deployment (`scripts/deploy-jumpstart.py`)
+2. Use AWS Bedrock instead (simpler, no deployment needed)
+3. Use external provider (OpenRouter, Together.ai) as fallback
 
 ## Performance Metrics
 
@@ -60,6 +72,25 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Plan 02-01 complete, AWS setup done, code ready
-Resume file: .planning/phases/02-llm-integration/02-01-SUMMARY.md
-Next: Create execution role, request GPU quota, deploy model
+Stopped at: SageMaker deployment blocked - JumpStart not creating resources
+Resume file: .planning/STATE.md (this file)
+Next: Choose different approach - Bedrock or external provider recommended
+
+### Files Created This Session
+
+- `scripts/deploy-jumpstart.py` - JumpStart deployment (not working)
+- `scripts/deploy-sagemaker.ts` - TypeScript deployment attempt
+- `scripts/cleanup-sagemaker.ts` - Cleanup script
+- `scripts/check-status.ts` - Status checker
+- `lib/aws/sagemaker.ts` - SageMaker client (working)
+- `app/api/llm/chat/route.ts` - API endpoint (needs working endpoint)
+
+### AWS Config in .env.local
+
+```
+AWS_ACCESS_KEY_ID=AKIA36MTOXRJLGJFX2EH
+AWS_SECRET_ACCESS_KEY=<set>
+AWS_REGION=us-east-1
+SAGEMAKER_ENDPOINT_NAME=soulprint-llm
+SAGEMAKER_EXECUTION_ROLE_ARN=arn:aws:iam::821184871506:role/soulprint-sagemaker-execution-role
+```
