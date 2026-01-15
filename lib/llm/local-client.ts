@@ -1,7 +1,11 @@
 /**
- * Local LLM Client - Ollama + Hermes 3
- * Replaces Gemini for human-like conversation when available
+ * LLM Client - SageMaker + Ollama Fallback
+ * 
+ * Production: Uses AWS SageMaker (Hermes-2-Pro-Llama-3)
+ * Development: Falls back to local Ollama if SageMaker unavailable
  */
+
+import { invokeSoulPrintModel, invokeSoulPrintModelStream } from '@/lib/aws/sagemaker';
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const DEFAULT_MODEL = 'hermes3';
@@ -12,12 +16,21 @@ export interface ChatMessage {
 }
 
 /**
- * Check if Ollama is running and the model is available
+ * Check if we're in a serverless environment (Vercel, AWS Lambda, etc.)
  */
-export async function checkHealth(): Promise<boolean> {
+function isServerless(): boolean {
+    return !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL_ENV);
+}
+
+/**
+ * Check if Ollama is running locally (for development)
+ */
+export async function checkOllamaHealth(): Promise<boolean> {
+    if (isServerless()) return false; // Don't even try in serverless
+
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1000); // 1s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
 
         const res = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
             signal: controller.signal
@@ -27,97 +40,185 @@ export async function checkHealth(): Promise<boolean> {
         if (!res.ok) return false;
 
         const data = await res.json();
-        // Check if hermes3 (or similar) is in the list
-        const hasModel = data.models?.some((m: any) => m.name.includes('hermes3'));
+        const hasModel = data.models?.some((m: { name: string }) => m.name.includes('hermes3'));
         return hasModel;
-    } catch (e) {
+    } catch {
         return false;
     }
 }
 
 /**
- * Stream chat completion from Ollama
+ * Check if SageMaker is configured
+ */
+function isSageMakerConfigured(): boolean {
+    return !!(
+        process.env.AWS_ACCESS_KEY_ID &&
+        process.env.AWS_SECRET_ACCESS_KEY &&
+        process.env.SAGEMAKER_ENDPOINT_NAME
+    );
+}
+
+/**
+ * Format messages for SageMaker (ChatML format for Hermes)
+ */
+function formatChatML(messages: ChatMessage[]): string {
+    let prompt = "";
+    for (const m of messages) {
+        prompt += `<|im_start|>${m.role}\n${m.content}\n<|im_end|>\n`;
+    }
+    prompt += "<|im_start|>assistant\n";
+    return prompt;
+}
+
+/**
+ * Stream chat completion - SageMaker primary, Ollama fallback
  */
 export async function* streamChatCompletion(
     messages: ChatMessage[],
     model: string = DEFAULT_MODEL
 ): AsyncGenerator<string, void, unknown> {
-    try {
-        const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model,
-                messages,
-                stream: true,
-                options: {
-                    temperature: 0.8, // Higher for more "human" creativity
-                    num_ctx: 4096     // Context window
-                }
-            }),
-        });
+    // Try SageMaker first (production)
+    if (isSageMakerConfigured()) {
+        console.log('[LLM] Using SageMaker (streaming)');
+        try {
+            const prompt = formatChatML(messages);
+            const stream = invokeSoulPrintModelStream({
+                inputs: prompt,
+                parameters: {
+                    max_new_tokens: 1024,
+                    temperature: 0.7,
+                    details: false
+                },
+                stream: true
+            });
 
-        if (!response.ok) {
-            throw new Error(`Ollama API error: ${response.statusText}`);
+            for await (const chunk of stream) {
+                yield chunk;
+            }
+            return;
+        } catch (error) {
+            console.error('[LLM] SageMaker streaming failed:', error);
+            // Fall through to Ollama if in dev
+            if (isServerless()) throw error;
         }
+    }
 
-        if (!response.body) throw new Error('No response body');
+    // Fallback to Ollama (development only)
+    const ollamaAvailable = await checkOllamaHealth();
+    if (!ollamaAvailable) {
+        throw new Error('No LLM available. SageMaker not configured and Ollama not running.');
+    }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+    console.log('[LLM] Using Ollama (streaming)');
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model,
+            messages,
+            stream: true,
+            options: { temperature: 0.8, num_ctx: 4096 }
+        }),
+    });
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+    if (!response.ok) {
+        throw new Error(`Ollama API error: ${response.statusText}`);
+    }
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+    if (!response.body) throw new Error('No response body');
 
-            for (const line of lines) {
-                try {
-                    const json = JSON.parse(line);
-                    if (json.message?.content) {
-                        yield json.message.content;
-                    }
-                    if (json.done) {
-                        return;
-                    }
-                } catch (e) {
-                    console.error('Error parsing Ollama chunk:', e);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+            try {
+                const json = JSON.parse(line);
+                if (json.message?.content) {
+                    yield json.message.content;
                 }
+                if (json.done) {
+                    return;
+                }
+            } catch {
+                // Skip parse errors
             }
         }
-    } catch (error) {
-        console.error('Local LLM Stream Error:', error);
-        throw error;
     }
 }
 
 /**
- * Non-streaming chat completion
+ * Non-streaming chat completion - SageMaker primary, Ollama fallback
  */
 export async function chatCompletion(
     messages: ChatMessage[],
     model: string = DEFAULT_MODEL
 ): Promise<string> {
-    try {
-        const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model,
-                messages,
-                stream: false,
-                options: { temperature: 0.8 }
-            }),
-        });
+    // Try SageMaker first (production)
+    if (isSageMakerConfigured()) {
+        console.log('[LLM] Using SageMaker (non-streaming)');
+        try {
+            const prompt = formatChatML(messages);
+            const response = await invokeSoulPrintModel({
+                inputs: prompt,
+                parameters: {
+                    max_new_tokens: 1024,
+                    temperature: 0.7,
+                    details: false
+                }
+            });
 
-        if (!response.ok) throw new Error('Ollama API failed');
+            // Parse TGI response
+            if (Array.isArray(response) && response[0]?.generated_text) {
+                let text = response[0].generated_text;
+                if (text.startsWith(prompt)) {
+                    text = text.substring(prompt.length);
+                }
+                return text.trim();
+            }
 
-        const data = await response.json();
-        return data.message?.content || '';
-    } catch (error) {
-        console.error('Local LLM Error:', error);
-        throw error;
+            return typeof response === 'string' ? response : JSON.stringify(response);
+        } catch (error) {
+            console.error('[LLM] SageMaker failed:', error);
+            if (isServerless()) throw error;
+            // Fall through to Ollama if in dev
+        }
     }
+
+    // Fallback to Ollama (development only)
+    const ollamaAvailable = await checkOllamaHealth();
+    if (!ollamaAvailable) {
+        throw new Error('No LLM available. SageMaker not configured and Ollama not running.');
+    }
+
+    console.log('[LLM] Using Ollama (non-streaming)');
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model,
+            messages,
+            stream: false,
+            options: { temperature: 0.8 }
+        }),
+    });
+
+    if (!response.ok) throw new Error('Ollama API failed');
+
+    const data = await response.json();
+    return data.message?.content || '';
+}
+
+/**
+ * Legacy health check - returns true if any LLM is available
+ */
+export async function checkHealth(): Promise<boolean> {
+    if (isSageMakerConfigured()) return true;
+    return checkOllamaHealth();
 }

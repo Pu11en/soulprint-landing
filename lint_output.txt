@@ -1,0 +1,520 @@
+
+> soulprint@0.1.0 lint
+> eslint
+
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\actions\api-keys.ts
+   18:24  warning  'cookiesToSet' is defined but never used  @typescript-eslint/no-unused-vars
+  124:24  warning  'cookiesToSet' is defined but never used  @typescript-eslint/no-unused-vars
+  174:24  warning  'cookiesToSet' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\actions\gate.ts
+  9:40  warning  '_prevState' is defined but never used  @typescript-eslint/no-unused-vars
+  9:61  warning  '_formData' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\actions\test-agent.ts
+  18:24  warning  'cookiesToSet' is defined but never used         @typescript-eslint/no-unused-vars
+  37:15  warning  'storeNames' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  60:17  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\api\audio\analyze\route.ts
+  144:18  warning  'parseError' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\api\llm\chat\route.ts
+  148:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\api\soulprint\generate\route.ts
+  72:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\api\v1\chat\completions\route.ts
+  104:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\dashboard\bot\page.tsx
+   97:18   warning  'e' is defined but never used                                    @typescript-eslint/no-unused-vars
+  141:122  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\dashboard\chat\chat-client.tsx
+    6:10  warning  'generateApiKey' is defined but never used                                                                   @typescript-eslint/no-unused-vars
+  104:26  warning  'e' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  131:8   warning  React Hook useEffect has a missing dependency: 'supabase'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  248:38  warning  'e' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  264:18  warning  'e' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\dashboard\pricing\page.tsx
+  75:13  error  Error: This value cannot be modified
+
+Modifying a variable defined outside a component or hook is not allowed. Consider using an effect.
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\dashboard\pricing\page.tsx:75:13
+  73 |             router.push('/questionnaire')
+  74 |         } else if (tierName === "Enterprise") {
+> 75 |             window.location.href = 'mailto:hello@soulprint.ai?subject=Enterprise%20Inquiry'
+     |             ^^^^^^^^^^^^^^^ value cannot be modified
+  76 |         } else if (tierName === "Standard") {
+  77 |             alert('Standard plan coming soon! Start with Basic for now.')
+  78 |         }  react-hooks/immutability
+  91:83  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\dashboard\profile\page.tsx
+   7:20  warning  'RefreshCw' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+   8:28  warning  'switchSoulPrint' is defined but never used                                                                  @typescript-eslint/no-unused-vars
+  35:50  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+  47:8   warning  React Hook useEffect has a missing dependency: 'loadList'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  90:20  warning  'handleSwitchAndEdit' is defined but never used                                                              @typescript-eslint/no-unused-vars
+  97:31  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\dashboard\settings\page.tsx
+  7:10  warning  'Check' is defined but never used  @typescript-eslint/no-unused-vars
+  7:17  warning  'Info' is defined but never used   @typescript-eslint/no-unused-vars
+  7:23  warning  'Lock' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\dashboard\welcome\page.tsx
+  13:12  warning  'userEmail' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\questionnaire\complete\page.tsx
+  32:8  warning  React Hook useEffect has a missing dependency: 'generateSoulPrint'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\questionnaire\intro\page.tsx
+  108:40   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  111:158  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  114:42   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  114:95   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  124:40   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\questionnaire\new\page.tsx
+   10:21  warning  'Question' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   16:35  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+   38:36  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  120:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\questionnaire\new\page.tsx:120:13
+  118 |
+  119 |         if (savedAnswers) {
+> 120 |             setAnswers(JSON.parse(savedAnswers))
+      |             ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  121 |         }
+  122 |         if (savedIndex) {
+  123 |             setCurrentQuestionIndex(parseInt(savedIndex))                                                                                                                                            react-hooks/set-state-in-effect
+  131:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\questionnaire\new\page.tsx:131:13
+  129 |         const savedAnswer = answers[currentQuestion?.id]
+  130 |         if (currentQuestion?.type === "slider") {
+> 131 |             setSliderValue([typeof savedAnswer === "number" ? savedAnswer : 50])
+      |             ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  132 |         } else if (currentQuestion?.type === "voice") {
+  133 |             setVoiceRecorded(!!savedAnswer)
+  134 |         } else {  react-hooks/set-state-in-effect
+  137:8   warning  React Hook useEffect has a missing dependency: 'answers'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    react-hooks/exhaustive-deps
+  155:42  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  179:15  warning  'updatedAnswers' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  229:13  error    'preset' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             prefer-const
+  374:40  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\app\questionnaire\voice-test\page.tsx
+   22:15  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   83:65  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+   83:85  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  146:27  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  146:36  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\auth\signup-modal.tsx
+   8:8  warning  'Link' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  25:9  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\auth\signup-modal.tsx:25:9
+  23 |
+  24 |     useEffect(() => {
+> 25 |         setMounted(true);
+     |         ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  26 |     }, []);
+  27 |
+  28 |     const handleEmailSignUp = async (e: React.FormEvent) => {  react-hooks/set-state-in-effect
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\dashboard\progress-stepper.tsx
+  18:48  warning  'currentQuestion' is defined but never used       @typescript-eslint/no-unused-vars
+  18:65  warning  'totalQuestionsInPart' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\dashboard\questionnaire-progress.tsx
+  44:35  warning  'index' is defined but never used     @typescript-eslint/no-unused-vars
+  72:5   warning  'partName' is defined but never used  @typescript-eslint/no-unused-vars
+  98:5   warning  'onDeploy' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\dashboard\sidebar.tsx
+  36:17  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\dashboard\soulprint-logo.tsx
+  66:5  warning  'variant' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\dashboard\top-bar.tsx
+   7:8   warning  'Image' is defined but never used               @typescript-eslint/no-unused-vars
+  11:12  warning  'userEmail' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\sections\about-section.tsx
+  55:44  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  70:27  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  70:63  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\sections\footer.tsx
+  2:10  warning  'Facebook' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\sections\hero.tsx
+   5:8   warning  'Image' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   9:8   warning  'Link' is defined but never used                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+  71:21  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\sections\memory-section.tsx
+  45:50  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\sections\navbar.tsx
+  11:12  warning  'mounted' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+  14:11  warning  'LOGIN_ENABLED' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  17:9   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\sections\navbar.tsx:17:9
+  15 |
+  16 |     useEffect(() => {
+> 17 |         setMounted(true)
+     |         ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  18 |     }, [])
+  19 |
+  20 |     return (  react-hooks/set-state-in-effect
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\sections\pricing.tsx
+  70:45  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\ui\dot-shader-background.tsx
+  100:31  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  101:35  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  106:11  warning  The 'themeColors' object makes the dependencies of useEffect Hook (at line 124) change on every render. Move it inside the useEffect callback. Alternatively, wrap the initialization of 'themeColors' in its own useMemo() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/exhaustive-deps
+  123:9   error    Error: This value cannot be modified
+
+Modifying a value previously passed as an argument to a hook is not allowed. Consider moving the modification before calling the hook.
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\ui\dot-shader-background.tsx:123:9
+  121 |         dotMaterial.uniforms.dotColor.value.set(themeColors.dotColor)
+  122 |         dotMaterial.uniforms.bgColor.value.set(themeColors.bgColor)
+> 123 |         dotMaterial.uniforms.dotOpacity.value = themeColors.dotOpacity
+      |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `dotMaterial` cannot be modified
+  124 |     }, [dotMaterial, themeColors])
+  125 |
+  126 |     useFrame((state) => {  react-hooks/immutability
+  127:9   error    Error: This value cannot be modified
+
+Modifying a value previously passed as an argument to a hook is not allowed. Consider moving the modification before calling the hook.
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\ui\dot-shader-background.tsx:127:9
+  125 |
+  126 |     useFrame((state) => {
+> 127 |         dotMaterial.uniforms.time.value = state.clock.elapsedTime
+      |         ^^^^^^^^^^^^^^^^^^^^^^^^^ `dotMaterial` cannot be modified
+  128 |     })
+  129 |
+  130 |     const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {                                                                                                                  react-hooks/immutability
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\ui\ruixen-bento-cards.tsx
+  5:8  warning  'Link' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorder.tsx
+   21:52  warning  'AnalysisResult' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+   50:3   warning  'userId' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   51:3   warning  'pillarId' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+  102:7   error    Error: Cannot access variable before it is declared
+
+`stopRecording` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorder.tsx:102:7
+  100 |   useEffect(() => {
+  101 |     if (state === 'recording' && duration >= maxDuration) {
+> 102 |       stopRecording();
+      |       ^^^^^^^^^^^^^ `stopRecording` accessed before it is declared
+  103 |     }
+  104 |   }, [duration, maxDuration, state]);
+  105 |   
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorder.tsx:223:3
+  221 |    * Stop recording
+  222 |    */
+> 223 |   const stopRecording = useCallback(() => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 224 |     if (timerRef.current) {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 225 |       clearInterval(timerRef.current);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 226 |       timerRef.current = null;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 227 |     }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 228 |     
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 229 |     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 230 |       mediaRecorderRef.current.stop();
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 231 |     }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 232 |   }, []);
+      | ^^^^^^^^^^ `stopRecording` is declared here
+  233 |   
+  234 |   /**
+  235 |    * Reset and allow re-recording  react-hooks/immutability
+  104:6   warning  React Hook useEffect has a missing dependency: 'stopRecording'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+  192:11  error    Error: Cannot access variable before it is declared
+
+`analyzeRecording` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorder.tsx:192:11
+  190 |         // Auto-analyze if enabled
+  191 |         if (autoSubmit) {
+> 192 |           analyzeRecording(blob);
+      |           ^^^^^^^^^^^^^^^^ `analyzeRecording` accessed before it is declared
+  193 |         }
+  194 |       };
+  195 |       
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorder.tsx:252:3
+  250 |    * Analyze recording using browser-based SoulPrint analyzer
+  251 |    */
+> 252 |   const analyzeRecording = useCallback(async (blob?: Blob) => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 253 |     const recordingBlob = blob || audioBlob;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 254 |     
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 297 |     }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 298 |   }, [audioBlob, onAnalysisComplete, onError]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `analyzeRecording` is declared here
+  299 |   
+  300 |   /**
+  301 |    * Generate a short, user-friendly summary of the emotional signature                                                                                                                                                                   react-hooks/immutability
+  218:6   warning  React Hook useCallback has a missing dependency: 'analyzeRecording'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   react-hooks/exhaustive-deps
+  272:28  error    Error: Cannot access variable before it is declared
+
+`generateShortSummary` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorder.tsx:272:28
+  270 |       
+  271 |       // Generate a short, human-friendly summary
+> 272 |       const shortSummary = generateShortSummary(result.curve);
+      |                            ^^^^^^^^^^^^^^^^^^^^ `generateShortSummary` accessed before it is declared
+  273 |       
+  274 |       const analysisResult: VoiceAnalysisResultExtended = {
+  275 |         success: true,
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorder.tsx:303:3
+  301 |    * Generate a short, user-friendly summary of the emotional signature
+  302 |    */
+> 303 |   const generateShortSummary = (curve: EmotionalSignatureCurve): string => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 304 |     const parts: string[] = [];
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 305 |     
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 334 |     return parts.join(' ') + '.';
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 335 |   };
+      | ^^^^^ `generateShortSummary` is declared here
+  336 |   
+  337 |   /**
+  338 |    * Format duration as MM:SS                                                                                                                                                             react-hooks/immutability
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorderV2.tsx
+   34:3   warning  'userId' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+   35:3   warning  'pillarId' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   49:10  warning  'analysisResult' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   66:55  warning  'isFinal' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   96:7   error    Error: Cannot access variable before it is declared
+
+`stopRecording` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorderV2.tsx:96:7
+  94 |   useEffect(() => {
+  95 |     if (state === 'recording' && duration >= maxDuration) {
+> 96 |       stopRecording();
+     |       ^^^^^^^^^^^^^ `stopRecording` accessed before it is declared
+  97 |     }
+  98 |   }, [duration, maxDuration, state]);
+  99 |   
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorderV2.tsx:197:3
+  195 |   }, [minDuration, audioUrl, onError, voiceAnalyzer, state]);
+  196 |   
+> 197 |   const stopRecording = useCallback(() => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 198 |     if (timerRef.current) {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 199 |       clearInterval(timerRef.current);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 200 |       timerRef.current = null;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 201 |     }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 202 |     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 203 |       mediaRecorderRef.current.stop();
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 204 |     }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 205 |   }, []);
+      | ^^^^^^^^^^ `stopRecording` is declared here
+  206 |   
+  207 |   const resetRecording = useCallback(() => {
+  208 |     if (audioUrl) URL.revokeObjectURL(audioUrl);  react-hooks/immutability
+   98:6   warning  React Hook useEffect has a missing dependency: 'stopRecording'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+  258:58  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react/no-unescaped-entities
+  258:67  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\components\voice-recorder\VoiceRecorderV3.tsx
+   58:15   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   75:3    warning  'minDuration' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+  394:15   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  394:110  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  524:15   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  524:43   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  562:23   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  562:32   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\aws\sagemaker.ts
+   50:27  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   51:12  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:14  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+   73:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   84:27  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  137:18  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  143:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\letta\soulprint-memory.ts
+   2:34  warning  'userId' is defined but never used        @typescript-eslint/no-unused-vars
+  11:46  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  11:51  warning  'memory' is defined but never used        @typescript-eslint/no-unused-vars
+  11:59  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\llm\local-client.ts
+  31:48  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:14  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\llm\unified-client.ts
+   4:55  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+   4:62  warning  'options' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  40:62  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  40:69  warning  'options' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  66:21  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\prosody\cadence-summary.ts
+  150:3  warning  'features' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\soulprint\assemblyai-analyzer.ts
+   16:27  warning  'TranscriptWord' is defined but never used     @typescript-eslint/no-unused-vars
+  115:3   warning  'mimeType' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\soulprint\generator.ts
+    2:52  warning  'VoiceVectors' is defined but never used                      @typescript-eslint/no-unused-vars
+    5:7   warning  'SOULPRINT_SYSTEM_PROMPT' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   99:35  error    Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  153:10  warning  'buildUserPrompt' is defined but never used                   @typescript-eslint/no-unused-vars
+  177:34  error    Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+  329:17  error    Unexpected any. Specify a different type                      @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\soulprint\memory\retrieval.ts
+  94:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\soulprint\voice-analyzer-v2.ts
+   16:89  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:40  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:77  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  197:41  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  224:40  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  234:18  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  273:16  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\soulprint\voice-analyzer.ts
+   85:26  error    Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  173:11  warning  'totalDuration' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  199:16  warning  'e' is defined but never used                       @typescript-eslint/no-unused-vars
+  227:18  warning  'e' is defined but never used                       @typescript-eslint/no-unused-vars
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\benchmark-soul.ts
+  37:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\check-status.ts
+  27:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\cleanup-sagemaker.ts
+  44:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  54:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  72:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  92:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\debug-sagemaker.ts
+  28:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\deploy-sagemaker.ts
+  35:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\export_full_soulprints.js
+  1:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:1   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  3:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\export_ronnie_soulprint.js
+  1:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:1   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  3:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\export_soulprints.js
+  1:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  3:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  4:1   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\get-refresh-token.js
+  1:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\migrate_soulprints.ts
+  38:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\setup_demo_final.js
+  1:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  3:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  4:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\test-aws-identity.ts
+  25:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\test-aws.ts
+  27:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:20  error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+
+Γ£û 173 problems (100 errors, 73 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+
