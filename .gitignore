@@ -45,3 +45,4 @@ node_modules
 all_soulprints.txt
 full_soulprints_export.json
 soulprints_export.csv
+.vercel

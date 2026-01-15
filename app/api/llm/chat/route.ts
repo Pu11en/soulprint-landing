@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
-import { invokeSageMaker, checkEndpointStatus, ChatMessage } from '@/lib/aws/sagemaker';
+import { streamChatCompletion, ChatMessage } from '@/lib/llm/local-client';
+import { SoulEngine } from '@/lib/soulprint/soul-engine';
+import { generateEmbedding } from '@/lib/soulprint/memory/retrieval';
 
-// Supabase admin client for API key validation
+// Supabase admin client for database operations
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY! || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -11,19 +13,15 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Validate API Key
+    // 1. Validate API Key & Auth
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer sk-soulprint-')) {
-      return NextResponse.json(
-        { error: 'Missing or invalid API key' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Missing or invalid API key' }, { status: 401 });
     }
 
     const rawKey = authHeader.replace('Bearer ', '');
     const hashedKey = createHash('sha256').update(rawKey).digest('hex');
 
-    // 2. Verify key exists in database
     const { data: keyData, error: keyError } = await supabaseAdmin
       .from('api_keys')
       .select('user_id')
@@ -31,91 +29,124 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (keyError || !keyData) {
-      return NextResponse.json(
-        { error: 'Invalid API key' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
     }
 
-    // 3. Parse and validate request body
+    const userId = keyData.user_id;
+
+    // 2. Load Active SoulPrint
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('current_soulprint_id')
+      .eq('id', userId)
+      .single();
+
+    if (!profile?.current_soulprint_id) {
+      return NextResponse.json({ error: 'No active SoulPrint found for user' }, { status: 400 });
+    }
+
+    const { data: soulData } = await supabaseAdmin
+      .from('soulprints')
+      .select('soulprint_data')
+      .eq('id', profile.current_soulprint_id)
+      .single();
+
+    if (!soulData) {
+      return NextResponse.json({ error: 'SoulPrint data corrupted' }, { status: 500 });
+    }
+
+    // 3. Initialize SoulEngine
+    const engine = new SoulEngine(supabaseAdmin, userId, soulData.soulprint_data);
+
+    // 4. Parse Messages
     const body = await request.json();
-    const { messages, temperature, max_tokens } = body as {
-      messages: ChatMessage[];
-      temperature?: number;
-      max_tokens?: number;
-    };
+    const { messages } = body as { messages: ChatMessage[] };
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json(
-        { error: 'messages array is required' },
-        { status: 400 }
-      );
+    if (!messages || messages.length === 0) {
+      return NextResponse.json({ error: 'Messages required' }, { status: 400 });
     }
 
-    // 4. Invoke SageMaker endpoint
-    const responseText = await invokeSageMaker(messages, {
-      temperature: temperature ?? 0.7,
-      maxTokens: max_tokens ?? 512,
+    // 5. Construct Dynamic System Prompt (Agentic Step)
+    const systemPrompt = await engine.constructSystemPrompt(messages);
+
+    // 6. Streaming Response
+    const fullContext: ChatMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...messages
+    ];
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        let fullResponse = "";
+        try {
+          // Stream chunks from Local LLM
+          for await (const chunk of streamChatCompletion(fullContext)) {
+            fullResponse += chunk;
+            // Format as OpenAI-compatible SSE
+            const data = JSON.stringify({
+              id: `chatcmpl-${Date.now()}`,
+              object: 'chat.completion.chunk',
+              created: Math.floor(Date.now() / 1000),
+              model: 'soulprint-v2-local',
+              choices: [{
+                index: 0,
+                delta: { content: chunk },
+                finish_reason: null
+              }]
+            });
+            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+          }
+
+          // Send [DONE] message
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+
+          // 7. Background Persistence (Fire & Forget)
+          (async () => {
+            try {
+              const lastUserMsg = messages[messages.length - 1];
+              const [userEmbedding, assistantEmbedding] = await Promise.all([
+                generateEmbedding(lastUserMsg.content),
+                generateEmbedding(fullResponse)
+              ]);
+
+              await supabaseAdmin.from('chat_logs').insert([
+                {
+                  user_id: userId,
+                  role: 'user',
+                  content: lastUserMsg.content,
+                  embedding: userEmbedding
+                },
+                {
+                  user_id: userId,
+                  role: 'assistant',
+                  content: fullResponse,
+                  embedding: assistantEmbedding
+                }
+              ]);
+            } catch (e) {
+              console.error("Async Memory Persistence Failed:", e);
+            }
+          })();
+
+        } catch (e) {
+          console.error("Streaming failed:", e);
+          controller.error(e);
+        }
+      }
     });
 
-    // Return response in OpenAI-compatible format
-    return NextResponse.json({
-      id: `chatcmpl-${Date.now()}`,
-      object: 'chat.completion',
-      created: Math.floor(Date.now() / 1000),
-      model: 'hermes-2-pro-llama-3-8b',
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: responseText,
-          },
-          finish_reason: 'stop',
-        },
-      ],
-      usage: {
-        prompt_tokens: 0,
-        completion_tokens: 0,
-        total_tokens: 0,
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       },
     });
+
   } catch (error: any) {
-    console.error('LLM chat error:', error);
-
-    // Check if endpoint is not running
-    if (error.name === 'ValidationException' || error.message?.includes('endpoint')) {
-      const status = await checkEndpointStatus().catch(() => ({ status: 'Unknown', isReady: false }));
-
-      return NextResponse.json(
-        {
-          error: 'SageMaker endpoint not available',
-          endpoint_status: status.status,
-          details: 'The LLM endpoint may not be deployed. Deploy it first using the deployment script.',
-        },
-        { status: 503 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error: 'Failed to generate response',
-        details: error.message || String(error),
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// GET endpoint to check status
-export async function GET() {
-  try {
-    const status = await checkEndpointStatus();
-    return NextResponse.json(status);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to check endpoint status' },
-      { status: 500 }
-    );
+    console.error('SoulEngine Error:', error);
+    return NextResponse.json({ error: 'SoulEngine Failure', details: error.message }, { status: 500 });
   }
 }

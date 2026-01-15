@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Download, RefreshCw, Loader2, Brain, Heart, Scale, Users, Cpu, Shield, Plus, Trash2, ArrowLeft, Pencil, Check, X } from "lucide-react"
 import { listMySoulPrints, switchSoulPrint } from "@/app/actions/soulprint-selection"
 import { deleteSoulPrint, updateSoulPrintName } from "@/app/actions/soulprint-management"
-import type { SoulPrintData } from "@/lib/gemini/types"
+import type { SoulPrintData, SoulPrintPillar } from "@/lib/soulprint/types"
 
 const pillarIcons: Record<string, React.ReactNode> = {
     communication_style: <Brain className="w-5 h-5" />,
@@ -291,7 +291,7 @@ export default function ProfilePage() {
             {/* Pillars */}
             <div className="grid gap-4">
                 <h2 className="text-lg font-semibold text-white">Personality Pillars</h2>
-                {selectedSoulprint.pillars && Object.entries(selectedSoulprint.pillars).map(([key, pillar]) => (
+                {selectedSoulprint.pillars && Object.entries(selectedSoulprint.pillars).map(([key, pillar]: [string, SoulPrintPillar]) => (
                     <div key={key} className="rounded-xl border border-[#222] bg-[#111] p-5">
                         <div className="flex items-center gap-3 mb-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#222] text-orange-500">
@@ -303,7 +303,7 @@ export default function ProfilePage() {
 
                         {pillar.markers && pillar.markers.length > 0 && (
                             <div className="flex flex-wrap gap-2">
-                                {pillar.markers.slice(0, 5).map((marker, i) => (
+                                {pillar.markers.slice(0, 5).map((marker: string, i: number) => (
                                     <span key={i} className="rounded-full bg-[#222] px-3 py-1 text-xs text-gray-300">
                                         {marker}
                                     </span>
@@ -320,7 +320,7 @@ export default function ProfilePage() {
                     <h2 className="text-lg font-semibold text-red-400 mb-4">Communication Triggers</h2>
                     <p className="text-sm text-gray-400 mb-4">Things that may cause friction or discomfort:</p>
                     <ul className="space-y-2">
-                        {selectedSoulprint.flinch_warnings.map((warning, i) => (
+                        {selectedSoulprint.flinch_warnings.map((warning: string, i: number) => (
                             <li key={i} className="flex items-start gap-2 text-gray-300">
                                 <span className="text-red-500 mt-1">•</span>
                                 {warning}

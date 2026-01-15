@@ -1,255 +1,265 @@
-import {
-  SageMakerRuntimeClient,
-  InvokeEndpointCommand,
-} from '@aws-sdk/client-sagemaker-runtime';
+import { SageMakerRuntimeClient, InvokeEndpointCommand, InvokeEndpointWithResponseStreamCommand } from "@aws-sdk/client-sagemaker-runtime";
 import {
   SageMakerClient,
+  DescribeEndpointCommand,
   CreateModelCommand,
   CreateEndpointConfigCommand,
-  CreateEndpointCommand,
-  DeleteEndpointCommand,
-  DeleteEndpointConfigCommand,
-  DeleteModelCommand,
-  DescribeEndpointCommand,
-} from '@aws-sdk/client-sagemaker';
+  CreateEndpointCommand
+} from "@aws-sdk/client-sagemaker";
 
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
+const CONTROL_PLANE_REGION = process.env.AWS_REGION || "us-east-1";
 
-export interface SageMakerChatOptions {
-  temperature?: number;
-  maxTokens?: number;
-}
-
-// Lazy-initialized clients (env vars must be loaded first)
 let _runtimeClient: SageMakerRuntimeClient | null = null;
 let _sagemakerClient: SageMakerClient | null = null;
 
-function getRuntimeClient(): SageMakerRuntimeClient {
+function getRuntimeClient() {
   if (!_runtimeClient) {
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-      throw new Error(
-        'AWS credentials not configured. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env.local'
-      );
-    }
     _runtimeClient = new SageMakerRuntimeClient({
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: CONTROL_PLANE_REGION,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
       },
     });
   }
   return _runtimeClient;
 }
 
-function getSageMakerClient(): SageMakerClient {
+function getSagemakerClient() {
   if (!_sagemakerClient) {
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-      throw new Error(
-        'AWS credentials not configured. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env.local'
-      );
-    }
     _sagemakerClient = new SageMakerClient({
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: CONTROL_PLANE_REGION,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
       },
     });
   }
   return _sagemakerClient;
 }
 
-function getEndpointName(): string {
-  return process.env.SAGEMAKER_ENDPOINT_NAME || 'soulprint-llm';
+export interface SageMakerResponse {
+  body: string; // implementation dependent on the model container
+  contentType: string;
 }
 
-const MODEL_NAME = 'soulprint-llm-model';
-const ENDPOINT_CONFIG_NAME = 'soulprint-llm-config';
-
 /**
- * Format messages into a chat prompt for the LLM
- *
- * Supports multiple formats based on deployed model:
- * - Mistral: <s>[INST] {system} {user} [/INST]
- * - ChatML (Hermes): <|im_start|>role\ncontent<|im_end|>
- *
- * Currently configured for Mistral 7B Instruct (JumpStart default)
+ * Invokes the configured SageMaker Endpoint (Non-Streaming).
  */
-function formatPrompt(messages: ChatMessage[]): string {
-  // Mistral Instruct format
-  let systemPrompt = '';
-  let conversation = '';
+export async function invokeSoulPrintModel(
+  payload: Record<string, any>
+): Promise<any> {
+  const endpointName = process.env.SAGEMAKER_ENDPOINT_NAME;
 
-  for (const msg of messages) {
-    if (msg.role === 'system') {
-      systemPrompt = msg.content;
-    } else if (msg.role === 'user') {
-      // Include system prompt with first user message
-      const prefix = systemPrompt ? `${systemPrompt}\n\n` : '';
-      conversation += `<s>[INST] ${prefix}${msg.content} [/INST]`;
-      systemPrompt = ''; // Only include once
-    } else if (msg.role === 'assistant') {
-      conversation += ` ${msg.content}</s>`;
-    }
+  if (!endpointName) {
+    throw new Error("SAGEMAKER_ENDPOINT_NAME is not defined in environment variables.");
   }
-
-  return conversation;
-}
-
-/**
- * Invoke the SageMaker endpoint with chat messages
- */
-export async function invokeSageMaker(
-  messages: ChatMessage[],
-  options: SageMakerChatOptions = {}
-): Promise<string> {
-  const { temperature = 0.7, maxTokens = 512 } = options;
-
-  const prompt = formatPrompt(messages);
-
-  const payload = {
-    inputs: prompt,
-    parameters: {
-      max_new_tokens: maxTokens,
-      temperature: temperature,
-      do_sample: true,
-    },
-  };
 
   const command = new InvokeEndpointCommand({
-    EndpointName: getEndpointName(),
-    ContentType: 'application/json',
-    Body: JSON.stringify(payload),
+    EndpointName: endpointName,
+    ContentType: "application/json",
+    Body: Buffer.from(JSON.stringify(payload)),
   });
 
-  const response = await getRuntimeClient().send(command);
+  try {
+    const response = await getRuntimeClient().send(command);
+    const responseBody = new TextDecoder("utf-8").decode(response.Body);
 
-  if (!response.Body) {
-    throw new Error('Empty response from SageMaker');
+    try {
+      return JSON.parse(responseBody);
+    } catch (e) {
+      return { text: responseBody };
+    }
+  } catch (error: any) {
+    console.error("AWS SageMaker Invocation Error:", error);
+    throw new Error(`SageMaker Invocation Failed: ${error.message || error}`);
   }
-
-  const responseText = new TextDecoder().decode(response.Body);
-  const result = JSON.parse(responseText);
-
-  // Handle different response formats from LMI container
-  if (Array.isArray(result)) {
-    return result[0]?.generated_text || '';
-  } else if (result.generated_text) {
-    return result.generated_text;
-  } else if (typeof result === 'string') {
-    return result;
-  }
-
-  throw new Error('Unexpected response format from SageMaker');
 }
 
 /**
- * Check if the SageMaker endpoint is running
+ * Invokes the configured SageMaker Endpoint (Streaming).
+ * Yields chunks of generated text.
  */
-export async function checkEndpointStatus(): Promise<{
-  status: string;
-  isReady: boolean;
-}> {
-  try {
-    const command = new DescribeEndpointCommand({
-      EndpointName: getEndpointName(),
-    });
+export async function* invokeSoulPrintModelStream(
+  payload: Record<string, any>
+): AsyncGenerator<string, void, unknown> {
+  const endpointName = process.env.SAGEMAKER_ENDPOINT_NAME;
 
-    const response = await getSageMakerClient().send(command);
-    const status = response.EndpointStatus || 'Unknown';
+  if (!endpointName) {
+    throw new Error("SAGEMAKER_ENDPOINT_NAME is not defined in environment variables.");
+  }
+
+  const command = new InvokeEndpointWithResponseStreamCommand({
+    EndpointName: endpointName,
+    ContentType: "application/json",
+    Body: Buffer.from(JSON.stringify(payload)),
+  });
+
+  try {
+    const response = await getRuntimeClient().send(command);
+
+    if (!response.Body) {
+      throw new Error("No response body from SageMaker stream.");
+    }
+
+    const decoder = new TextDecoder("utf-8");
+    for await (const chunk of response.Body) {
+      if (chunk.PayloadPart && chunk.PayloadPart.Bytes) {
+        const decodedChunk = decoder.decode(chunk.PayloadPart.Bytes);
+        try {
+          // TGI Stream Format: data: {...}
+          // We need to parse multiple lines if they come together
+          const lines = decodedChunk.split('\n').filter(line => line.trim() !== '');
+          for (const line of lines) {
+            // TGI style often sends raw JSON or SSE 'data: ' lines depending on config.
+            // Let's assume standard JSON chunks for now, typically expected as:
+            // {"token": {"text": "..."}}
+            // OR simplified SSE.
+            // Let's first try to parse the chunk directly as JSON.
+            if (line.startsWith('data:')) {
+              const jsonStr = line.substring(5).trim();
+              if (jsonStr === '[DONE]') continue;
+              const data = JSON.parse(jsonStr);
+              if (data.token?.text) {
+                yield data.token.text;
+              } else if (data.choices && data.choices[0]?.delta?.content) {
+                // Some mimics OpenAI
+                yield data.choices[0].delta.content;
+              }
+            } else {
+              // Try raw JSON parse
+              const data = JSON.parse(line);
+              if (data.token?.text) {
+                yield data.token.text;
+              }
+            }
+          }
+        } catch (e) {
+          // Fallback: yield raw text if parsing fails (dangerous but helpful for debugging)
+          // console.warn("Failed to parse stream chunk", decodedChunk);
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error("AWS SageMaker Streaming Error:", error);
+    throw new Error(`SageMaker Streaming Failed: ${error.message || error}`);
+  }
+}
+
+/**
+ * Checks the status of the configured endpoint.
+ */
+export async function checkEndpointStatus() {
+  const endpointName = process.env.SAGEMAKER_ENDPOINT_NAME;
+  if (!endpointName) return { isReady: false, status: 'Missing Config' };
+
+  try {
+    const command = new DescribeEndpointCommand({ EndpointName: endpointName });
+    const response = await getSagemakerClient().send(command);
 
     return {
-      status,
-      isReady: status === 'InService',
+      isReady: response.EndpointStatus === 'InService',
+      status: response.EndpointStatus
     };
   } catch (error: any) {
-    if (error.name === 'ResourceNotFoundException' ||
-        error.name === 'ValidationException' ||
-        error.message?.includes('Could not find')) {
-      return { status: 'NotFound', isReady: false };
+    if (error.name === 'ValidationError' || error.message.includes('Could not find endpoint')) {
+      return { isReady: false, status: 'NotFound' };
     }
     throw error;
   }
 }
 
 /**
- * Deploy the LLM model to SageMaker
- * Note: This takes 10-15 minutes to spin up
+ * Deploys the Hermes-2-Pro-Llama-3 model using Hugging Face TGI container.
  */
-export async function deployModel(): Promise<void> {
-  if (!process.env.SAGEMAKER_EXECUTION_ROLE_ARN) {
-    throw new Error(
-      'SAGEMAKER_EXECUTION_ROLE_ARN not configured. Create a SageMaker execution role in IAM and add the ARN to .env.local'
-    );
-  }
+export async function deployModel() {
+  const endpointName = process.env.SAGEMAKER_ENDPOINT_NAME!;
+  const roleArn = process.env.SAGEMAKER_EXECUTION_ROLE_ARN!;
 
-  const region = process.env.AWS_REGION || 'us-east-1';
+  // 1. Create Model
+  // Using TGI 2.0.1 image for us-east-1
+  const imageUri = "763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-tgi-inference:2.1.1-tgi2.0.0-gpu-py310-cu121-ubuntu22.04";
+  const modelName = `${endpointName}-model-${Date.now()}`;
 
-  // HuggingFace TGI container for text generation
-  const imageUri = `763104351884.dkr.ecr.${region}.amazonaws.com/huggingface-pytorch-tgi-inference:2.1.1-tgi2.0.1-gpu-py310-cu121-ubuntu22.04`;
-
-  // Create model - using smaller model first to test pipeline
-  await getSageMakerClient().send(new CreateModelCommand({
-    ModelName: MODEL_NAME,
+  console.log("Creating Model...");
+  await getSagemakerClient().send(new CreateModelCommand({
+    ModelName: modelName,
+    ExecutionRoleArn: roleArn,
     PrimaryContainer: {
       Image: imageUri,
       Environment: {
-        HF_MODEL_ID: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
-        SM_NUM_GPUS: '1',
-        MAX_INPUT_LENGTH: '1024',
-        MAX_TOTAL_TOKENS: '2048',
-      },
-    },
-    ExecutionRoleArn: process.env.SAGEMAKER_EXECUTION_ROLE_ARN!,
+        "HF_MODEL_ID": "NousResearch/Hermes-2-Pro-Llama-3-8B",
+        "SM_NUM_GPUS": "1",
+        "MAX_INPUT_LENGTH": "1024",
+        "MAX_TOTAL_TOKENS": "2048",
+      }
+    }
   }));
 
-  // Create endpoint config
-  await getSageMakerClient().send(new CreateEndpointConfigCommand({
-    EndpointConfigName: ENDPOINT_CONFIG_NAME,
+  // 2. Create Endpoint Config
+  const configName = `${endpointName}-config-${Date.now()}`;
+  console.log("Creating Endpoint Config...");
+  await getSagemakerClient().send(new CreateEndpointConfigCommand({
+    EndpointConfigName: configName,
     ProductionVariants: [
       {
-        VariantName: 'primary',
-        ModelName: MODEL_NAME,
+        VariantName: "AllTraffic",
+        ModelName: modelName,
         InitialInstanceCount: 1,
-        InstanceType: 'ml.g4dn.xlarge',
-      },
-    ],
+        InstanceType: "ml.g5.xlarge", // ~$1.00/hr
+      }
+    ]
   }));
 
-  // Create endpoint
-  await getSageMakerClient().send(new CreateEndpointCommand({
-    EndpointName: getEndpointName(),
-    EndpointConfigName: ENDPOINT_CONFIG_NAME,
+  // 3. Create Endpoint
+  console.log(`Creating Endpoint ${endpointName}...`);
+  await getSagemakerClient().send(new CreateEndpointCommand({
+    EndpointName: endpointName,
+    EndpointConfigName: configName
   }));
+}
 
-  console.log(`Endpoint ${getEndpointName()} is being created. This takes 10-15 minutes.`);
+// ChatMessage type for API compatibility
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
 }
 
 /**
- * Delete the SageMaker endpoint (to save costs)
+ * Invokes SageMaker for chat completions (ChatMessage[] format).
+ * Formats messages for Hermes 3 Pro (ChatML format).
  */
-export async function deleteEndpoint(): Promise<void> {
-  try {
-    await getSageMakerClient().send(new DeleteEndpointCommand({
-      EndpointName: getEndpointName(),
-    }));
-
-    await getSageMakerClient().send(new DeleteEndpointConfigCommand({
-      EndpointConfigName: ENDPOINT_CONFIG_NAME,
-    }));
-
-    await getSageMakerClient().send(new DeleteModelCommand({
-      ModelName: MODEL_NAME,
-    }));
-
-    console.log(`Endpoint ${getEndpointName()} deleted successfully.`);
-  } catch (error: any) {
-    if (error.name !== 'ResourceNotFoundException') {
-      throw error;
-    }
+export async function invokeSageMaker(
+  messages: ChatMessage[],
+  options: { temperature?: number; maxTokens?: number } = {}
+): Promise<string> {
+  // Format messages in ChatML format for Hermes 3 Pro
+  let prompt = "";
+  for (const m of messages) {
+    prompt += `<|im_start|>${m.role}\n${m.content}\n<|im_end|>\n`;
   }
+  prompt += "<|im_start|>assistant\n";
+
+  const response = await invokeSoulPrintModel({
+    inputs: prompt,
+    parameters: {
+      max_new_tokens: options.maxTokens ?? 1024,
+      temperature: options.temperature ?? 0.7,
+      details: false
+    }
+  });
+
+  // Parse TGI Response: [{ generated_text: "..." }]
+  if (Array.isArray(response) && response[0]?.generated_text) {
+    let text = response[0].generated_text;
+    // If prompt is echoed, strip it
+    if (text.startsWith(prompt)) {
+      text = text.substring(prompt.length);
+    }
+    return text.trim();
+  }
+
+  // Fallback for different response shapes
+  return typeof response === 'string' ? response : JSON.stringify(response);
 }
+

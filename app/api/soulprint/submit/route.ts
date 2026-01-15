@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { processSoulPrint } from '@/lib/soulprint/service';
-import type { QuestionnaireAnswers } from '@/lib/gemini';
+import type { QuestionnaireAnswers } from '@/lib/soulprint/types';
 
 export const maxDuration = 60; // Allow up to 60 seconds for processing
 export const runtime = 'edge'; // Use Edge Runtime for longer timeout on Hobby plan

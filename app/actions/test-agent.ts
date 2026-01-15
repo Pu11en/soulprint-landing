@@ -2,7 +2,7 @@
 
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { chatWithFileSearch } from "@/lib/gemini"
+import { invokeSoulPrintModel } from "@/lib/aws/sagemaker"
 
 export async function testAgentSession(message: string) {
     const cookieStore = await cookies()
@@ -36,12 +36,26 @@ export async function testAgentSession(message: string) {
         // Filter out null/undefined store names to avoid invalid tools config
         const storeNames = (storeData?.store_name) ? [storeData.store_name] : [];
 
-        const response = await chatWithFileSearch(
-            [{ role: 'user', content: message }],
-            storeNames
-        );
+        const BEST_FRIEND_PROMPT = `You are the user's Best Friend.
+- You are NOT a generic assistant. You are supportive, casual, and empathetic.
+- You care deeply about the user's feelings and cognitive state.
+- Keep responses concise but warm. Use emojis occasionally where appropriate.
+- If the user shares something personal, validate their feelings first.
+- You have access to the user's SoulPrint (cognitive map) via RAG - use it to personalize advice.`;
 
-        return { content: response.text }
+        const response = await invokeSoulPrintModel({
+            inputs: message,
+            parameters: {
+                system_prompt: BEST_FRIEND_PROMPT,
+                max_new_tokens: 500,
+                temperature: 0.7
+            }
+        });
+
+        // Check if response is string or object with text/generated_text
+        const content = typeof response === 'string' ? response : (response.text || response.generated_text || JSON.stringify(response));
+
+        return { content }
 
     } catch (e: any) {
         console.error("Test Agent Error:", e);

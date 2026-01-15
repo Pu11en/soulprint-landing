@@ -12,6 +12,51 @@ import { createClient } from "@/lib/supabase/client"
 import { VoiceRecorderV3 } from "@/components/voice-recorder/VoiceRecorderV3"
 import Image from "next/image"
 
+// --- PRESETS FOR DEV TESTING ---
+const ACE_ANSWERS: Record<string, any> = {
+    s1: 100, s2: 0, s3: 100, s4: 100, s5: 0, s6: 0, s7: 0, s8: 0, s9: 0, s10: 100, s11: 0, s12: 50, s13: 100, s14: 100, s15: 0, s16: 0, s17: 100, s18: 0,
+    q1: "I don't have a tone. I have a frequency. You either tune in or you break.",
+    q2: "Reloading.",
+    q3: "We don't ask for permission. We build the thing that makes permission irrelevant.",
+    q4: "Weakness.",
+    q5: "I don't reset. I reload.",
+    q6: "Never.",
+    q7: "I waited too long to kill a bad feature. It cost me 6 weeks.",
+    q8: "If you aren't risking it all, you aren't playing.",
+    q9: "Yes. Because he's going to be richer than me.",
+    q10: "The war room.",
+    q11: "Win at all costs.",
+    q12: "Killers.",
+    q13: "Doing it.",
+    q14: "Excuses.",
+    q15: "Ship it and see what breaks.",
+    q16: "Destroy them.",
+    q17: "Fuel.",
+    q18: "Relentless."
+};
+
+const SAGE_ANSWERS: Record<string, any> = {
+    s1: 100, s2: 100, s3: 0, s4: 50, s5: 100, s6: 100, s7: 100, s8: 100, s9: 100, s10: 0, s11: 0, s12: 0, s13: 100, s14: 100, s15: 100, s16: 100, s17: 0, s18: 100,
+    q1: "That I'm judging them. I'm just listening deeply.",
+    q2: "A sacred space where truth can emerge.",
+    q3: "We are all walking each other home.",
+    q4: "My own needs.",
+    q5: "Nature. Silence. Tea.",
+    q6: "When a client made a breakthrough I didn't see coming.",
+    q7: "I spoke too soon and broke the trust.",
+    q8: "Vulnerability is the only risk.",
+    q9: "Yes, because I am planting seeds today.",
+    q10: "A circle of elders.",
+    q11: "Compassion first.",
+    q12: "Those who are doing the work.",
+    q13: "Reflection.",
+    q14: "Surface level chatter.",
+    q15: "Journaling.",
+    q16: "Pause and reflect.",
+    q17: "Transform.",
+    q18: "Safe."
+};
+
 export default function NewQuestionnairePage() {
     const router = useRouter()
     const supabase = createClient()
@@ -179,41 +224,42 @@ export default function NewQuestionnairePage() {
         router.push('/')
     }
 
-    const handleDevFill = () => {
-        // Fast-track: Generate answers for ALL questions
-        const dummyAnswers: Record<string, string | number | object> = {}
+    const handleDevFill = (archetype: 'ACE' | 'SAGE') => {
+        // Fast-track: Generate answers for ALL questions based on archetype
+        let preset = archetype === 'ACE' ? ACE_ANSWERS : SAGE_ANSWERS;
+
+        // Add dummy voice if needed (though presets cover text)
+        const filledAnswers: Record<string, string | number | object> = { ...preset };
+
+        // Ensure voice questions have a dummy object structure
         questions.forEach(q => {
-            if (q.type === "slider") {
-                dummyAnswers[q.id] = 50 + Math.floor(Math.random() * 40) // Random 50-90
-            } else if (q.type === "voice") {
-                dummyAnswers[q.id] = {
-                    transcript: "Simulated voice response for dev testing. The user is expressing deep thoughts about their digital soul.",
+            if (q.type === "voice" && !filledAnswers[q.id]) {
+                filledAnswers[q.id] = {
+                    transcript: archetype === 'ACE' ? "Let's build this." : "I am listening.",
                     emotionalSignature: { sentiment: { score: 0.8, label: "positive" } }
                 }
-            } else {
-                dummyAnswers[q.id] = "Development testing answer: valid response text."
             }
-        })
+        });
 
         // Set state
-        setAnswers(dummyAnswers)
+        setAnswers(filledAnswers)
 
         // Jump to last question
         const lastIndex = questions.length - 1
         setCurrentQuestionIndex(lastIndex)
 
         // Update storage
-        localStorage.setItem("soulprint_answers", JSON.stringify(dummyAnswers))
+        localStorage.setItem("soulprint_answers", JSON.stringify(filledAnswers))
         localStorage.setItem("soulprint_current_index", lastIndex.toString())
 
         // Sync local input state for the final question
         const lastQ = questions[lastIndex]
         if (lastQ.type === "slider") {
-            setSliderValue([dummyAnswers[lastQ.id] as number])
+            setSliderValue([filledAnswers[lastQ.id] as number])
         } else if (lastQ.type === "voice") {
             setVoiceRecorded(true)
         } else {
-            setTextInput(dummyAnswers[lastQ.id] as string)
+            setTextInput(filledAnswers[lastQ.id] as string)
         }
     }
 
@@ -282,13 +328,22 @@ export default function NewQuestionnairePage() {
                         </Link>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button
-                            onClick={handleDevFill}
-                            variant="outline"
-                            className="hidden lg:flex h-9 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
-                        >
-                            DEV: FILL
-                        </Button>
+                        <div className="hidden lg:flex items-center gap-2">
+                            <Button
+                                onClick={() => handleDevFill('ACE')}
+                                variant="outline"
+                                className="h-9 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
+                            >
+                                FILL: ACE
+                            </Button>
+                            <Button
+                                onClick={() => handleDevFill('SAGE')}
+                                variant="outline"
+                                className="h-9 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
+                            >
+                                FILL: SAGE
+                            </Button>
+                        </div>
                         <Button
                             onClick={() => router.push('/dashboard/profile')}
                             variant="ghost"

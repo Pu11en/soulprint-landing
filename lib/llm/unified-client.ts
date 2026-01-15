@@ -1,81 +1,70 @@
-import { checkHealth, streamChatCompletion as localStreamChatCompletion, chatCompletion as localChatCompletion, ChatMessage as LocalMessage } from './local-client';
-import { generateContent, streamContent, ChatMessage } from '@/lib/openai/client';
+import { invokeSoulPrintModel, invokeSoulPrintModelStream } from '@/lib/aws/sagemaker';
+// import { chatCompletion as openAIChat, streamChatCompletion as openAIStream, ChatMessage } from '@/lib/openai/client';
 
-export async function unifiedChatCompletion(messages: LocalMessage[], options: { model?: string } = {}) {
-    // 1. Check Local AI Availability
-    let isLocalUp = false;
-    try {
-        isLocalUp = await checkHealth();
-    } catch (e) {
-        console.warn('⚠️ Local AI health check failed:', e);
-    }
-
-    if (isLocalUp) {
-        try {
-            console.log('🚀 Using Local LLM (Hermes 3)');
-            return await localChatCompletion(messages);
-        } catch (error) {
-            console.error('❌ Local LLM failed, falling back to OpenAI:', error);
-        }
-    }
-
-    // 2. Fallback to OpenAI GPT-4o
-    console.log('☁️ Using OpenAI GPT-4o Fallback');
-
-    // Convert to OpenAI format
-    const openaiMessages: ChatMessage[] = messages.map(m => ({
-        role: m.role,
-        content: m.content
-    }));
+export async function unifiedChatCompletion(messages: any[], options: { model?: string } = {}) {
+    console.log('🚀 Using AWS SageMaker LLM');
 
     try {
-        const response = await generateContent(openaiMessages, { temperature: 0.7 });
-
-        if (!response) {
-            throw new Error('Empty response from OpenAI');
+        // Construct prompt (ChatML or raw)
+        let prompt = "";
+        for (const m of messages) {
+            prompt += `<|im_start|>${m.role}\n${m.content}\n<|im_end|>\n`;
         }
-        return response;
-    } catch (openaiError: any) {
-        console.error('❌ OpenAI Fallback also failed:', openaiError);
-        throw new Error(`Unified LLM failed: ${openaiError.message || 'Unknown error'}`);
+        prompt += "<|im_start|>assistant\n";
+
+        const response = await invokeSoulPrintModel({
+            inputs: prompt,
+            parameters: {
+                max_new_tokens: 1024,
+                temperature: 0.7,
+                details: false
+            }
+        });
+
+        if (Array.isArray(response) && response[0]?.generated_text) {
+            let text = response[0].generated_text;
+            if (text.startsWith(prompt)) {
+                text = text.substring(prompt.length);
+            }
+            return text.trim();
+        }
+
+        return typeof response === 'string' ? response : JSON.stringify(response);
+
+    } catch (error) {
+        console.error('❌ SageMaker failed:', error);
+        throw error;
     }
 }
 
-export async function* unifiedStreamChatCompletion(messages: LocalMessage[], options: { model?: string } = {}) {
-    // 1. Check Local AI Availability
-    let isLocalUp = false;
-    try {
-        isLocalUp = await checkHealth();
-    } catch (e) {
-        console.warn('⚠️ Local AI health check failed:', e);
+export async function* unifiedStreamChatCompletion(messages: any[], options: { model?: string } = {}) {
+    console.log('🚀 Using AWS SageMaker LLM (Streaming)');
+
+    // Construct Prompt
+    let prompt = "";
+    for (const m of messages) {
+        prompt += `<|im_start|>${m.role}\n${m.content}\n<|im_end|>\n`;
     }
-
-    if (isLocalUp) {
-        try {
-            console.log('🚀 Streaming via Local LLM (Hermes 3)');
-            for await (const chunk of localStreamChatCompletion(messages)) {
-                yield chunk;
-            }
-            return;
-        } catch (error) {
-            console.error('❌ Local LLM stream failed, falling back to OpenAI:', error);
-        }
-    }
-
-    // 2. Fallback to OpenAI GPT-4o
-    console.log('☁️ Streaming via OpenAI GPT-4o Fallback');
-
-    const openaiMessages: ChatMessage[] = messages.map(m => ({
-        role: m.role,
-        content: m.content
-    }));
+    prompt += "<|im_start|>assistant\n";
 
     try {
-        for await (const chunk of streamContent(openaiMessages, { temperature: 0.7 })) {
+        // Use Real Streaming via AWS SDK
+        const stream = invokeSoulPrintModelStream({
+            inputs: prompt,
+            parameters: {
+                max_new_tokens: 1024,
+                temperature: 0.7,
+                details: false // TGI param to just get tokens
+            },
+            stream: true // TGI often needs explicit flag
+        });
+
+        for await (const chunk of stream) {
             yield chunk;
         }
-    } catch (openaiError: any) {
-        console.error('❌ OpenAI Stream Fallback failed:', openaiError);
-        yield `[ERROR: LLM Unavailable. Details: ${openaiError.message || 'Unknown'}]`;
+
+    } catch (error: any) {
+        console.error('❌ Streaming failed:', error);
+        yield `[ERROR: ${error.message}]`;
     }
 }

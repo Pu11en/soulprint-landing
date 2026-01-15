@@ -63,5 +63,10 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
+    // Redirect authenticated users from landing page to dashboard
+    if (request.nextUrl.pathname === '/' && user) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+
     return supabaseResponse
 }

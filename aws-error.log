@@ -1,0 +1,6 @@
+Error: SageMaker Invocation Failed: The security token included in the request is invalid.
+Stack: Error: SageMaker Invocation Failed: The security token included in the request is invalid.
+    at invokeSoulPrintModel (C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\lib\aws\sagemaker.ts:48:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async main (C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\scripts\test-aws.ts:23:24)
+Full: {}

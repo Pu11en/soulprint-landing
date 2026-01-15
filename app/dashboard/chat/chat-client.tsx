@@ -8,6 +8,8 @@ import { getChatHistory, saveChatMessage, clearChatHistory, getChatSessions, typ
 import { Send, Bot, User, Loader2, Trash2, Plus, MessageSquare, ChevronLeft, ChevronRight, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 // Dynamic import to avoid SSR issues with canvas
 const SoulprintBackground = dynamic(
@@ -197,7 +199,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
         })
 
         try {
-            const res = await fetch("/api/v1/chat/completions", {
+            const res = await fetch("/api/llm/chat", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -408,19 +410,37 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                         )}
                         {messages.map((msg, i) => (
                             <div key={i} className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}>
-                                {msg.role === "assistant" && (
+                                {msg.role === "assistant" ? (
                                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-500/20 text-green-500">
                                         <Bot className="h-4 w-4" />
                                     </div>
-                                )}
-                                <div className={cn("max-w-[80%] rounded-lg p-3 text-sm", msg.role === "user" ? "bg-orange-600 text-white" : "bg-[#222] text-gray-200")}>
-                                    {msg.content}
-                                </div>
-                                {msg.role === "user" && (
+                                ) : (
                                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-orange-600/20 text-orange-500">
                                         <User className="h-4 w-4" />
                                     </div>
                                 )}
+                                <div className={cn("max-w-[85%] rounded-lg p-4 text-sm leading-relaxed overflow-hidden",
+                                    msg.role === "user" ? "bg-orange-600 text-white" : "bg-[#222] text-gray-200")}>
+                                    {msg.role === "assistant" ? (
+                                        <div className="prose prose-invert prose-p:my-2 prose-headings:font-bold prose-headings:text-white prose-h2:text-lg prose-h2:mt-6 prose-h2:mb-3 prose-ul:my-2 prose-li:my-1 prose-strong:text-orange-400">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                    ul: ({ children }) => <ul className="list-disc pl-4 space-y-1">{children}</ul>,
+                                                    ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1">{children}</ol>,
+                                                    h2: ({ children }) => <h2 className="text-lg font-bold text-white mt-4 mb-2 border-b border-gray-700 pb-1">{children}</h2>,
+                                                    h3: ({ children }) => <h3 className="text-md font-semibold text-white mt-3 mb-1">{children}</h3>,
+                                                    strong: ({ children }) => <span className="font-bold text-orange-200">{children}</span>,
+                                                    p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>
+                                                }}
+                                            >
+                                                {msg.content}
+                                            </ReactMarkdown>
+                                        </div>
+                                    ) : (
+                                        msg.content
+                                    )}
+                                </div>
                             </div>
                         ))}
                         {loading && (

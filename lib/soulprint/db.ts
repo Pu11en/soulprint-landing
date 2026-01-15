@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import type { SoulPrintData } from '@/lib/gemini/types';
+import type { SoulPrintData } from '@/lib/soulprint/types';
 
 export async function saveSoulPrint(
     supabase: SupabaseClient,
