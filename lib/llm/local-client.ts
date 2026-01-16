@@ -88,7 +88,7 @@ export async function* streamChatCompletion(
             const response = await invokeSoulPrintModel({
                 inputs: prompt,
                 parameters: {
-                    max_new_tokens: 1024,
+                    max_new_tokens: 512,
                     temperature: 0.7,
                     details: false
                 }
@@ -189,7 +189,7 @@ export async function chatCompletion(
             const response = await invokeSoulPrintModel({
                 inputs: prompt,
                 parameters: {
-                    max_new_tokens: 1024,
+                    max_new_tokens: 512,
                     temperature: 0.7,
                     details: false
                 }
