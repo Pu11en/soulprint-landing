@@ -72,6 +72,7 @@ function formatChatML(messages: ChatMessage[]): string {
 
 /**
  * Stream chat completion - SageMaker primary, Ollama fallback
+ * Note: Uses non-streaming SageMaker with simulated streaming for better reliability
  */
 export async function* streamChatCompletion(
     messages: ChatMessage[],
@@ -79,25 +80,45 @@ export async function* streamChatCompletion(
 ): AsyncGenerator<string, void, unknown> {
     // Try SageMaker first (production)
     if (isSageMakerConfigured()) {
-        console.log('[LLM] Using SageMaker (streaming)');
+        console.log('[LLM] Using SageMaker (simulated streaming)');
         try {
             const prompt = formatChatML(messages);
-            const stream = invokeSoulPrintModelStream({
+
+            // Use NON-STREAMING call for reliability, then simulate streaming
+            const response = await invokeSoulPrintModel({
                 inputs: prompt,
                 parameters: {
                     max_new_tokens: 1024,
                     temperature: 0.7,
                     details: false
-                },
-                stream: true
+                }
             });
 
-            for await (const chunk of stream) {
-                yield chunk;
+            // Parse TGI response
+            let fullText = '';
+            if (Array.isArray(response) && response[0]?.generated_text) {
+                fullText = response[0].generated_text;
+                // Strip echoed prompt if present
+                if (fullText.startsWith(prompt)) {
+                    fullText = fullText.substring(prompt.length);
+                }
+            } else if (typeof response === 'string') {
+                fullText = response;
+            } else {
+                fullText = JSON.stringify(response);
+            }
+
+            fullText = fullText.trim();
+
+            // Simulate streaming by yielding words with small delays
+            const words = fullText.split(' ');
+            for (let i = 0; i < words.length; i++) {
+                const word = words[i] + (i < words.length - 1 ? ' ' : '');
+                yield word;
             }
             return;
         } catch (error) {
-            console.error('[LLM] SageMaker streaming failed:', error);
+            console.error('[LLM] SageMaker failed:', error);
             // Fall through to Ollama if in dev
             if (isServerless()) throw error;
         }
