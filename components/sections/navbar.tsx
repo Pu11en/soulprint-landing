@@ -35,6 +35,7 @@ export function Navbar() {
                             alt="SoulPrint"
                             width={120}
                             height={30}
+                            style={{ height: "auto" }}
                         />
                     </Link>
 
