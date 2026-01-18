@@ -6,9 +6,20 @@ export async function updateSession(request: NextRequest) {
         request,
     })
 
+    // Get environment variables with fallback check
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    // If env vars are missing, skip Supabase auth and just continue
+    // This prevents the middleware from crashing during build or when env is not loaded
+    if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn('Supabase environment variables not found, skipping auth middleware')
+        return supabaseResponse
+    }
+
     const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        supabaseUrl,
+        supabaseAnonKey,
         {
             cookies: {
                 getAll() {
@@ -63,9 +74,9 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
-    // Redirect authenticated users from landing page to dashboard
+    // Redirect authenticated users from landing page to dashboard chat
     if (request.nextUrl.pathname === '/' && user) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+        return NextResponse.redirect(new URL('/dashboard/chat', request.url))
     }
 
     return supabaseResponse

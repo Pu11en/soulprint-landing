@@ -1,5 +1,6 @@
 // SoulPrint Memory Module
-export async function loadMemory(userId: string) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function loadMemory(_userId: string) {
     // Placeholder for Letta memory loading
     // In the future, this will connect to the Letta service or database
     return {
@@ -8,7 +9,8 @@ export async function loadMemory(userId: string) {
     };
 }
 
-export function buildSystemPrompt(soulprint: any, memory: any) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function buildSystemPrompt(soulprint: Record<string, unknown>, _memory?: Record<string, unknown>) {
     const basePrompt = `You are a SoulPrint AI companion.
     
     Here is the user's SoulPrint Profile:

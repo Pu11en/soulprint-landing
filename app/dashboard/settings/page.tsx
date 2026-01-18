@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Check, Info, Lock, Shield, Bot, Cpu, Brain, LogOut, Trash2 } from "lucide-react"
+import { Shield, Bot, Cpu, Brain, LogOut, Trash2 } from "lucide-react"
 
 interface SettingsCard {
     id: string

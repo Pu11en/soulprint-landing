@@ -35,10 +35,11 @@ export async function devLogin() {
     // Try to sign in first (fast path)
     const supabase = await createClient();
 
-    // Check if already logged in
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.email === TARGET_EMAIL) {
-        redirect("/dashboard");
+    // Check for user first (more reliable than getSession in server components)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email === TARGET_EMAIL) {
+        console.log("✅ Dev Login: Already logged in as", user.email);
+        return; // Don't redirect, let the page/middleware handle it
     }
 
     const { error: initialSignInError } = await supabase.auth.signInWithPassword({
@@ -48,7 +49,8 @@ export async function devLogin() {
 
     if (!initialSignInError) {
         // Success immediately
-        redirect("/dashboard");
+        console.log("✅ Dev Login: Sign in successful (fast path)");
+        redirect("/dashboard/chat");
     }
 
     // If failed, fix the user (Create or Update Password)
@@ -85,5 +87,6 @@ export async function devLogin() {
     }
 
     // 4. Redirect
-    redirect("/dashboard");
+    console.log("✅ Dev Login: Sign in successful after fix");
+    redirect("/dashboard/chat");
 }

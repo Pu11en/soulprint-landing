@@ -82,7 +82,7 @@ export interface VoiceAnalysisResult {
 export class SoulPrintVoiceAnalyzer {
   private audioContext: AudioContext | null = null;
   private analyserNode: AnalyserNode | null = null;
-  private meydaAnalyzer: any = null;
+  private meydaAnalyzer: ReturnType<typeof Meyda.createMeydaAnalyzer> | null = null;
   private pitchDetector: ReturnType<typeof PitchDetector.forFloat32Array> | null = null;
   
   private snapshots: CadenceSnapshot[] = [];
@@ -170,7 +170,7 @@ export class SoulPrintVoiceAnalyzer {
     this.pitchDetector = PitchDetector.forFloat32Array(pitchBufferSize);
     
     const totalSamples = channelData.length;
-    const totalDuration = (totalSamples / sampleRate) * 1000; // ms
+    // totalDuration is calculated later in generateEmotionalSignatureCurve from snapshots
     
     console.log('[VoiceAnalyzer] Processing', totalSamples, 'samples at', sampleRate, 'Hz');
     
@@ -196,7 +196,7 @@ export class SoulPrintVoiceAnalyzer {
           ['rms', 'energy', 'spectralCentroid', 'spectralFlux', 'loudness'],
           chunk
         ) as unknown as typeof meydaFeatures;
-      } catch (e) {
+      } catch {
         // If Meyda fails, calculate RMS manually
         let sum = 0;
         for (let j = 0; j < chunk.length; j++) {
@@ -224,7 +224,7 @@ export class SoulPrintVoiceAnalyzer {
           if (pitchClarity < this.PITCH_CLARITY_THRESHOLD || pitch < 50 || pitch > 500) {
             pitch = 0;
           }
-        } catch (e) {
+        } catch {
           pitch = 0;
           pitchClarity = 0;
         }

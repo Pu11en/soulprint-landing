@@ -62,11 +62,10 @@ export function SoulPrintLogo({
     )
 }
 
-export function SoulPrintLogoCompact({ 
-    variant = "dark" 
-}: { 
-    variant?: "light" | "dark" 
-}) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function SoulPrintLogoCompact(_props: {
+    variant?: "light" | "dark"
+} = {}) {
     return (
         <div className="flex items-center gap-2">
             <div className="w-9 h-9 relative">

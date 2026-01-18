@@ -69,11 +69,12 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(result);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         const duration = (Date.now() - startTime) / 1000;
         console.error(`❌ [SoulPrint API] Critical error after ${duration.toFixed(2)}s:`, error);
+        const message = error instanceof Error ? error.message : 'Internal server error';
         return NextResponse.json(
-            { error: error.message || 'Internal server error' },
+            { error: message },
             { status: 500 }
         );
     }

@@ -96,14 +96,19 @@ const DotMaterial = shaderMaterial(
   `
 )
 
+interface ThreeState {
+    size: { width: number; height: number };
+    viewport: { width: number; height: number; dpr: number };
+}
+
 function Scene() {
-    const size = useThree((s: any) => s.size)
-    const viewport = useThree((s: any) => s.viewport)
+    const size = useThree((s: ThreeState) => s.size)
+    const viewport = useThree((s: ThreeState) => s.viewport)
 
     const rotation = 0
     const gridSize = 100
 
-    const themeColors = { dotColor: '#FFFFFF', bgColor: '#121212', dotOpacity: 0.025 }
+    const themeColors = useMemo(() => ({ dotColor: '#FFFFFF', bgColor: '#121212', dotOpacity: 0.025 }), [])
 
     const [trail, onMove] = useTrailTexture({
         size: 512,

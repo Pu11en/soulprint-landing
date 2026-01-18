@@ -29,6 +29,7 @@ export default function QuestionnaireCompletePage() {
             hasStarted.current = true
             generateSoulPrint()
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const generateSoulPrint = async () => {

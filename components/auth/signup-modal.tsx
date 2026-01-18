@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { signUp, signInWithGoogle } from "@/app/actions/auth";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface SignUpModalProps {

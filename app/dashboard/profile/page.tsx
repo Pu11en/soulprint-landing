@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Download, RefreshCw, Loader2, Brain, Heart, Scale, Users, Cpu, Shield, Plus, Trash2, ArrowLeft, Pencil, Check, X } from "lucide-react"
-import { listMySoulPrints, switchSoulPrint } from "@/app/actions/soulprint-selection"
+import { Download, Loader2, Brain, Heart, Scale, Users, Cpu, Shield, Plus, Trash2, ArrowLeft, Pencil, Check, X } from "lucide-react"
+import { listMySoulPrints } from "@/app/actions/soulprint-selection"
 import { deleteSoulPrint, updateSoulPrintName } from "@/app/actions/soulprint-management"
 import type { SoulPrintData, SoulPrintPillar } from "@/lib/soulprint/types"
 
@@ -32,7 +32,12 @@ export default function ProfilePage() {
     const supabase = createClient()
 
     const [view, setView] = useState<'list' | 'detail'>('list')
-    const [soulprints, setSoulprints] = useState<any[]>([])
+    interface SoulPrintListItem {
+        id: string;
+        name?: string;
+        archetype?: string;
+    }
+    const [soulprints, setSoulprints] = useState<SoulPrintListItem[]>([])
     const [selectedSoulprint, setSelectedSoulprint] = useState<SoulPrintData | null>(null)
     const [loading, setLoading] = useState(true)
     const [actionLoading, setActionLoading] = useState(false)
@@ -44,6 +49,7 @@ export default function ProfilePage() {
     // Load list on mount
     useEffect(() => {
         loadList()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     async function loadList() {
@@ -87,14 +93,8 @@ export default function ProfilePage() {
         setActionLoading(false)
     }
 
-    async function handleSwitchAndEdit(id: string) {
-        // Switch context first? Not strictly needed for viewing, but maybe nice.
-        // For now just view.
-        handleViewDetail(id)
-    }
-
     // Inline name editing handlers
-    function startEditing(sp: any) {
+    function startEditing(sp: SoulPrintListItem) {
         setEditingId(sp.id)
         setEditingName(sp.name || "")
     }

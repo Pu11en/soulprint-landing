@@ -67,7 +67,7 @@ export function Pricing() {
                         Simple, Transparent Pricing
                     </h2>
                     <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                        Choose the plan that's right for you
+                        Choose the plan that&apos;s right for you
                     </p>
                 </motion.div>
 

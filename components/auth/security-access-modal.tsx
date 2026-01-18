@@ -23,7 +23,7 @@ export function SecurityAccessModal({ isOpen, onOpenChange }: SecurityAccessModa
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (code === "7423") {
+        if (code === "!Arche!") {
             onOpenChange(false)
             router.push("/login")
         } else {

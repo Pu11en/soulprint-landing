@@ -147,7 +147,8 @@ export function deriveCadenceTraits(features: ProsodyFeatures): CadenceTraits {
  */
 export function generateCadenceSummary(
   traits: CadenceTraits,
-  features: ProsodyFeatures
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _features: ProsodyFeatures
 ): string {
   const sentences: string[] = [];
   

@@ -4,6 +4,7 @@ import { createHash } from "crypto";
 import { streamChatCompletion, chatCompletion, ChatMessage } from "@/lib/llm/local-client";
 import { SoulEngine } from "@/lib/soulprint/soul-engine";
 import { generateEmbedding } from "@/lib/soulprint/memory/retrieval";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // Initialize Supabase Admin client (to bypass RLS for key check)
 const supabaseAdmin = createClient(
@@ -31,6 +32,14 @@ export async function POST(req: NextRequest) {
 
         if (keyError || !keyData) {
             return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+        }
+
+        // ===================================
+        // 🚦 RATE LIMIT CHECK
+        // ===================================
+        const rateCheck = await checkRateLimit(keyData.user_id);
+        if (rateCheck && !rateCheck.success) {
+            return NextResponse.json(rateLimitResponse(), { status: 429 });
         }
 
         // ===================================
@@ -101,7 +110,7 @@ export async function POST(req: NextRequest) {
 
         const processedMessages: ChatMessage[] = [
             { role: 'system', content: systemPrompt },
-            ...messages.map((m: any) => ({ role: m.role, content: m.content }))
+            ...messages.map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }))
         ];
 
         if (stream) {

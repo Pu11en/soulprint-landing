@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { streamChatCompletion, ChatMessage } from '@/lib/llm/local-client';
 import { SoulEngine } from '@/lib/soulprint/soul-engine';
 import { generateEmbedding } from '@/lib/soulprint/memory/retrieval';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // Supabase admin client for database operations
 const supabaseAdmin = createClient(
@@ -33,6 +34,12 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = keyData.user_id;
+
+    // 1.5 Rate Limit Check
+    const rateCheck = await checkRateLimit(userId);
+    if (rateCheck && !rateCheck.success) {
+      return NextResponse.json(rateLimitResponse(), { status: 429 });
+    }
 
     // 2. Load Active SoulPrint
     const { data: profile } = await supabaseAdmin
@@ -145,8 +152,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('SoulEngine Error:', error);
-    return NextResponse.json({ error: 'SoulEngine Failure', details: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: 'SoulEngine Failure', details: message }, { status: 500 });
   }
 }

@@ -41,7 +41,7 @@ export function QuestionnaireProgress({
 
             {/* Steps */}
             <div className="relative flex flex-col gap-6 ml-[45px]">
-                {steps.map((step, index) => (
+                {steps.map((step) => (
                     <div key={step.id} className="relative flex items-start gap-4">
                         {/* Circle indicator */}
                         <div 
@@ -69,11 +69,10 @@ export function QuestionnaireProgress({
 
 export function StepCompletionCard({
     partNumber,
-    partName,
     onNext
 }: {
     partNumber: string
-    partName: string
+    partName?: string
     onNext: () => void
 }) {
     return (
@@ -94,10 +93,9 @@ export function StepCompletionCard({
     )
 }
 
-export function SoulPrintReadyCard({
-    onDeploy
-}: {
-    onDeploy: () => void
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function SoulPrintReadyCard(_props: {
+    onDeploy?: () => void
 }) {
     const aiPlatforms = [
         { name: "ChatGPT", icon: "/images/chatgpt-icon.png" },

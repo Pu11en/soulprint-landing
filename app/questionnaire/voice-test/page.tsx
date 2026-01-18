@@ -19,7 +19,7 @@ interface V3AnalysisResult {
     duration: { total: number; speech: number };
   };
   llmInstructions: string;
-  n8nPayload: any;
+  n8nPayload: Record<string, unknown>;
   processingTime: number;
 }
 
@@ -80,7 +80,7 @@ export default function VoiceTestPage() {
                 <h2 className="text-lg font-mono text-blue-400">📝 Your Words</h2>
               </div>
               <div className="p-4">
-                <p className="text-neutral-200 leading-relaxed">"{result.transcript}"</p>
+                <p className="text-neutral-200 leading-relaxed">&quot;{result.transcript}&quot;</p>
                 <p className="text-xs text-neutral-500 mt-2">
                   {result.wordCount} words • {Math.round(result.confidence * 100)}% confidence • {(result.emotionalSignature.duration.speech / 1000).toFixed(1)}s speaking time
                 </p>
@@ -143,7 +143,7 @@ export default function VoiceTestPage() {
                     <div className="flex flex-wrap gap-2">
                       {result.emotionalSignature.fillers.breakdown.map((f, i) => (
                         <span key={i} className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs">
-                          "{f.word}" × {f.count}
+                          &quot;{f.word}&quot; × {f.count}
                         </span>
                       ))}
                     </div>

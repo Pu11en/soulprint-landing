@@ -2,11 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import { useState } from "react";
 import { WaitlistModal } from "@/components/auth/waitlist-modal";
-// import { SignUpModal } from "@/components/auth/signup-modal"; // Temporarily disabled for waitlist
-import Link from "next/link";
 
 export function Hero() {
     const [showWaitlistModal, setShowWaitlistModal] = useState(false);
@@ -68,6 +65,7 @@ export function Hero() {
                     {/* Mobile Background for Image - Hidden on Desktop */}
                     <div className="absolute inset-0 bg-[url('/images/hero-badge.png')] bg-contain bg-center bg-no-repeat opacity-50 mix-blend-screen lg:hidden" />
 
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src="/images/hero-badge.png"
                         alt="SoulPrint Badge"

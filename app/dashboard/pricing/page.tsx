@@ -88,7 +88,7 @@ export default function PricingPage() {
                         Choose Your Plan
                     </h1>
                     <p className="font-inter text-base leading-6 text-[#737373]">
-                        Add a concise value statement that highlights your product's key features and benefits in a visually dynamic grid. Focus on creating balanced content blocks while keeping it under 2-3 lines.
+                        Add a concise value statement that highlights your product&apos;s key features and benefits in a visually dynamic grid. Focus on creating balanced content blocks while keeping it under 2-3 lines.
                     </p>
                 </div>
 

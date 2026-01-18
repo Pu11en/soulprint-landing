@@ -94,7 +94,7 @@ export default function BotPage() {
             } else {
                 setTestResponse(data.choices[0].message.content)
             }
-        } catch (e) {
+        } catch {
             setTestResponse("Request failed")
         } finally {
             setTesting(false)
@@ -138,7 +138,7 @@ export default function BotPage() {
 
                 {newKey && (
                     <div className="mt-6 rounded-lg border border-orange-500/30 bg-orange-500/10 p-4">
-                        <p className="mb-2 text-sm font-medium text-orange-400">✨ New Key Generated (Copy it now, you won't see it again!)</p>
+                        <p className="mb-2 text-sm font-medium text-orange-400">✨ New Key Generated (Copy it now, you won&apos;t see it again!)</p>
                         <div className="flex items-center gap-2">
                             <code className="flex-1 rounded bg-black/50 p-3 font-mono text-sm text-white">
                                 {newKey}

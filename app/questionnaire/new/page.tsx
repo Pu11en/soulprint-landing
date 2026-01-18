@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Sidebar } from "@/components/dashboard/sidebar"
 import { ProgressStepper, PILLARS } from "@/components/dashboard/progress-stepper"
-import { questions, Question } from "@/lib/questions"
+import { questions } from "@/lib/questions"
 import { createClient } from "@/lib/supabase/client"
 import { VoiceRecorderV3 } from "@/components/voice-recorder/VoiceRecorderV3"
 import Image from "next/image"
 
 // --- PRESETS FOR DEV TESTING ---
-const ACE_ANSWERS: Record<string, any> = {
+const ACE_ANSWERS: Record<string, string | number> = {
     s1: 100, s2: 0, s3: 100, s4: 100, s5: 0, s6: 0, s7: 0, s8: 0, s9: 0, s10: 100, s11: 0, s12: 50, s13: 100, s14: 100, s15: 0, s16: 0, s17: 100, s18: 0,
     q1: "I don't have a tone. I have a frequency. You either tune in or you break.",
     q2: "Reloading.",
@@ -35,7 +35,7 @@ const ACE_ANSWERS: Record<string, any> = {
     q18: "Relentless."
 };
 
-const SAGE_ANSWERS: Record<string, any> = {
+const SAGE_ANSWERS: Record<string, string | number> = {
     s1: 100, s2: 100, s3: 0, s4: 50, s5: 100, s6: 100, s7: 100, s8: 100, s9: 100, s10: 0, s11: 0, s12: 0, s13: 100, s14: 100, s15: 100, s16: 100, s17: 0, s18: 100,
     q1: "That I'm judging them. I'm just listening deeply.",
     q2: "A sacred space where truth can emerge.",
@@ -134,6 +134,7 @@ export default function NewQuestionnairePage() {
         } else {
             setTextInput(typeof savedAnswer === "string" ? savedAnswer : "")
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentQuestionIndex, currentQuestion?.id, currentQuestion?.type])
 
     // Save answer for current question
@@ -152,7 +153,7 @@ export default function NewQuestionnairePage() {
     }
 
     // Handle voice recording completion
-    const handleVoiceComplete = (result: any) => {
+    const handleVoiceComplete = (result: { transcript: string; emotionalSignature: unknown }) => {
         const newAnswers = {
             ...answers,
             [currentQuestion.id]: {
@@ -176,7 +177,7 @@ export default function NewQuestionnairePage() {
         if (currentQuestion?.type === "voice" && !voiceRecorded) {
             return
         }
-        const updatedAnswers = saveCurrentAnswer()
+        saveCurrentAnswer()
 
         if (currentQuestionIndex < questions.length - 1) {
             setCurrentQuestionIndex(currentQuestionIndex + 1)
@@ -226,7 +227,7 @@ export default function NewQuestionnairePage() {
 
     const handleDevFill = (archetype: 'ACE' | 'SAGE') => {
         // Fast-track: Generate answers for ALL questions based on archetype
-        let preset = archetype === 'ACE' ? ACE_ANSWERS : SAGE_ANSWERS;
+        const preset = archetype === 'ACE' ? ACE_ANSWERS : SAGE_ANSWERS;
 
         // Add dummy voice if needed (though presets cover text)
         const filledAnswers: Record<string, string | number | object> = { ...preset };
@@ -328,22 +329,25 @@ export default function NewQuestionnairePage() {
                         </Link>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="hidden lg:flex items-center gap-2">
-                            <Button
-                                onClick={() => handleDevFill('ACE')}
-                                variant="outline"
-                                className="h-9 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
-                            >
-                                FILL: ACE
-                            </Button>
-                            <Button
-                                onClick={() => handleDevFill('SAGE')}
-                                variant="outline"
-                                className="h-9 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
-                            >
-                                FILL: SAGE
-                            </Button>
-                        </div>
+                        {/* Dev tools - only visible in development mode */}
+                        {process.env.NODE_ENV === 'development' && (
+                            <div className="hidden lg:flex items-center gap-2">
+                                <Button
+                                    onClick={() => handleDevFill('ACE')}
+                                    variant="outline"
+                                    className="h-9 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
+                                >
+                                    FILL: ACE
+                                </Button>
+                                <Button
+                                    onClick={() => handleDevFill('SAGE')}
+                                    variant="outline"
+                                    className="h-9 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
+                                >
+                                    FILL: SAGE
+                                </Button>
+                            </div>
+                        )}
                         <Button
                             onClick={() => router.push('/dashboard/profile')}
                             variant="ghost"
@@ -371,7 +375,7 @@ export default function NewQuestionnairePage() {
                                     {pillarName} | PART {currentPillar} - Question {questionInPillar} of {totalQuestionsInPillar}
                                 </p>
                                 <h1 className="font-koulen text-[32px] leading-[38px] text-black tracking-wide">
-                                    LET'S BUILD YOUR SOULPRINT
+                                    LET&apos;S BUILD YOUR SOULPRINT
                                 </h1>
                             </div>
 

@@ -55,7 +55,7 @@ interface AnalysisResult {
   wordCount: number;
   emotionalSignature: EmotionalSignature;
   llmInstructions: string;
-  n8nPayload: any;
+  n8nPayload: Record<string, unknown>;
   processingTime: number;
 }
 
@@ -82,22 +82,25 @@ export function VoiceRecorderV3({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  
+
   // Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Audio visualization
   const [audioLevel, setAudioLevel] = useState(0);
-  
+
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  // Suppress unused minDuration warning - reserved for future validation
+  void minDuration;
   
   // Clean up on unmount
   useEffect(() => {
@@ -391,7 +394,7 @@ export function VoiceRecorderV3({
           <div className="mt-3 p-3 bg-[#19191e] border border-[#2c2c2c] rounded">
             <p className="font-mono text-xs text-[#878791] mb-1">Transcript preview:</p>
             <p className="font-mono text-xs text-neutral-300 italic truncate">
-              "{analysisResult.transcript.slice(0, 100)}{analysisResult.transcript.length > 100 ? '...' : ''}"
+              &quot;{analysisResult.transcript.slice(0, 100)}{analysisResult.transcript.length > 100 ? '...' : ''}&quot;
             </p>
             <div className="flex gap-4 mt-2 text-xs font-mono text-[#878791]">
               <span>{analysisResult.wordCount} words</span>
@@ -521,7 +524,7 @@ export function VoiceRecorderV3({
               </span>
             </h3>
             <p className="text-gray-700 dark:text-gray-300 italic">
-              "{analysisResult.transcript}"
+              &quot;{analysisResult.transcript}&quot;
             </p>
           </div>
           
@@ -559,7 +562,7 @@ export function VoiceRecorderV3({
                 <div className="flex flex-wrap gap-2">
                   {analysisResult.emotionalSignature.fillers.breakdown.map((f, i) => (
                     <span key={i} className="px-2 py-1 bg-purple-100 dark:bg-purple-800 rounded text-sm">
-                      "{f.word}" × {f.count}
+                      &quot;{f.word}&quot; × {f.count}
                     </span>
                   ))}
                 </div>

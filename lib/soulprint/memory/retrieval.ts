@@ -3,15 +3,17 @@ import { SupabaseClient } from '@supabase/supabase-js';
 
 import OpenAI from 'openai';
 
-// Initialize OpenAI for embeddings (assuming standard env var)
+// Initialize OpenAI for embeddings - SERVER-ONLY
+// This module should only be imported from API routes/server actions
 let openaiInstance: OpenAI | null = null;
 
 function getOpenAIClient() {
     if (!openaiInstance) {
-        openaiInstance = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-            dangerouslyAllowBrowser: true
-        });
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OPENAI_API_KEY environment variable is not set. This is required for embedding generation.');
+        }
+        openaiInstance = new OpenAI({ apiKey });
     }
     return openaiInstance;
 }
@@ -91,5 +93,5 @@ export async function retrieveContext(
         return [];
     }
 
-    return (data || []).map((row: any) => row.content);
+    return (data || []).map((row: { content: string }) => row.content);
 }

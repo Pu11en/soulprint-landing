@@ -49,10 +49,10 @@ export function AboutSection() {
                         viewport={{ once: true }}
                     >
                         <p className="mb-6">
-                            We built our own engine — not a wrapper, not a plugin, not a skin over someone else’s model. ArcheForge is a full-stack intelligence architecture designed from the ground up to support emotional cadence, persistent memory, and behavioral realism.
+                            We built our own engine — not a wrapper, not a plugin, not a skin over someone else&apos;s model. ArcheForge is a full-stack intelligence architecture designed from the ground up to support emotional cadence, persistent memory, and behavioral realism.
                         </p>
                         <p>
-                            SoulPrint doesn't simulate tone. It captures cadence. It preserves who you are, across time, across tools, across every interaction.
+                            SoulPrint doesn&apos;t simulate tone. It captures cadence. It preserves who you are, across time, across tools, across every interaction.
                         </p>
                     </motion.div>
                 </div>
@@ -67,7 +67,7 @@ export function AboutSection() {
                 >
                     <h3 className="font-koulen text-3xl text-white uppercase mb-2">We are ArcheForge.</h3>
                     <p className="font-geist text-neutral-400 max-w-xl">
-                        We're not selling chatbot wrappers. We're building the foundation for real AI continuity — one that moves with you, adapts to you, and remembers you.
+                        We&apos;re not selling chatbot wrappers. We&apos;re building the foundation for real AI continuity — one that moves with you, adapts to you, and remembers you.
                     </p>
                 </motion.div>
 

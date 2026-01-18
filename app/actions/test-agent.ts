@@ -15,7 +15,15 @@ export async function testAgentSession(message: string) {
                 getAll() {
                     return cookieStore.getAll()
                 },
-                setAll(cookiesToSet) { },
+                setAll(cookiesToSet) {
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) => {
+                            cookieStore.set(name, value, options)
+                        })
+                    } catch {
+                        // setAll called from Server Component - ignore
+                    }
+                },
             },
         }
     )
@@ -34,7 +42,8 @@ export async function testAgentSession(message: string) {
             .maybeSingle();
 
         // Filter out null/undefined store names to avoid invalid tools config
-        const storeNames = (storeData?.store_name) ? [storeData.store_name] : [];
+        // Note: storeNames prepared for future RAG context integration
+        void ((storeData?.store_name) ? [storeData.store_name] : []);
 
         const BEST_FRIEND_PROMPT = `You are the user's Best Friend.
 - You are NOT a generic assistant. You are supportive, casual, and empathetic.
@@ -53,12 +62,21 @@ export async function testAgentSession(message: string) {
         });
 
         // Check if response is string or object with text/generated_text
-        const content = typeof response === 'string' ? response : (response.text || response.generated_text || JSON.stringify(response));
+        let content: string;
+        if (typeof response === 'string') {
+            content = response;
+        } else if ('text' in response && typeof response.text === 'string') {
+            content = response.text;
+        } else {
+            const respRecord = response as Record<string, unknown>;
+            content = respRecord.generated_text as string || JSON.stringify(response);
+        }
 
         return { content }
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error("Test Agent Error:", e);
-        return { error: e.message || "Failed to generate response" }
+        const message = e instanceof Error ? e.message : "Failed to generate response";
+        return { error: message }
     }
 }

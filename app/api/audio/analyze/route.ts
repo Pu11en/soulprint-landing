@@ -141,7 +141,7 @@ async function runProsodyAnalysis(audioPath: string): Promise<ProsodyFeatures> {
         try {
           const features = JSON.parse(stdout) as ProsodyFeatures;
           resolve(features);
-        } catch (parseError) {
+        } catch {
           reject(new Error(`Failed to parse prosody output: ${stdout}`));
         }
       } else {

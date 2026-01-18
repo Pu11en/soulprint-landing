@@ -2,25 +2,12 @@
 
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
-import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
 import { SoulPrintSelector } from "@/components/dashboard/soulprint-selector"
 
 export function TopBar() {
-    const [userEmail, setUserEmail] = useState<string | null>(null)
     const supabase = createClient()
     const router = useRouter()
-
-    useEffect(() => {
-        async function getUser() {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user?.email) {
-                setUserEmail(user.email)
-            }
-        }
-        getUser()
-    }, [supabase])
 
     const handleLogout = async () => {
         await supabase.auth.signOut()

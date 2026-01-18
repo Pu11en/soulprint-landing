@@ -42,7 +42,7 @@ export function MemorySection() {
                                 Independent Presence, Anywhere Intelligence Exists
                             </h3>
                             <p className="font-geist text-base leading-relaxed text-neutral-400">
-                                Your identity isn't locked to a platform. It travels with you.
+                                Your identity isn&apos;t locked to a platform. It travels with you.
                             </p>
                         </motion.div>
                         <motion.div

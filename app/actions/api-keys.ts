@@ -15,7 +15,15 @@ export async function generateApiKey(label: string = "Default Key", status: 'act
                 getAll() {
                     return cookieStore.getAll()
                 },
-                setAll(cookiesToSet) { },
+                setAll(cookiesToSet) {
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) => {
+                            cookieStore.set(name, value, options)
+                        })
+                    } catch {
+                        // setAll called from Server Component - ignore
+                    }
+                },
             },
         }
     )
@@ -121,7 +129,15 @@ export async function listApiKeys() {
                 getAll() {
                     return cookieStore.getAll()
                 },
-                setAll(cookiesToSet) { },
+                setAll(cookiesToSet) {
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) => {
+                            cookieStore.set(name, value, options)
+                        })
+                    } catch {
+                        // setAll called from Server Component - ignore
+                    }
+                },
             },
         }
     )
@@ -171,7 +187,15 @@ export async function revokeApiKey(id: string) {
                 getAll() {
                     return cookieStore.getAll()
                 },
-                setAll(cookiesToSet) { },
+                setAll(cookiesToSet) {
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) => {
+                            cookieStore.set(name, value, options)
+                        })
+                    } catch {
+                        // setAll called from Server Component - ignore
+                    }
+                },
             },
         }
     )

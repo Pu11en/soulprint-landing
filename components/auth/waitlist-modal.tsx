@@ -56,8 +56,9 @@ export function WaitlistModal({ isOpen, onOpenChange }: WaitlistModalProps) {
             setName("")
             setEmail("")
             setNdaAgreed(false)
-        } catch (err: any) {
-            setError(err.message || "Something went wrong")
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Something went wrong"
+            setError(message)
         } finally {
             setLoading(false)
         }
@@ -65,7 +66,7 @@ export function WaitlistModal({ isOpen, onOpenChange }: WaitlistModalProps) {
 
     const handleCodeSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (code === "7423") {
+        if (code === "!Arche!") {
             onOpenChange(false)
             router.push("/login")
         } else {

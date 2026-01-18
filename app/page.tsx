@@ -9,14 +9,12 @@ import BreakpointDesktop from "@/components/BreakpointDesktop"
 import { Footer } from "@/components/sections/footer"
 
 export default async function Home() {
-  /* 
-  // Disable devLogin to test persistent login/logout behavior properly
+  // Enable devLogin to test persistent login/logout behavior properly
   if (process.env.NODE_ENV === "development") {
     // Dynamically import to avoid bundling server action in client boundary if this were client (it's server though)
     const { devLogin } = await import("@/app/actions/dev-login");
     await devLogin();
   }
-  */
 
   return (
     <main className="min-h-screen">

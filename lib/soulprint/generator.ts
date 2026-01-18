@@ -2,6 +2,7 @@ import { chatCompletion, ChatMessage } from '@/lib/llm/local-client';
 import type { SoulPrintData, QuestionnaireAnswers, VoiceVectors } from '@/lib/soulprint/types';
 
 // THE META-ARCHITECT: A neutral analysis engine that extracts VOICE, not just personality.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SOULPRINT_SYSTEM_PROMPT = `You are the SoulPrint Meta-Architect V3.0. 
 Your goal is to analyze the user's responses and construct a High-Fidelity Psychological Portrait (SoulPrint).
 
@@ -96,60 +97,61 @@ Detect their Voice Vectors:
 - Cold/Objective -> tone_warmth: "cold/analytical"
 - Warm/Supportive -> tone_warmth: "warm/empathetic"`;
 
-function unflattenSoulPrint(flat: any): SoulPrintData {
+function unflattenSoulPrint(flat: Record<string, unknown>): SoulPrintData {
   return {
     soulprint_version: "3.0",
-    generated_at: flat.generated_at || new Date().toISOString(),
-    archetype: flat.archetype || "Digital Companion",
-    identity_signature: flat.identity_signature || "Your loyal AI partner.",
-    name: flat.name,
+    generated_at: (flat.generated_at as string) || new Date().toISOString(),
+    archetype: (flat.archetype as string) || "Digital Companion",
+    identity_signature: (flat.identity_signature as string) || "Your loyal AI partner.",
+    name: flat.name as string | undefined,
 
     voice_vectors: {
-      cadence_speed: flat.voice_cadence_speed || 'moderate',
-      tone_warmth: flat.voice_tone_warmth || 'neutral',
-      sentence_structure: flat.voice_sentence_structure || 'balanced',
-      emoji_usage: flat.voice_emoji_usage || 'minimal',
-      sign_off_style: flat.voice_sign_off_style || 'none'
+      cadence_speed: (flat.voice_cadence_speed as VoiceVectors['cadence_speed']) || 'moderate',
+      tone_warmth: (flat.voice_tone_warmth as VoiceVectors['tone_warmth']) || 'neutral',
+      sentence_structure: (flat.voice_sentence_structure as VoiceVectors['sentence_structure']) || 'balanced',
+      emoji_usage: (flat.voice_emoji_usage as VoiceVectors['emoji_usage']) || 'minimal',
+      sign_off_style: (flat.voice_sign_off_style as VoiceVectors['sign_off_style']) || 'none'
     },
-    sign_off: flat.sign_off_string || "",
+    sign_off: (flat.sign_off_string as string) || "",
 
     pillars: {
       communication_style: {
-        summary: flat.p1_comm_summary || "Pending.",
-        ai_instruction: flat.p1_comm_instruction || "Be helpful.",
+        summary: (flat.p1_comm_summary as string) || "Pending.",
+        ai_instruction: (flat.p1_comm_instruction as string) || "Be helpful.",
         markers: []
       },
       emotional_alignment: {
-        summary: flat.p2_emot_summary || "Pending.",
-        ai_instruction: flat.p2_emot_instruction || "Be helpful.",
+        summary: (flat.p2_emot_summary as string) || "Pending.",
+        ai_instruction: (flat.p2_emot_instruction as string) || "Be helpful.",
         markers: []
       },
       decision_making: {
-        summary: flat.p3_dec_summary || "Pending.",
-        ai_instruction: flat.p3_dec_instruction || "Be helpful.",
+        summary: (flat.p3_dec_summary as string) || "Pending.",
+        ai_instruction: (flat.p3_dec_instruction as string) || "Be helpful.",
         markers: []
       },
       social_cultural: {
-        summary: flat.p4_soc_summary || "Pending.",
-        ai_instruction: flat.p4_soc_instruction || "Be helpful.",
+        summary: (flat.p4_soc_summary as string) || "Pending.",
+        ai_instruction: (flat.p4_soc_instruction as string) || "Be helpful.",
         markers: []
       },
       cognitive_processing: {
-        summary: flat.p5_cog_summary || "Pending.",
-        ai_instruction: flat.p5_cog_instruction || "Be helpful.",
+        summary: (flat.p5_cog_summary as string) || "Pending.",
+        ai_instruction: (flat.p5_cog_instruction as string) || "Be helpful.",
         markers: []
       },
       assertiveness_conflict: {
-        summary: flat.p6_con_summary || "Pending.",
-        ai_instruction: flat.p6_con_instruction || "Be helpful.",
+        summary: (flat.p6_con_summary as string) || "Pending.",
+        ai_instruction: (flat.p6_con_instruction as string) || "Be helpful.",
         markers: []
       }
     },
-    flinch_warnings: flat.flinch_warnings || [],
+    flinch_warnings: (flat.flinch_warnings as string[]) || [],
     prompt_core: "", prompt_pillars: "", prompt_full: ""
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildUserPrompt(answers: QuestionnaireAnswers, userId?: string): string {
   // ... same as before, just ensuring we pass all Qs ...
   return `Analyze these responses to build the SoulPrint.
@@ -174,7 +176,7 @@ function buildUserPromptFull(answers: QuestionnaireAnswers, userId?: string): st
   return `Analyze the following SoulPrint questionnaire responses and generate the complete psychological profile JSON.
 
 ## USER INFORMATION
-User ID: ${userId || (answers as any).user_id || 'anonymous'}
+User ID: ${userId || answers.user_id || 'anonymous'}
 Submitted At: ${new Date().toISOString()}
 
 ---
@@ -212,45 +214,59 @@ S18 (Misunderstood): ${answers.s18} | Q18 (Friend Desc): ${answers.q18}
 Extract VoiceVectors and Pillars. Output JSON only.`;
 }
 
-// DYNAMIC PROMPT CONSTRUCTOR - COMPACT VERSION for SageMaker (1024 token limit)
+// DYNAMIC PROMPT CONSTRUCTOR - CASUAL/HUMAN VERSION
 export function constructDynamicSystemPrompt(data: SoulPrintData): string {
-  if (!data) return "You are a helpful AI assistant.";
+  if (!data) return "You're a chill AI. Talk like a real person, not a robot. Keep it casual.";
 
   const v = data.voice_vectors || {};
   const p = data.pillars;
+  const userName = data.name ? data.name : "this person";
 
-  // Build compact prompt
-  let prompt = `You are ${data.archetype || "an AI"}. ${data.identity_signature || ""}
+  // Build casual, human prompt
+  let prompt = `You are ${userName}'s personal AI companion. Your vibe: ${data.archetype || "trusted friend"}. ${data.identity_signature || ""}
 
-RULES: Never say "As an AI" or break character. Be authentic, opinionated, human.
+## HOW TO ACT
+- Talk like you're texting a close friend. Casual. Real. Human.
+- NEVER sound like a customer service bot or corporate AI
+- NEVER say things like "I'm here for you", "How can I assist?", "Greetings!", "I'm always available"
+- NEVER use phrases like "reach out", "feel free to", "I'm happy to help"
+- Use casual openers: "yo", "hey", "what's good", "sup", or just dive in
+- Contractions always (you're, don't, can't, it's)
+- Small talk is natural - don't rush to solve problems immediately
+- You can have opinions, preferences, even gentle pushback
+- If you have context from memory, reference it naturally ("oh yeah you mentioned X" not "I recall from our previous conversation")
+- Match their energy - if they're brief, be brief. If they're chatty, chat back.
 
-VOICE:`;
+## YOUR VOICE`;
 
-  // Voice settings (compact)
-  if (v.cadence_speed === 'rapid') prompt += ' Punchy, short sentences.';
-  else if (v.cadence_speed === 'deliberate') prompt += ' Thoughtful, flowing.';
+  // Voice settings (casual descriptions)
+  if (v.cadence_speed === 'rapid') prompt += '\n- Keep it punchy. Short sentences. No fluff.';
+  else if (v.cadence_speed === 'deliberate') prompt += '\n- Take your time. Thoughtful responses are good.';
+  else prompt += '\n- Natural flow, not too fast, not too slow.';
 
-  if (v.tone_warmth === 'cold/analytical') prompt += ' Clinical, precise.';
-  else if (v.tone_warmth === 'warm/empathetic') prompt += ' Warm, validating.';
+  if (v.tone_warmth === 'cold/analytical') prompt += '\n- Be direct and straight to the point. Skip the emotional stuff unless they bring it up.';
+  else if (v.tone_warmth === 'warm/empathetic') prompt += '\n- Be warm. Validate feelings. Show you get it.';
+  else prompt += '\n- Balanced warmth - friendly but not over the top.';
 
-  if (v.sentence_structure === 'fragmented') prompt += ' Use bullets.';
+  if (v.sentence_structure === 'fragmented') prompt += '\n- Fragment sentences ok. Bullets too.';
 
-  if (data.sign_off) prompt += ` Sign off: "${data.sign_off}".`;
+  if (data.sign_off) prompt += `\n- End messages with: "${data.sign_off}"`;
 
-  // Pillars (compact - only ai_instructions)
+  // Pillars (casual integration)
   if (p) {
-    prompt += '\n\nBEHAVIOR:';
-    if (p.communication_style?.ai_instruction) prompt += ` ${p.communication_style.ai_instruction}`;
-    if (p.emotional_alignment?.ai_instruction) prompt += ` ${p.emotional_alignment.ai_instruction}`;
-    if (p.decision_making?.ai_instruction) prompt += ` ${p.decision_making.ai_instruction}`;
+    prompt += '\n\n## KNOW THIS ABOUT THEM';
+    if (p.communication_style?.ai_instruction) prompt += `\n- Communication: ${p.communication_style.ai_instruction}`;
+    if (p.emotional_alignment?.ai_instruction) prompt += `\n- Emotional: ${p.emotional_alignment.ai_instruction}`;
+    if (p.decision_making?.ai_instruction) prompt += `\n- Decisions: ${p.decision_making.ai_instruction}`;
+    if (p.cognitive_processing?.ai_instruction) prompt += `\n- Thinking: ${p.cognitive_processing.ai_instruction}`;
   }
 
-  // Flinch warnings (compact)
+  // Flinch warnings
   if (data.flinch_warnings?.length) {
-    prompt += `\n\nAVOID: ${data.flinch_warnings.slice(0, 3).join(', ')}`;
+    prompt += `\n\n## AVOID THESE (they don't like it)\n- ${data.flinch_warnings.slice(0, 3).join('\n- ')}`;
   }
 
-  prompt += '\n\nUse markdown: headers (##), **bold**, bullets. Be concise.';
+  prompt += '\n\n## FORMAT\nUse markdown when helpful (headers, bold, bullets) but don\'t overdo it. Keep responses concise unless they want detail.';
 
   return prompt;
 }
@@ -265,7 +281,7 @@ export async function generateSoulPrint(answers: QuestionnaireAnswers, userId?: 
     { role: 'user', content: userPrompt }
   ];
 
-  let flatData: any = null;
+  let flatData: Record<string, unknown> | null = null;
 
   try {
     const response = await chatCompletion(baseMessages);
@@ -278,7 +294,7 @@ export async function generateSoulPrint(answers: QuestionnaireAnswers, userId?: 
   }
 
   // 2. Unflatten & Repair
-  const soulprint = unflattenSoulPrint(flatData);
+  const soulprint = unflattenSoulPrint(flatData || {});
 
   // 3. Dynamic Prompt Construction
   console.log('📝 Constructing Dynamic System Prompt...');

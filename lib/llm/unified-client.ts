@@ -1,7 +1,7 @@
-import { invokeSoulPrintModel, invokeSoulPrintModelStream } from '@/lib/aws/sagemaker';
-// import { chatCompletion as openAIChat, streamChatCompletion as openAIStream, ChatMessage } from '@/lib/openai/client';
+import { invokeSoulPrintModel, invokeSoulPrintModelStream, ChatMessage } from '@/lib/aws/sagemaker';
 
-export async function unifiedChatCompletion(messages: any[], options: { model?: string } = {}) {
+export async function unifiedChatCompletion(messages: ChatMessage[], options: { model?: string } = {}) {
+    void options;
     console.log('🚀 Using AWS SageMaker LLM');
 
     try {
@@ -37,7 +37,8 @@ export async function unifiedChatCompletion(messages: any[], options: { model?: 
     }
 }
 
-export async function* unifiedStreamChatCompletion(messages: any[], options: { model?: string } = {}) {
+export async function* unifiedStreamChatCompletion(messages: ChatMessage[], options: { model?: string } = {}) {
+    void options;
     console.log('🚀 Using AWS SageMaker LLM (Streaming)');
 
     // Construct Prompt
@@ -63,8 +64,9 @@ export async function* unifiedStreamChatCompletion(messages: any[], options: { m
             yield chunk;
         }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('❌ Streaming failed:', error);
-        yield `[ERROR: ${error.message}]`;
+        const message = error instanceof Error ? error.message : String(error);
+        yield `[ERROR: ${message}]`;
     }
 }

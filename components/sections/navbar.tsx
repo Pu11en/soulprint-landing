@@ -3,19 +3,13 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Menu, X } from "lucide-react"
 import { WaitlistModal } from "@/components/auth/waitlist-modal"
 
 export function Navbar() {
-    const [mounted, setMounted] = useState(false)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const [showWaitlistModal, setShowWaitlistModal] = useState(false)
-    const LOGIN_ENABLED = true;
-
-    useEffect(() => {
-        setMounted(true)
-    }, [])
 
     return (
         <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

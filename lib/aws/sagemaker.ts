@@ -47,8 +47,8 @@ export interface SageMakerResponse {
  * Invokes the configured SageMaker Endpoint (Non-Streaming).
  */
 export async function invokeSoulPrintModel(
-  payload: Record<string, any>
-): Promise<any> {
+  payload: Record<string, unknown>
+): Promise<Record<string, unknown> | string | { text: string }> {
   const endpointName = process.env.SAGEMAKER_ENDPOINT_NAME;
 
   if (!endpointName) {
@@ -67,12 +67,13 @@ export async function invokeSoulPrintModel(
 
     try {
       return JSON.parse(responseBody);
-    } catch (e) {
+    } catch {
       return { text: responseBody };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AWS SageMaker Invocation Error:", error);
-    throw new Error(`SageMaker Invocation Failed: ${error.message || error}`);
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`SageMaker Invocation Failed: ${message}`);
   }
 }
 
@@ -81,7 +82,7 @@ export async function invokeSoulPrintModel(
  * Yields chunks of generated text.
  */
 export async function* invokeSoulPrintModelStream(
-  payload: Record<string, any>
+  payload: Record<string, unknown>
 ): AsyncGenerator<string, void, unknown> {
   const endpointName = process.env.SAGEMAKER_ENDPOINT_NAME;
 
@@ -146,9 +147,10 @@ export async function* invokeSoulPrintModelStream(
         }
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AWS SageMaker Streaming Error:", error);
-    throw new Error(`SageMaker Streaming Failed: ${error.message || error}`);
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`SageMaker Streaming Failed: ${message}`);
   }
 }
 
@@ -167,8 +169,9 @@ export async function checkEndpointStatus() {
       isReady: response.EndpointStatus === 'InService',
       status: response.EndpointStatus
     };
-  } catch (error: any) {
-    if (error.name === 'ValidationError' || error.message.includes('Could not find endpoint')) {
+  } catch (error: unknown) {
+    const err = error as { name?: string; message?: string };
+    if (err.name === 'ValidationError' || err.message?.includes('Could not find endpoint')) {
       return { isReady: false, status: 'NotFound' };
     }
     throw error;

@@ -13,8 +13,27 @@
 // ============================================================================
 
 // Type for Web Speech API SpeechRecognition
-type SpeechRecognitionType = typeof window extends { SpeechRecognition: infer T } ? T : any;
-type SpeechRecognitionInstance = InstanceType<SpeechRecognitionType> | null;
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognitionInterface {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+type SpeechRecognitionInstance = SpeechRecognitionInterface | null;
 
 export interface TranscriptSegment {
   text: string;
@@ -154,18 +173,22 @@ async function analyzeAudioBuffer(audioBlob: Blob): Promise<{
 
 export function createSpeechRecognition(): SpeechRecognitionInstance {
   if (typeof window === 'undefined') return null;
-  
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+  const windowWithSpeech = window as Window & {
+    SpeechRecognition?: new () => SpeechRecognitionInterface;
+    webkitSpeechRecognition?: new () => SpeechRecognitionInterface;
+  };
+  const SpeechRecognition = windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     console.warn('[VoiceAnalyzer] Web Speech API not supported in this browser');
     return null;
   }
-  
+
   const recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
   recognition.lang = 'en-US';
-  
+
   return recognition;
 }
 
@@ -194,14 +217,14 @@ export class SoulPrintVoiceAnalyzerV2 {
   private setupRecognition() {
     if (!this.recognition) return;
     
-    this.recognition.onresult = (event: any) => {
+    this.recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = '';
       let final = '';
-      
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const text = result[0].transcript;
-        
+
         if (result.isFinal) {
           final += text;
           this.transcriptSegments.push({
@@ -213,15 +236,15 @@ export class SoulPrintVoiceAnalyzerV2 {
           interim += text;
         }
       }
-      
+
       if (final) {
         this.finalTranscript += final;
       }
-      
+
       this.onTranscriptUpdate?.(this.finalTranscript + interim, !!final);
     };
-    
-    this.recognition.onerror = (event: any) => {
+
+    this.recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('[VoiceAnalyzer] Speech recognition error:', event.error);
       this.onError?.(event.error);
     };
@@ -231,7 +254,7 @@ export class SoulPrintVoiceAnalyzerV2 {
       if (this.isListening) {
         try {
           this.recognition?.start();
-        } catch (e) {
+        } catch {
           // Ignore - might already be started
         }
       }
@@ -256,8 +279,8 @@ export class SoulPrintVoiceAnalyzerV2 {
       this.recognition.start();
       console.log('[VoiceAnalyzer] Started listening...');
       return true;
-    } catch (e) {
-      console.error('[VoiceAnalyzer] Failed to start:', e);
+    } catch (error) {
+      console.error('[VoiceAnalyzer] Failed to start:', error);
       return false;
     }
   }
@@ -270,7 +293,7 @@ export class SoulPrintVoiceAnalyzerV2 {
     if (this.recognition) {
       try {
         this.recognition.stop();
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }

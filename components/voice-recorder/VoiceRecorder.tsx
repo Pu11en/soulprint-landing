@@ -18,11 +18,11 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Square, RotateCcw, Send, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { analyzeVoice, type VoiceAnalysisResult as AnalysisResult, type EmotionalSignatureCurve } from '@/lib/soulprint/voice-analyzer';
+import { analyzeVoice, type EmotionalSignatureCurve } from '@/lib/soulprint/voice-analyzer';
 
 interface VoiceRecorderProps {
-  userId: string;
-  pillarId: string;
+  userId?: string;
+  pillarId?: string;
   onRecordingComplete?: (blob: Blob, duration: number) => void;
   onAnalysisComplete?: (result: VoiceAnalysisResultExtended) => void;
   onError?: (error: string) => void;
@@ -47,8 +47,6 @@ export type VoiceAnalysisResult = VoiceAnalysisResultExtended;
 type RecordingState = 'idle' | 'recording' | 'recorded' | 'analyzing' | 'success' | 'error';
 
 export function VoiceRecorder({
-  userId,
-  pillarId,
   onRecordingComplete,
   onAnalysisComplete,
   onError,
@@ -101,6 +99,7 @@ export function VoiceRecorder({
     if (state === 'recording' && duration >= maxDuration) {
       stopRecording();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, maxDuration, state]);
   
   /**
@@ -215,8 +214,9 @@ export function VoiceRecorder({
       onError?.(message);
       setState('error');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minDuration, autoSubmit, audioUrl, onRecordingComplete, onError, state]);
-  
+
   /**
    * Stop recording
    */

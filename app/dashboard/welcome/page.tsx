@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Play } from "lucide-react"
@@ -10,8 +10,6 @@ import Image from "next/image"
 export default function WelcomePage() {
     const router = useRouter()
     const supabase = createClient()
-    const [userEmail, setUserEmail] = useState<string | null>(null)
-
     useEffect(() => {
         async function checkUser() {
             const { data: { user } } = await supabase.auth.getUser()
@@ -19,7 +17,6 @@ export default function WelcomePage() {
                 router.push('/')
                 return
             }
-            setUserEmail(user.email || null)
 
             // Check if user already has a soulprint
             const { data: existingSoulprint } = await supabase

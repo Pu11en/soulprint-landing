@@ -2,8 +2,8 @@
 
 interface ProgressStepperProps {
     currentPart: number
-    currentQuestion: number
-    totalQuestionsInPart: number
+    currentQuestion?: number
+    totalQuestionsInPart?: number
 }
 
 export const PILLARS = [
@@ -15,7 +15,7 @@ export const PILLARS = [
     { id: 6, name: "PART SIX", subtitle: "Assertiveness & Conflict", category: "conflict" },
 ]
 
-export function ProgressStepper({ currentPart, currentQuestion, totalQuestionsInPart }: ProgressStepperProps) {
+export function ProgressStepper({ currentPart }: ProgressStepperProps) {
     return (
         <div className="w-full max-w-[407px] rounded-xl bg-white p-8 shadow-sm border border-gray-100">
             <div className="flex">

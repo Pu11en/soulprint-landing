@@ -18,8 +18,8 @@ import {
 } from '@/lib/soulprint/voice-analyzer-v2';
 
 interface VoiceRecorderV2Props {
-  userId: string;
-  pillarId: string;
+  userId?: string;
+  pillarId?: string;
   onAnalysisComplete?: (result: VoiceAnalysisResult) => void;
   onError?: (error: string) => void;
   minDuration?: number;
@@ -31,8 +31,6 @@ interface VoiceRecorderV2Props {
 type RecordingState = 'idle' | 'recording' | 'recorded' | 'analyzing' | 'success' | 'error';
 
 export function VoiceRecorderV2({
-  userId,
-  pillarId,
   onAnalysisComplete,
   onError,
   minDuration = 3,
@@ -46,7 +44,7 @@ export function VoiceRecorderV2({
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<string>('');
-  const [analysisResult, setAnalysisResult] = useState<VoiceAnalysisResult | null>(null);
+  const [, setAnalysisResult] = useState<VoiceAnalysisResult | null>(null);
   const [liveEnergy, setLiveEnergy] = useState<number>(0);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -63,7 +61,7 @@ export function VoiceRecorderV2({
   // Setup analyzer callbacks
   useEffect(() => {
     if (voiceAnalyzer) {
-      voiceAnalyzer.onTranscriptUpdate = (transcript, isFinal) => {
+      voiceAnalyzer.onTranscriptUpdate = (transcript) => {
         setLiveTranscript(transcript);
       };
       voiceAnalyzer.onError = (error) => {
@@ -95,6 +93,7 @@ export function VoiceRecorderV2({
     if (state === 'recording' && duration >= maxDuration) {
       stopRecording();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, maxDuration, state]);
   
   const startRecording = useCallback(async () => {
@@ -255,7 +254,7 @@ export function VoiceRecorderV2({
       {/* Prompt */}
       {prompt && state === 'idle' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 bg-orange-500/10 border border-orange-500/30 rounded">
-          <p className="text-sm text-neutral-300 italic">"{prompt}"</p>
+          <p className="text-sm text-neutral-300 italic">&quot;{prompt}&quot;</p>
         </motion.div>
       )}
       
