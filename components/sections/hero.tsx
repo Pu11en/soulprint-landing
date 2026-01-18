@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useState } from "react";
-import { SecurityAccessModal } from "@/components/auth/security-access-modal";
+import { WaitlistModal } from "@/components/auth/waitlist-modal";
 // import { SignUpModal } from "@/components/auth/signup-modal"; // Temporarily disabled for waitlist
 import Link from "next/link";
 
 export function Hero() {
-    const [showSecurityModal, setShowSecurityModal] = useState(false);
+    const [showWaitlistModal, setShowWaitlistModal] = useState(false);
 
     return (
         <section className="relative flex w-full flex-col items-center justify-start overflow-hidden bg-[#0A0A0A] min-h-[calc(100dvh-64px)] pt-8 sm:pt-12 sm:justify-center lg:bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] lg:from-neutral-900/50 lg:via-black lg:to-black">
@@ -49,13 +49,13 @@ export function Hero() {
                     {/* Actions */}
                     <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:mt-6 lg:gap-4">
                         <Button
-                            onClick={() => setShowSecurityModal(true)}
+                            onClick={() => setShowWaitlistModal(true)}
                             className="h-11 w-full rounded-lg bg-[#EA580C] px-5 py-3 font-geist text-base font-medium text-[#FAFAFA] transition-all hover:bg-[#EA580C]/90 hover:scale-[1.02] active:scale-[0.98] sm:w-auto lg:h-14 lg:px-10 lg:text-lg"
                         >
                             Enter SoulPrint
                         </Button>
                     </div>
-                    <SecurityAccessModal isOpen={showSecurityModal} onOpenChange={setShowSecurityModal} />
+                    <WaitlistModal isOpen={showWaitlistModal} onOpenChange={setShowWaitlistModal} />
                 </motion.div>
 
                 {/* Image/Visual Container */}

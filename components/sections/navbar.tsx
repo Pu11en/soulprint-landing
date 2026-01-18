@@ -5,12 +5,12 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { Menu, X } from "lucide-react"
-import { SecurityAccessModal } from "@/components/auth/security-access-modal"
+import { WaitlistModal } from "@/components/auth/waitlist-modal"
 
 export function Navbar() {
     const [mounted, setMounted] = useState(false)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
-    const [showSecurityModal, setShowSecurityModal] = useState(false)
+    const [showWaitlistModal, setShowWaitlistModal] = useState(false)
     const LOGIN_ENABLED = true;
 
     useEffect(() => {
@@ -48,7 +48,7 @@ export function Navbar() {
                 {/* Desktop Buttons (Hidden on mobile) */}
                 <div className="hidden md:flex items-center gap-2">
                     <Button
-                        onClick={() => setShowSecurityModal(true)}
+                        onClick={() => setShowWaitlistModal(true)}
                         className="bg-[#EA580C] text-white hover:bg-[#EA580C]/90"
                     >
                         Enter SoulPrint
@@ -82,7 +82,7 @@ export function Navbar() {
                         <Button
                             onClick={() => {
                                 setIsMenuOpen(false)
-                                setShowSecurityModal(true)
+                                setShowWaitlistModal(true)
                             }}
                             className="w-full h-12 bg-[#EA580C] text-white hover:bg-[#EA580C]/90"
                         >
@@ -91,7 +91,7 @@ export function Navbar() {
                     </div>
                 </div>
             )}
-            <SecurityAccessModal isOpen={showSecurityModal} onOpenChange={setShowSecurityModal} />
+            <WaitlistModal isOpen={showWaitlistModal} onOpenChange={setShowWaitlistModal} />
         </nav>
     )
 }
