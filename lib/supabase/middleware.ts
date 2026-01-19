@@ -44,11 +44,25 @@ export async function updateSession(request: NextRequest) {
 
     const {
         data: { user },
+        error: userError
     } = await supabase.auth.getUser()
 
+    // Debug logging for protected routes
+    const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/questionnaire')
+    if (isProtectedRoute) {
+        console.log('🔒 Middleware check for protected route:', {
+            path: request.nextUrl.pathname,
+            hasUser: !!user,
+            userEmail: user?.email,
+            error: userError?.message,
+            cookies: request.cookies.getAll().map(c => c.name)
+        })
+    }
+
     // Protected routes logic - keep it simple
-    if (request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/questionnaire')) {
+    if (isProtectedRoute) {
         if (!user) {
+            console.log('⛔ No user found, redirecting to home')
             return NextResponse.redirect(new URL('/', request.url))
         }
 

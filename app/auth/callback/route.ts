@@ -7,17 +7,20 @@ export async function GET(request: NextRequest) {
     const error = requestUrl.searchParams.get('error')
     const errorDescription = requestUrl.searchParams.get('error_description')
 
+    console.log('🔐 Auth callback started:', { 
+        hasCode: !!code, 
+        error, 
+        origin: requestUrl.origin 
+    })
+
     if (error) {
+        console.error('❌ Auth error from Supabase:', error, errorDescription)
         return NextResponse.redirect(new URL(`/?error=${errorDescription || error}`, requestUrl.origin))
     }
 
     if (code) {
-        // Create response object first - we'll set cookies on it
-        const response = NextResponse.next({
-            request: {
-                headers: request.headers,
-            },
-        })
+        // We need to collect cookies that Supabase sets during the exchange
+        const cookiesToSet: { name: string; value: string; options: CookieOptions }[] = []
 
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,18 +30,31 @@ export async function GET(request: NextRequest) {
                     getAll() {
                         return request.cookies.getAll()
                     },
-                    setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-                        cookiesToSet.forEach(({ name, value, options }) => {
-                            response.cookies.set(name, value, options)
+                    setAll(cookies: { name: string; value: string; options: CookieOptions }[]) {
+                        // Collect all cookies that Supabase wants to set
+                        cookies.forEach((cookie) => {
+                            cookiesToSet.push(cookie)
                         })
                     },
                 },
             }
         )
 
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
-        if (!exchangeError) {
+        console.log('🔄 Code exchange result:', { 
+            success: !exchangeError, 
+            error: exchangeError?.message,
+            hasSession: !!sessionData?.session,
+            cookiesCollected: cookiesToSet.length
+        })
+
+        if (exchangeError) {
+            console.error('❌ Exchange error:', exchangeError)
+            return NextResponse.redirect(new URL(`/?error=${exchangeError.message}`, requestUrl.origin))
+        }
+
+        if (!exchangeError && sessionData?.session) {
             // Get user info to check for existing soulprint
             const { data: { user } } = await supabase.auth.getUser()
 
@@ -46,6 +62,8 @@ export async function GET(request: NextRequest) {
             
             // Check for existing soulprint
             if (user) {
+                console.log('👤 User authenticated:', user.email)
+                
                 const { count } = await supabase
                     .from('soulprints')
                     .select('*', { count: 'exact', head: true })
@@ -56,17 +74,21 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            // Create redirect response and copy cookies from the response object
+            console.log('🚀 Redirecting to:', redirectUrl)
+
+            // Create redirect response
             const redirectResponse = NextResponse.redirect(new URL(redirectUrl, requestUrl.origin))
             
-            // Copy all cookies from the original response to the redirect response
-            response.cookies.getAll().forEach((cookie) => {
-                redirectResponse.cookies.set(cookie.name, cookie.value, {
-                    path: '/',
-                    httpOnly: true,
+            // Apply all collected cookies to the redirect response
+            // Using the exact options that Supabase SSR provides
+            cookiesToSet.forEach(({ name, value, options }) => {
+                console.log('🍪 Setting cookie:', name, 'length:', value.length)
+                redirectResponse.cookies.set(name, value, {
+                    ...options,
+                    // Ensure these critical options are set for production
+                    path: options.path || '/',
+                    sameSite: options.sameSite || 'lax',
                     secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'lax',
-                    maxAge: 60 * 60 * 24 * 365, // 1 year
                 })
             })
 
@@ -75,5 +97,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Capture auth code exchange error or missing code
+    console.error('❌ Auth callback failed: no code or exchange failed')
     return NextResponse.redirect(new URL('/?error=auth_code_missing', requestUrl.origin))
 }
