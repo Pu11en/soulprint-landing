@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export function Hero() {
     return (
-        <section className="relative flex w-full flex-col items-center justify-start overflow-hidden bg-[#0A0A0A] min-h-[calc(100dvh-64px)] pt-8 sm:pt-12 sm:justify-center lg:bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] lg:from-neutral-900/50 lg:via-black lg:to-black">
+        <section className="relative flex w-full flex-col items-center justify-start bg-[#0A0A0A] min-h-[calc(100svh-72px)] pt-10 pb-12 sm:pt-14 sm:pb-16 sm:justify-center lg:bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] lg:from-neutral-900/50 lg:via-black lg:to-black">
             <div className="flex w-full max-w-[1400px] flex-col items-center justify-center gap-8 px-5 sm:gap-10 sm:px-6 md:px-12 lg:flex-row lg:gap-16 xl:px-24">
 
                 {/* Content Container */}
@@ -21,13 +21,13 @@ export function Hero() {
 
                     {/* Headline */}
                     <h1 className="w-full font-koulen text-[44px] leading-[0.95] text-white uppercase tracking-tighter sm:text-[56px] lg:text-[clamp(56px,6vw,100px)] lg:leading-[0.9]">
-                        <span className="text-[#EA580C]">SoulPrint</span> isn't AI.
+                        Your AI should know
                         <br />
                         <span className="bg-gradient-to-b from-white to-neutral-400 bg-clip-text text-transparent">
-                            It's the identity layer
-                            <br />
-                            AI never had.
+                            who you are.
                         </span>
+                        <br />
+                        <span className="text-[#EA580C]">SoulPrint</span> makes it permanent.
                     </h1>
 
                     {/* Subheading */}
