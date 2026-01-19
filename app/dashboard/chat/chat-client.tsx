@@ -676,7 +676,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
 
                 {showWelcome ? (
                     /* Welcome Screen - Full screen mobile-first design */
-                    <div className="flex-1 flex flex-col px-4 sm:px-6 py-8 sm:py-10 overflow-y-auto">
+                    <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-10 overflow-y-auto">
                         {/* Logo - Big and centered */}
                         <div className="flex items-center justify-center gap-2 mb-8 sm:mb-10">
                             <span className="font-koulen text-4xl sm:text-5xl lg:text-6xl text-black tracking-wide">
