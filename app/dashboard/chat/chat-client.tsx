@@ -257,6 +257,19 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
         }
     }, [messages, shouldAutoScroll])
 
+    // Auto-focus input when loading finishes
+    useEffect(() => {
+        if (!loading && !initializing) {
+            // Small delay to ensure DOM is ready
+            const timer = setTimeout(() => {
+                if (chatInputRef.current) {
+                    chatInputRef.current.focus()
+                }
+            }, 100)
+            return () => clearTimeout(timer)
+        }
+    }, [loading, initializing])
+
     async function handleSend() {
         if (!input.trim() || !apiKey) return
 
@@ -1017,6 +1030,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                         className="flex-1 bg-transparent text-zinc-900 placeholder:text-zinc-400 text-sm focus:outline-none min-h-[56px] sm:min-h-[48px] resize-none leading-relaxed overflow-hidden"
                                         rows={3}
                                         disabled={loading}
+                                        autoFocus
                                     />
                                     <Button
                                         variant="ghost"
