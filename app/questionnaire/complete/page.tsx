@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react"
 import Image from "next/image"
 import { updateSoulPrintName } from "@/app/actions/soulprint-management"
 import { switchSoulPrint } from "@/app/actions/soulprint-selection"
+import { AvatarGenerator } from "@/components/avatar/AvatarGenerator"
 
 export default function QuestionnaireCompletePage() {
     const router = useRouter()
@@ -20,6 +21,7 @@ export default function QuestionnaireCompletePage() {
 
     // Naming Modal State
     const [showNameModal, setShowNameModal] = useState(false)
+    const [showAvatarGenerator, setShowAvatarGenerator] = useState(false)
     const [soulprintId, setSoulprintId] = useState<string | null>(null)
     const [soulprintName, setSoulprintName] = useState("")
     const [isSavingName, setIsSavingName] = useState(false)
@@ -119,12 +121,16 @@ export default function QuestionnaireCompletePage() {
             // 2. Auto-Switch Context
             await switchSoulPrint(soulprintId)
 
-            // 3. Redirect
-            router.push('/dashboard/chat')
+            // 3. Show Avatar Generator instead of redirect
+            setShowNameModal(false)
+            setShowAvatarGenerator(true)
+            setIsSavingName(false)
         } catch (e) {
             console.error("Failed to save name:", e)
-            // Even if name fails, redirect
-            router.push('/dashboard/chat')
+            // Even if name fails, show avatar generator
+            setShowNameModal(false)
+            setShowAvatarGenerator(true)
+            setIsSavingName(false)
         }
     }
 
@@ -132,6 +138,16 @@ export default function QuestionnaireCompletePage() {
         if (soulprintId) {
             await switchSoulPrint(soulprintId)
         }
+        // Show avatar generator instead of redirect
+        setShowNameModal(false)
+        setShowAvatarGenerator(true)
+    }
+
+    const handleAvatarComplete = () => {
+        router.push('/dashboard/chat')
+    }
+
+    const handleSkipAvatar = () => {
         router.push('/dashboard/chat')
     }
 
@@ -211,7 +227,7 @@ export default function QuestionnaireCompletePage() {
                                         disabled={!soulprintName.trim() || isSavingName}
                                         className="w-full h-12 rounded-lg bg-[#EA580C] text-lg font-medium text-white hover:bg-orange-700 disabled:opacity-50"
                                     >
-                                        {isSavingName ? <Loader2 className="animate-spin" /> : "Start Chatting"}
+                                        {isSavingName ? <Loader2 className="animate-spin" /> : "Continue"}
                                     </Button>
 
                                     <button
@@ -221,6 +237,14 @@ export default function QuestionnaireCompletePage() {
                                         Skip for now
                                     </button>
                                 </div>
+                            </div>
+                        ) : showAvatarGenerator && soulprintId ? (
+                            <div className="w-full animate-in fade-in zoom-in duration-300">
+                                <AvatarGenerator
+                                    soulprintId={soulprintId}
+                                    onComplete={handleAvatarComplete}
+                                    onSkip={handleSkipAvatar}
+                                />
                             </div>
                         ) : isGenerating ? (
                             <>
