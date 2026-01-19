@@ -89,6 +89,8 @@ export async function GET(request: NextRequest) {
                     path: options.path || '/',
                     sameSite: options.sameSite || 'lax',
                     secure: process.env.NODE_ENV === 'production',
+                    // 30 days - critical for Safari session persistence
+                    maxAge: options.maxAge || 60 * 60 * 24 * 30,
                 })
             })
 
