@@ -38,11 +38,12 @@ export function Footer() {
                     <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 order-2 md:order-1">
                         <FooterLink href="/legal/privacy">Privacy Policy</FooterLink>
                         <FooterLink href="/legal/terms">Terms of Service</FooterLink>
+                        <a href="mailto:drew@arpaforge.com" className="font-geist text-sm font-normal text-[#737373] hover:text-white transition-colors">Contact</a>
                     </div>
 
                     {/* Copyright */}
                     <p className="font-geist text-sm font-normal text-[#737373] order-3 md:order-2 text-center md:text-left">
-                        © 2026 SoulPrint Engine. All rights reserved.
+                        © 2026 Archeforge, LLC. All rights reserved.
                     </p>
                 </div>
             </div>

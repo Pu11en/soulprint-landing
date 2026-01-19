@@ -29,6 +29,7 @@ export function Navbar() {
                         <Link href="/#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</Link>
                         <Link href="/#faq" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">FAQ</Link>
                         <Link href="/#about" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">About</Link>
+                        <a href="mailto:drew@arpaforge.com" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Contact</a>
                     </div>
                 </div>
 
@@ -62,6 +63,7 @@ export function Navbar() {
                         <Link href="/#features" onClick={() => setIsMenuOpen(false)} className="text-lg font-medium text-white/70">Features</Link>
                         <Link href="/#faq" onClick={() => setIsMenuOpen(false)} className="text-lg font-medium text-white/70">FAQ</Link>
                         <Link href="/#about" onClick={() => setIsMenuOpen(false)} className="text-lg font-medium text-white/70">About</Link>
+                        <a href="mailto:drew@arpaforge.com" onClick={() => setIsMenuOpen(false)} className="text-lg font-medium text-white/70">Contact</a>
                     </div>
                     <div className="h-px bg-white/10 w-full" />
                     <div className="flex flex-col gap-3">

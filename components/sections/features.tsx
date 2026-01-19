@@ -6,22 +6,18 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const features = [
     {
-        date: "Mar 15, 2024",
         description: "A deep, personality-level profile that learns how you speak, think, and create — so every AI responds in your voice, not default mode.",
         image: "/images/70BF4797-F5D0-4E44-95F5-40AD9E229EE9.png"
     },
     {
-        date: "Mar 12, 2024",
         description: "Use ChatGPT, Claude, Gemini, Perplexity. Anything.\nYour SoulPrint travels with you and upgrades every model instantly.",
         image: "/images/95CD28D2-B748-468D-BBCB-7B636C020FD0.png"
     },
     {
-        date: "Mar 8, 2024",
         description: "Your data stays with you. Encrypted on your device.\nNothing leaves your hands unless you choose it.",
         image: "/images/16BACDBA-C5FD-4549-B8E0-10832C3E5A12.png"
     },
     {
-        date: "Mar 5, 2024",
         description: "Your AI adapts to your mood, goals, tone, and pace bringing out your best thinking and your true voice.",
         image: "/images/07662748-2DAA-43D5-9147-AC14C76177F8.png"
     }
