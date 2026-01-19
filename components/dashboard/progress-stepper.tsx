@@ -29,7 +29,7 @@ export function MobileProgress({ currentPart, currentQuestion, totalQuestionsInP
     const progressPercent = Math.round(overallProgress)
 
     return (
-        <div className="lg:hidden mb-4">
+        <div className="mb-4">
             {/* Progress header with percentage */}
             <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Progress</span>
@@ -44,8 +44,8 @@ export function MobileProgress({ currentPart, currentQuestion, totalQuestionsInP
                 />
             </div>
 
-            {/* Step indicators */}
-            <div className="flex items-center justify-between gap-1 mb-2">
+            {/* Step indicators - hidden on desktop since they have the sidebar */}
+            <div className="flex lg:hidden items-center justify-between gap-1 mb-2">
                 {PILLARS.map((pillar, index) => {
                     const isCompleted = index + 1 < currentPart
                     const isCurrent = index + 1 === currentPart
