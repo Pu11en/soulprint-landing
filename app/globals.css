@@ -92,9 +92,15 @@
   animation: spin-slow 20s linear infinite;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - responsive sizing */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
+}
+
+@media (min-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
 }
 
 ::-webkit-scrollbar-track {

@@ -1,16 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { ProgressStepper, PILLARS } from "@/components/dashboard/progress-stepper"
+import { Sidebar, MobileSidebar } from "@/components/dashboard/sidebar"
+import { ProgressStepper, MobileProgress, PILLARS } from "@/components/dashboard/progress-stepper"
 import { questions } from "@/lib/questions"
 import { createClient } from "@/lib/supabase/client"
 import { VoiceRecorderV3 } from "@/components/voice-recorder/VoiceRecorderV3"
 import Image from "next/image"
+import { Menu } from "lucide-react"
 
 // --- PRESETS FOR DEV TESTING ---
 const ACE_ANSWERS: Record<string, string | number> = {
@@ -92,6 +93,11 @@ export default function NewQuestionnairePage() {
 
     const [limitReached, setLimitReached] = useState(false)
     const [hasAnySoulprint, setHasAnySoulprint] = useState(false)
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+    const handleMenuClose = useCallback(() => {
+        setIsMobileMenuOpen(false)
+    }, [])
 
     // Check limits and load saved answers
     useEffect(() => {
@@ -304,14 +310,30 @@ export default function NewQuestionnairePage() {
 
     return (
         <div className="flex h-screen bg-[#d4d4d8]">
-            {/* Sidebar */}
+            {/* Desktop Sidebar */}
             <Sidebar hasSoulprint={hasAnySoulprint} />
+
+            {/* Mobile Sidebar Drawer */}
+            <MobileSidebar
+                hasSoulprint={hasAnySoulprint}
+                isOpen={isMobileMenuOpen}
+                onClose={handleMenuClose}
+            />
 
             {/* Main Content */}
             <div className="flex flex-1 flex-col">
                 {/* Top Bar */}
-                <header className="flex h-[52px] items-center justify-between border-b border-[#111] bg-[#111] px-4">
-                    <div className="flex items-center gap-2">
+                <header className="flex h-[52px] items-center justify-between border-b border-[#111] bg-[#111] px-3 sm:px-4">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {/* Mobile menu button */}
+                        <button
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            className="lg:hidden flex h-10 w-10 items-center justify-center rounded-md text-white hover:bg-white/5 transition-colors"
+                        >
+                            <Menu className="h-5 w-5" />
+                            <span className="sr-only">Open menu</span>
+                        </button>
+
                         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                             <Image
                                 src="/images/Soulprintengine-logo.png"
@@ -320,10 +342,10 @@ export default function NewQuestionnairePage() {
                                 height={28}
                                 className="object-contain"
                             />
-                            <span className="font-koulen text-[22px] leading-[26px] text-white tracking-wide">
+                            <span className="hidden sm:inline font-koulen text-[22px] leading-[26px] text-white tracking-wide">
                                 SOULPRINT
                             </span>
-                            <span className="font-cinzel font-normal text-[20px] leading-[26px] tracking-[1px] uppercase text-white -ml-1">
+                            <span className="hidden sm:inline font-cinzel font-normal text-[20px] leading-[26px] tracking-[1px] uppercase text-white -ml-1">
                                 ENGINE
                             </span>
                         </Link>
@@ -351,36 +373,45 @@ export default function NewQuestionnairePage() {
                         <Button
                             onClick={() => router.push('/dashboard/profile')}
                             variant="ghost"
-                            className="h-9 text-gray-400 hover:text-white hover:bg-gray-800"
+                            className="hidden sm:flex h-9 text-gray-400 hover:text-white hover:bg-gray-800"
                         >
                             Exit
                         </Button>
                         <Button
                             onClick={handleLogout}
-                            className="h-9 rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600"
+                            className="h-9 rounded-lg bg-gray-700 px-3 sm:px-4 py-2 text-sm font-medium text-white hover:bg-gray-600"
                         >
-                            Log out
+                            <span className="hidden sm:inline">Log out</span>
+                            <span className="sm:hidden">Exit</span>
                         </Button>
                     </div>
                 </header>
 
                 {/* Content Area */}
-                <main className="flex-1 overflow-hidden p-4">
-                    <div className="flex h-full gap-4">
-                        {/* Left Side - Question Area */}
-                        <div className="flex flex-1 flex-col rounded-xl bg-[#FAFAFA] p-6 shadow-[0px_4px_4px_2px_rgba(0,0,0,0.25)]">
+                <main className="flex-1 overflow-hidden p-2 sm:p-4">
+                    <div className="flex flex-col lg:flex-row h-full gap-4">
+                        {/* Question Area */}
+                        <div className="flex flex-1 flex-col rounded-xl bg-[#FAFAFA] p-4 sm:p-6 shadow-[0px_4px_4px_2px_rgba(0,0,0,0.25)] overflow-y-auto">
+                            {/* Mobile Progress */}
+                            <MobileProgress
+                                currentPart={currentPillar}
+                                currentQuestion={questionInPillar}
+                                totalQuestionsInPart={totalQuestionsInPillar}
+                                pillarName={pillarName}
+                            />
+
                             {/* Header */}
-                            <div className="mb-6">
-                                <p className="font-inter text-sm font-medium text-black opacity-80 mb-2">
+                            <div className="mb-4 sm:mb-6">
+                                <p className="hidden lg:block font-inter text-sm font-medium text-black opacity-80 mb-2">
                                     {pillarName} | PART {currentPillar} - Question {questionInPillar} of {totalQuestionsInPillar}
                                 </p>
-                                <h1 className="font-koulen text-[32px] leading-[38px] text-black tracking-wide">
+                                <h1 className="font-koulen text-[24px] sm:text-[32px] leading-[30px] sm:leading-[38px] text-black tracking-wide">
                                     LET&apos;S BUILD YOUR SOULPRINT
                                 </h1>
                             </div>
 
                             {/* Question Card */}
-                            <div className="flex-1 rounded-xl border border-[#e5e5e5] bg-white p-6 shadow-sm">
+                            <div className="flex-1 rounded-xl border border-[#e5e5e5] bg-white p-4 sm:p-6 shadow-sm">
                                 {/* Question Text */}
                                 <p className="font-inter text-base leading-6 text-black opacity-80 mb-6">
                                     {currentQuestion?.question}
@@ -483,27 +514,29 @@ export default function NewQuestionnairePage() {
                             </div>
 
                             {/* Navigation Buttons */}
-                            <div className="mt-6 flex justify-end gap-3">
-                                {!isFirstQuestion && (
+                            <div className="mt-4 sm:mt-6 flex justify-between sm:justify-end gap-3">
+                                {!isFirstQuestion ? (
                                     <Button
                                         onClick={handlePrevious}
                                         variant="secondary"
-                                        className="h-10 rounded-lg bg-[#f5f5f5] px-6 py-2 text-sm font-medium text-[#171717] hover:bg-gray-200"
+                                        className="h-12 sm:h-10 flex-1 sm:flex-none rounded-lg bg-[#f5f5f5] px-4 sm:px-6 py-2 text-sm font-medium text-[#171717] hover:bg-gray-200"
                                     >
                                         Previous
                                     </Button>
+                                ) : (
+                                    <div className="flex-1 sm:hidden" />
                                 )}
                                 <Button
                                     onClick={handleNext}
                                     disabled={isSubmitting || (currentQuestion?.type === "voice" && !voiceRecorded)}
-                                    className="h-10 rounded-lg bg-[#EA580C] px-6 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-700 disabled:opacity-50"
+                                    className="h-12 sm:h-10 flex-1 sm:flex-none rounded-lg bg-[#EA580C] px-4 sm:px-6 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-700 disabled:opacity-50"
                                 >
                                     {isSubmitting ? "Submitting..." : isLastQuestion ? "Finish SoulPrint" : "Next"}
                                 </Button>
                             </div>
                         </div>
 
-                        {/* Right Side - Progress Stepper */}
+                        {/* Desktop Progress Stepper - hidden on mobile */}
                         <ProgressStepper
                             currentPart={currentPillar}
                             currentQuestion={questionInPillar}

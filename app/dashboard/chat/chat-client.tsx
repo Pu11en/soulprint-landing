@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, type CSSProperties } from "react"
 import { Button } from "@/components/ui/button"
 import { listApiKeys } from "@/app/actions/api-keys"
 import { getChatHistory, saveChatMessage, clearChatHistory, getChatSessions, type ChatSession } from "@/app/actions/chat-history"
@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { getSoulprintTheme, type SoulprintTheme } from "@/lib/soulprint-theme"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -25,9 +26,10 @@ interface SuggestionCard {
     title: string
     description: string
     prompt: string
+    isPersonalized?: boolean
 }
 
-const suggestions: SuggestionCard[] = [
+const defaultSuggestions: SuggestionCard[] = [
     {
         title: "Summarize Text",
         description: "Turn Articles into easy-to-read summaries.",
@@ -45,9 +47,36 @@ const suggestions: SuggestionCard[] = [
     }
 ]
 
+// Generate personalized suggestions from past chat sessions
+function generatePersonalizedSuggestions(sessions: ChatSession[]): SuggestionCard[] {
+    if (!sessions || sessions.length === 0) return []
+    
+    const personalized: SuggestionCard[] = []
+    
+    // Get the 3 most recent sessions with content
+    const recentSessions = sessions
+        .filter(s => s.last_message && s.last_message.length > 10)
+        .slice(0, 3)
+    
+    for (const session of recentSessions) {
+        const lastMsg = session.last_message || ""
+        // Truncate and create a prompt based on the topic
+        const topic = lastMsg.slice(0, 50).replace(/\n/g, ' ')
+        personalized.push({
+            title: `Continue: "${topic}${lastMsg.length > 50 ? '...' : ''}"`,
+            description: "Pick up where you left off",
+            prompt: `Let's continue our conversation about: ${lastMsg.slice(0, 100)}`,
+            isPersonalized: true
+        })
+    }
+    
+    return personalized
+}
+
 export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string | null }) {
     const [messages, setMessages] = useState<Message[]>([])
     const [sessions, setSessions] = useState<ChatSession[]>([])
+    const [smartSuggestions, setSmartSuggestions] = useState<SuggestionCard[]>(defaultSuggestions)
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
     const [input, setInput] = useState("")
     const [loading, setLoading] = useState(false)
@@ -62,6 +91,9 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
     const [exportMenuOpen, setExportMenuOpen] = useState(false)
     const [coachingMode, setCoachingMode] = useState(false)
     const [coachingGoal, setCoachingGoal] = useState<string | null>(null)
+    const [soulprintTheme, setSoulprintTheme] = useState<SoulprintTheme>(() => getSoulprintTheme(null))
+    const welcomeInputRef = useRef<HTMLTextAreaElement>(null)
+    const chatInputRef = useRef<HTMLTextAreaElement>(null)
 
     // Initialize sidebar state based on screen width
     useEffect(() => {
@@ -119,6 +151,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                         // Determine display name
                         const name = soulprintData?.name || soulprintData?.archetype || "SoulPrint"
                         setDisplayName(name)
+                        setSoulprintTheme(getSoulprintTheme(soulprintData))
 
                         const personalityStr =
                             soulprintData?.full_system_prompt ||
@@ -131,6 +164,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                 } catch {
                     setPersonality(currentUser.email || 'Default System')
                     setDisplayName("SoulPrint")
+                    setSoulprintTheme(getSoulprintTheme(null))
                 }
 
                 // 3. Load Sessions
@@ -163,6 +197,16 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
     async function loadSessions() {
         const userSessions = await getChatSessions()
         setSessions(userSessions)
+        
+        // Generate personalized suggestions based on chat history
+        const personalized = generatePersonalizedSuggestions(userSessions)
+        if (personalized.length > 0) {
+            // Show personalized suggestions first, then fill with defaults
+            const combined = [...personalized, ...defaultSuggestions].slice(0, 3)
+            setSmartSuggestions(combined)
+        } else {
+            setSmartSuggestions(defaultSuggestions)
+        }
     }
 
     // Load history when session changes
@@ -317,6 +361,18 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
     function handleSuggestionClick(prompt: string) {
         setInput(prompt + " ")
     }
+
+    function autoResizeTextarea(el: HTMLTextAreaElement | null) {
+        if (!el) return
+        el.style.height = "auto"
+        const next = Math.min(el.scrollHeight, 220)
+        el.style.height = `${next}px`
+    }
+
+    useEffect(() => {
+        autoResizeTextarea(welcomeInputRef.current)
+        autoResizeTextarea(chatInputRef.current)
+    }, [input])
 
     // Export functions
     function exportAsJSON() {
@@ -538,66 +594,74 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
             </div>
 
             {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col h-full overflow-hidden bg-neutral-50 relative">
-                {/* Mobile Header */}
+            <div
+                className="flex-1 flex flex-col h-full overflow-hidden bg-neutral-50 relative"
+                style={
+                    {
+                        "--sp-primary": soulprintTheme.colors.primary,
+                        "--sp-primary-dark": soulprintTheme.colors.primaryDark,
+                        "--sp-accent": soulprintTheme.colors.accent,
+                        "--sp-text": soulprintTheme.colors.text,
+                        "--sp-bg": soulprintTheme.colors.bg,
+                        "--sp-surface": soulprintTheme.colors.surface,
+                        "--sp-muted": soulprintTheme.colors.muted,
+                        fontFamily: soulprintTheme.fontFamily
+                    } as CSSProperties
+                }
+            >
+
+                {/* Mobile Chat Header */}
                 <div className="flex items-center gap-2 p-3 lg:hidden border-b border-zinc-200 bg-white">
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="p-2 hover:bg-zinc-100 rounded-lg"
+                        className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 p-2 text-zinc-700 hover:bg-zinc-100"
+                        aria-label="Open history"
                     >
-                        <Menu className="h-5 w-5 text-zinc-700" />
+                        <MessageSquare className="h-4 w-4" />
                     </button>
-                    <div className="flex-1 flex items-center justify-center gap-1">
-                        <span className="font-koulen text-xl text-black">SOULPRINT</span>
-                        <span className="font-inter italic font-thin text-lg text-black -ml-0.5">Engine</span>
+                    <div className="flex-1 min-w-0 text-center">
+                        <div className="text-sm font-semibold truncate text-[color:var(--sp-text)]">{displayName}</div>
                     </div>
                     {messages.length > 0 && (
-                        <div className="flex items-center gap-1">
-                            <div className="relative">
-                                <button
-                                    onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                                    className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-500"
-                                >
-                                    <Download className="h-5 w-5" />
-                                </button>
-                                {exportMenuOpen && (
-                                    <>
-                                        <div
-                                            className="fixed inset-0 z-40"
-                                            onClick={() => setExportMenuOpen(false)}
-                                        />
-                                        <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 z-50">
-                                            <button
-                                                onClick={exportAsJSON}
-                                                className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
-                                            >
-                                                <FileJson className="h-4 w-4 text-orange-500" />
-                                                JSON
-                                            </button>
-                                            <button
-                                                onClick={exportAsMarkdown}
-                                                className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
-                                            >
-                                                <FileCode className="h-4 w-4 text-blue-500" />
-                                                Markdown
-                                            </button>
-                                            <button
-                                                onClick={exportAsText}
-                                                className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
-                                            >
-                                                <FileText className="h-4 w-4 text-zinc-500" />
-                                                Text
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                        <div className="relative">
                             <button
-                                onClick={handleClearHistory}
-                                className="p-2 hover:bg-zinc-100 rounded-lg text-zinc-500"
+                                onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                                className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white p-2 text-zinc-600 hover:bg-zinc-100"
+                                title="Export"
                             >
-                                <Trash2 className="h-5 w-5" />
+                                <Download className="h-4 w-4" />
                             </button>
+                            {exportMenuOpen && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setExportMenuOpen(false)}
+                                    />
+                                    <div className="absolute right-0 mt-2 w-44 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg z-50">
+                                        <button
+                                            onClick={exportAsJSON}
+                                            className="w-full px-4 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
+                                        >
+                                            <FileJson className="h-4 w-4 text-orange-500" />
+                                            Export JSON
+                                        </button>
+                                        <button
+                                            onClick={exportAsMarkdown}
+                                            className="w-full px-4 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
+                                        >
+                                            <FileCode className="h-4 w-4 text-blue-500" />
+                                            Export Markdown
+                                        </button>
+                                        <button
+                                            onClick={exportAsText}
+                                            className="w-full px-4 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
+                                        >
+                                            <FileText className="h-4 w-4 text-zinc-500" />
+                                            Export Text
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
@@ -611,40 +675,48 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                 </button>
 
                 {showWelcome ? (
-                    /* Welcome Screen */
-                    <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 overflow-y-auto">
-                        {/* Logo */}
-                        <div className="flex items-center gap-1 mb-8 md:mb-12">
-                            <span className="font-koulen text-4xl md:text-5xl text-black tracking-wide">
+                    /* Welcome Screen - Full screen mobile-first design */
+                    <div className="flex-1 flex flex-col px-4 sm:px-6 py-8 sm:py-10 overflow-y-auto">
+                        {/* Logo - Big and centered */}
+                        <div className="flex items-center justify-center gap-2 mb-8 sm:mb-10">
+                            <span className="font-koulen text-4xl sm:text-5xl lg:text-6xl text-black tracking-wide">
                                 SOULPRINT
                             </span>
-                            <span className="font-inter italic font-thin text-3xl md:text-4xl text-black tracking-tight -ml-1">
+                            <span className="font-inter italic font-thin text-3xl sm:text-4xl lg:text-5xl text-black tracking-tight">
                                 Engine
                             </span>
                         </div>
 
-                        {/* Input Card */}
-                        <div className="w-full max-w-[658px] mb-6 md:mb-8">
-                            <div className="border border-stone-300 rounded-xl p-4 bg-white">
-                                <input
+                        {/* Input Card - Full width, bigger on mobile */}
+                        <div className="w-full max-w-[658px] mx-auto mb-8 sm:mb-10">
+                            <div className="border border-stone-300 rounded-2xl p-4 sm:p-5 bg-white shadow-sm">
+                                <textarea
+                                    ref={welcomeInputRef}
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === "Enter" && !loading && handleSend()}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey && !loading) {
+                                            e.preventDefault()
+                                            handleSend()
+                                        }
+                                    }}
+                                    onInput={(e) => autoResizeTextarea(e.currentTarget)}
                                     placeholder="Ask me anything..."
-                                    className="w-full bg-transparent text-zinc-900 placeholder:text-neutral-400 text-sm focus:outline-none"
+                                    className="w-full bg-transparent text-zinc-900 placeholder:text-neutral-400 text-base sm:text-lg focus:outline-none min-h-[56px] resize-none leading-relaxed overflow-hidden"
+                                    rows={3}
                                     disabled={loading}
                                 />
                                 
                                 {/* Action Buttons Row */}
-                                <div className="flex items-center gap-2 mt-4">
+                                <div className="flex items-center gap-3 mt-4 sm:mt-5">
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => alert("File attachments coming soon!")}
-                                        className="h-8 w-8 text-neutral-500 hover:text-neutral-700 hover:bg-zinc-100 rounded-lg"
+                                        className="h-11 w-11 sm:h-10 sm:w-10 text-neutral-500 hover:text-neutral-700 hover:bg-zinc-100 rounded-lg"
                                         title="Attach file (Coming Soon)"
                                     >
-                                        <Paperclip className="h-4 w-4" />
+                                        <Paperclip className="h-5 w-5" />
                                     </Button>
 
                                     <div className="flex-1" />
@@ -653,30 +725,37 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                         size="icon"
                                         onClick={handleSend}
                                         disabled={loading || !input.trim()}
-                                        className="bg-orange-600 hover:bg-orange-700 h-8 w-8 rounded-lg"
+                                        className="h-11 w-11 sm:h-10 sm:w-10 rounded-xl bg-[color:var(--sp-primary)] hover:bg-[color:var(--sp-primary-dark)]"
                                     >
-                                        <Send className="h-4 w-4" />
+                                        <Send className="h-5 w-5" />
                                     </Button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Suggestion Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-[658px]">
-                            {suggestions.map((suggestion) => (
-                                <button
-                                    key={suggestion.title}
-                                    onClick={() => handleSuggestionClick(suggestion.prompt)}
-                                    className="bg-zinc-100 hover:bg-zinc-200 border border-stone-300 rounded-xl p-4 text-left transition-colors h-[139px] flex flex-col"
-                                >
-                                    <h3 className="text-sm font-normal text-black">
-                                        {suggestion.title}
-                                    </h3>
-                                    <p className="text-xs text-neutral-500 mt-2 leading-relaxed">
-                                        {suggestion.description}
-                                    </p>
-                                </button>
-                            ))}
+                        {/* Suggestion Cards - Vertical stack on mobile, horizontal on larger screens */}
+                        <div className="w-full max-w-[658px] mx-auto flex-1 mt-4 sm:mt-0">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                                {smartSuggestions.map((suggestion, idx) => (
+                                    <button
+                                        key={`${suggestion.title}-${idx}`}
+                                        onClick={() => handleSuggestionClick(suggestion.prompt)}
+                                        className={cn(
+                                            "hover:scale-[1.02] active:scale-[0.98] border rounded-xl p-4 sm:p-4 text-left transition-all flex flex-col justify-start shadow-sm",
+                                            suggestion.isPersonalized 
+                                                ? "bg-[color:var(--sp-bg)] border-[color:var(--sp-accent)] hover:bg-white" 
+                                                : "bg-white border-stone-200 hover:bg-zinc-50"
+                                        )}
+                                    >
+                                        <h3 className="text-base sm:text-sm font-semibold text-black leading-snug">
+                                            {suggestion.title}
+                                        </h3>
+                                        <p className="text-sm sm:text-xs text-neutral-500 mt-2 leading-relaxed">
+                                            {suggestion.description}
+                                        </p>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -685,12 +764,15 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                         {/* Desktop Chat Header */}
                         <div className="hidden lg:flex items-center justify-between border-b border-zinc-200 bg-white p-3 min-h-[52px]">
                             <div className="flex items-center gap-3 pl-6">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                                <div
+                                    className="flex h-8 w-8 items-center justify-center rounded-full"
+                                    style={{ backgroundColor: "var(--sp-accent)", color: "var(--sp-primary)" }}
+                                >
                                     <Bot className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <h2 className="font-semibold text-zinc-900 text-sm">{displayName}</h2>
-                                    <p className="text-xs text-zinc-500">
+                                    <h2 className="font-semibold text-sm text-[color:var(--sp-text)]">{displayName}</h2>
+                                    <p className="text-xs text-[color:var(--sp-muted)]">
                                         {currentSessionId ? 'Active Session' : 'New Session'}
                                     </p>
                                 </div>
@@ -758,14 +840,17 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                             {messages.map((msg, i) => (
                                 <div key={i} className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}>
                                     {msg.role === "assistant" && (
-                                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                                        <div
+                                            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
+                                            style={{ backgroundColor: "var(--sp-accent)", color: "var(--sp-primary)" }}
+                                        >
                                             <Bot className="h-4 w-4" />
                                         </div>
                                     )}
                                     <div className={cn(
                                         "max-w-[85%] rounded-xl p-4 text-sm leading-relaxed",
                                         msg.role === "user" 
-                                            ? "bg-orange-600 text-white" 
+                                            ? "bg-[color:var(--sp-primary)] text-white" 
                                             : "bg-white border border-zinc-200 text-zinc-900"
                                     )}>
                                         {msg.role === "assistant" ? (
@@ -777,7 +862,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                                         ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1">{children}</ol>,
                                                         h2: ({ children }) => <h2 className="text-base font-bold text-zinc-900 mt-4 mb-2">{children}</h2>,
                                                         h3: ({ children }) => <h3 className="text-sm font-semibold text-zinc-900 mt-3 mb-1">{children}</h3>,
-                                                        strong: ({ children }) => <span className="font-bold text-orange-600">{children}</span>,
+                                                        strong: ({ children }) => <span className="font-bold text-[color:var(--sp-primary)]">{children}</span>,
                                                         p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>
                                                     }}
                                                 >
@@ -789,7 +874,10 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                         )}
                                     </div>
                                     {msg.role === "user" && (
-                                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-orange-600 text-white">
+                                        <div
+                                            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-white"
+                                            style={{ backgroundColor: "var(--sp-primary)" }}
+                                        >
                                             <User className="h-4 w-4" />
                                         </div>
                                     )}
@@ -797,7 +885,10 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                             ))}
                             {loading && (
                                 <div className="flex gap-3">
-                                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                                    <div
+                                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
+                                        style={{ backgroundColor: "var(--sp-accent)", color: "var(--sp-primary)" }}
+                                    >
                                         <Bot className="h-4 w-4" />
                                     </div>
                                     <div className="flex items-center gap-1 rounded-xl bg-white border border-zinc-200 p-3">
@@ -811,42 +902,50 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                         </div>
 
                         {/* Input Area (Active Chat) */}
-                        <div className="border-t border-zinc-200 p-4 bg-white">
+                        <div className="border-t border-zinc-200 p-3 sm:p-4 bg-white">
                             <div className="max-w-4xl mx-auto">
-                                <div className="flex items-center gap-2 border border-zinc-300 rounded-xl p-3 bg-zinc-50">
+                                <div className="flex items-center gap-2 border border-zinc-300 rounded-xl p-2 sm:p-3 bg-zinc-50">
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => alert("File attachments coming soon!")}
-                                        className="h-8 w-8 text-neutral-500 hover:text-neutral-700 shrink-0"
+                                        className="h-10 w-10 sm:h-8 sm:w-8 text-neutral-500 hover:text-neutral-700 shrink-0"
                                         title="Attach file (Coming Soon)"
                                     >
-                                        <Paperclip className="h-4 w-4" />
+                                        <Paperclip className="h-5 w-5 sm:h-4 sm:w-4" />
                                     </Button>
-                                    <input
+                                    <textarea
+                                        ref={chatInputRef}
                                         value={input}
                                         onChange={(e) => setInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === "Enter" && !loading && handleSend()}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && !e.shiftKey && !loading) {
+                                                e.preventDefault()
+                                                handleSend()
+                                            }
+                                        }}
+                                        onInput={(e) => autoResizeTextarea(e.currentTarget)}
                                         placeholder="Type a message..."
-                                        className="flex-1 bg-transparent text-zinc-900 placeholder:text-zinc-400 text-sm focus:outline-none"
+                                        className="flex-1 bg-transparent text-zinc-900 placeholder:text-zinc-400 text-sm focus:outline-none min-h-[56px] sm:min-h-[48px] resize-none leading-relaxed overflow-hidden"
+                                        rows={3}
                                         disabled={loading}
                                     />
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => alert("Voice input coming soon!")}
-                                        className="h-8 w-8 text-neutral-500 hover:text-neutral-700 shrink-0"
+                                        className="h-10 w-10 sm:h-8 sm:w-8 text-neutral-500 hover:text-neutral-700 shrink-0"
                                         title="Voice input (Coming Soon)"
                                     >
-                                        <AudioLines className="h-4 w-4" />
+                                        <AudioLines className="h-5 w-5 sm:h-4 sm:w-4" />
                                     </Button>
                                     <Button
                                         size="icon"
                                         onClick={handleSend}
                                         disabled={loading || !input.trim()}
-                                        className="bg-orange-600 hover:bg-orange-700 h-8 w-8 rounded-lg shrink-0"
+                                        className="bg-[color:var(--sp-primary)] hover:bg-[color:var(--sp-primary-dark)] h-10 w-10 sm:h-8 sm:w-8 rounded-lg shrink-0"
                                     >
-                                        <Send className="h-4 w-4" />
+                                        <Send className="h-5 w-5 sm:h-4 sm:w-4" />
                                     </Button>
                                 </div>
                             </div>

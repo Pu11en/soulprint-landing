@@ -14,13 +14,21 @@ export function Navbar() {
             <div className="flex h-16 w-full items-center justify-between px-6">
                 {/* Left side */}
                 <div className="flex items-center gap-8">
-                    <Link href="/" className="flex items-center">
+                    <Link href="/" className="flex items-center gap-2 py-1">
+                        <Image
+                            src="/images/vector-logo.png"
+                            alt="SoulPrint Logo"
+                            width={32}
+                            height={32}
+                            className="h-7 w-7 sm:h-8 sm:w-8"
+                            priority
+                        />
                         <Image
                             src="/images/SoulPrintEngine-title-logo.png"
                             alt="SoulPrint Engine"
-                            width={180}
+                            width={160}
                             height={36}
-                            style={{ height: "auto" }}
+                            className="h-6 w-auto sm:h-7"
                             priority
                         />
                     </Link>
@@ -58,7 +66,13 @@ export function Navbar() {
 
             {/* Mobile Dropdown Menu */}
             {isMenuOpen && (
-                <div className="md:hidden absolute top-16 left-0 w-full bg-[#0f0f0f] border-b border-white/10 p-6 flex flex-col gap-6 animate-in slide-in-from-top-4 duration-200">
+                <>
+                    {/* Backdrop overlay to hide content below */}
+                    <div 
+                        className="md:hidden fixed inset-0 top-16 bg-black/95 backdrop-blur-md z-40"
+                        onClick={() => setIsMenuOpen(false)}
+                    />
+                    <div className="md:hidden absolute top-16 left-0 w-full bg-black border-b border-white/10 p-6 flex flex-col gap-6 animate-in slide-in-from-top-4 duration-200 z-50">
                     <div className="flex flex-col gap-4">
                         <Link href="/#features" onClick={() => setIsMenuOpen(false)} className="text-lg font-medium text-white/70">Features</Link>
                         <Link href="/#faq" onClick={() => setIsMenuOpen(false)} className="text-lg font-medium text-white/70">FAQ</Link>
@@ -74,6 +88,7 @@ export function Navbar() {
                         </Link>
                     </div>
                 </div>
+                </>
             )}
         </nav>
     )

@@ -1,0 +1,42 @@
+flowchart TD
+    %% Entry
+    A[Landing Page / Marketing]
+        -->|Access code or waitlist| B(Enter Gate)
+    B -->|Code OK| C[Signup/Login]
+    B -->|No code| W[Waitlist API -> Streak + Email]
+    C -->|Supabase Auth + Middleware| D[Dashboard Router]
+
+    subgraph SoulPrint Creation
+        D -->|No existing SoulPrint| E[Questionnaire Wizard]
+        E --> F[Voice Recorder -> /api/voice/analyze + AssemblyAI]
+        F --> G{All answers complete?}
+        G -->|yes| H["/questionnaire/complete"]
+        H --> I["/api/soulprint/generate"]
+        I --> J[processSoulPrint -> LLM + Supabase]
+        J --> K{Name SoulPrint}
+        K --> L[Avatar Generator]
+        L -->|kie.ai generate + Supabase storage| M[SoulPrint Ready]
+    end
+
+    subgraph Dashboard Experience
+        D -->|Has SoulPrint| N["/dashboard/chat"]
+        N --> O[Chat Client]
+        O --> P["/api/llm/chat"]
+        P --> Q[SoulEngine -> Memories -> LLM tier]
+        Q --> R[Responses streamed + stored]
+        O --> S[Sessions, exports, suggestions]
+        D --> T["/dashboard/profile/insights/compare"]
+        T --> U[Rename/Delete/Share via Supabase]
+    end
+
+    subgraph External APIs
+        W -.-> Streak[(Streak CRM)]
+        W -.-> Email[(Gmail OAuth SMTP)]
+        F -.-> AssemblyAI[(AssemblyAI Cadence)]
+        L -.-> KIE[(kie.ai Ideogram/Flux)]
+        Q -.-> AWS[(Bedrock / SageMaker / Ollama)]
+        Q -.-> OpenAI[(Embeddings + backup)]
+        J -.-> Supabase[(Profiles, Soulprints, Keys, Memories)]
+    end
+
+    M --> D

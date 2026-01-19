@@ -62,7 +62,7 @@ export function SoulPrintSelector() {
         <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 uppercase tracking-wider hidden md:block">Active Soul:</span>
             <Select value={selectedId} onValueChange={handleValueChange}>
-                <SelectTrigger className="h-8 w-[180px] border-[#333] bg-[#222] text-xs text-white focus:ring-orange-500/20">
+                <SelectTrigger className="h-8 w-[130px] sm:w-[180px] border-[#333] bg-[#222] text-[10px] sm:text-xs text-white focus:ring-orange-500/20">
                     <SelectValue placeholder="Select SoulPrint" />
                 </SelectTrigger>
                 <SelectContent className="border-[#333] bg-[#111] text-white">
