@@ -675,87 +675,89 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                 </button>
 
                 {showWelcome ? (
-                    /* Welcome Screen - Full screen mobile-first design */
-                    <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-10 overflow-y-auto">
-                        {/* Logo - Big and centered */}
-                        <div className="flex items-center justify-center gap-2 mb-8 sm:mb-10">
-                            <span className="font-koulen text-4xl sm:text-5xl lg:text-6xl text-black tracking-wide">
-                                SOULPRINT
-                            </span>
-                            <span className="font-inter italic font-thin text-3xl sm:text-4xl lg:text-5xl text-black tracking-tight">
-                                Engine
-                            </span>
-                        </div>
+                    /* Welcome Screen - Content centered in middle of white area */
+                    <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-6 overflow-y-auto">
+                        <div className="w-full max-w-[1100px] flex flex-col items-center">
+                            {/* Logo - At top of content group */}
+                            <div className="flex items-center justify-center gap-3 mb-8 sm:mb-10">
+                                <span className="font-koulen text-5xl sm:text-6xl lg:text-7xl text-black tracking-wide">
+                                    SOULPRINT
+                                </span>
+                                <span className="font-inter italic font-thin text-4xl sm:text-5xl lg:text-6xl text-black tracking-tight">
+                                    Engine
+                                </span>
+                            </div>
 
-                        {/* Input Card - Full width, bigger on mobile */}
-                        <div className="w-full max-w-[658px] mx-auto mb-8 sm:mb-10">
-                            <div className="border border-stone-300 rounded-2xl p-4 sm:p-5 bg-white shadow-sm">
-                                <textarea
-                                    ref={welcomeInputRef}
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter" && !e.shiftKey && !loading) {
-                                            e.preventDefault()
-                                            handleSend()
-                                        }
-                                    }}
-                                    onInput={(e) => autoResizeTextarea(e.currentTarget)}
-                                    placeholder="Ask me anything..."
-                                    className="w-full bg-transparent text-zinc-900 placeholder:text-neutral-400 text-base sm:text-lg focus:outline-none min-h-[56px] resize-none leading-relaxed overflow-hidden"
-                                    rows={3}
-                                    disabled={loading}
-                                />
-                                
-                                {/* Action Buttons Row */}
-                                <div className="flex items-center gap-3 mt-4 sm:mt-5">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => alert("File attachments coming soon!")}
-                                        className="h-11 w-11 sm:h-10 sm:w-10 text-neutral-500 hover:text-neutral-700 hover:bg-zinc-100 rounded-lg"
-                                        title="Attach file (Coming Soon)"
-                                    >
-                                        <Paperclip className="h-5 w-5" />
-                                    </Button>
+                            {/* Input Card - Larger */}
+                            <div className="w-full mb-8 sm:mb-10">
+                                <div className="border border-stone-300 rounded-2xl p-5 sm:p-6 bg-white shadow-sm">
+                                    <textarea
+                                        ref={welcomeInputRef}
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && !e.shiftKey && !loading) {
+                                                e.preventDefault()
+                                                handleSend()
+                                            }
+                                        }}
+                                        onInput={(e) => autoResizeTextarea(e.currentTarget)}
+                                        placeholder="Ask me anything..."
+                                        className="w-full bg-transparent text-zinc-900 placeholder:text-neutral-400 text-lg sm:text-xl focus:outline-none min-h-[80px] resize-none leading-relaxed overflow-hidden"
+                                        rows={3}
+                                        disabled={loading}
+                                    />
+                                    
+                                    {/* Action Buttons Row */}
+                                    <div className="flex items-center gap-3 mt-5 sm:mt-6">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => alert("File attachments coming soon!")}
+                                            className="h-12 w-12 text-neutral-500 hover:text-neutral-700 hover:bg-zinc-100 rounded-lg"
+                                            title="Attach file (Coming Soon)"
+                                        >
+                                            <Paperclip className="h-6 w-6" />
+                                        </Button>
 
-                                    <div className="flex-1" />
+                                        <div className="flex-1" />
 
-                                    <Button
-                                        size="icon"
-                                        onClick={handleSend}
-                                        disabled={loading || !input.trim()}
-                                        className="h-11 w-11 sm:h-10 sm:w-10 rounded-xl bg-[color:var(--sp-primary)] hover:bg-[color:var(--sp-primary-dark)]"
-                                    >
-                                        <Send className="h-5 w-5" />
-                                    </Button>
+                                        <Button
+                                            size="icon"
+                                            onClick={handleSend}
+                                            disabled={loading || !input.trim()}
+                                            className="h-12 w-12 rounded-xl bg-[color:var(--sp-primary)] hover:bg-[color:var(--sp-primary-dark)]"
+                                        >
+                                            <Send className="h-6 w-6" />
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Suggestion Cards - Vertical stack on mobile, horizontal on larger screens */}
-                        <div className="w-full max-w-[658px] mx-auto flex-1 mt-4 sm:mt-0">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                                {smartSuggestions.map((suggestion, idx) => (
+                            {/* Suggestion Cards - Larger */}
+                            <div className="w-full">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
+                                    {smartSuggestions.map((suggestion, idx) => (
                                     <button
                                         key={`${suggestion.title}-${idx}`}
                                         onClick={() => handleSuggestionClick(suggestion.prompt)}
                                         className={cn(
-                                            "hover:scale-[1.02] active:scale-[0.98] border rounded-xl p-4 sm:p-4 text-left transition-all flex flex-col justify-start shadow-sm",
+                                            "hover:scale-[1.02] active:scale-[0.98] border rounded-xl p-5 sm:p-6 text-left transition-all flex flex-col justify-start shadow-sm min-h-[120px]",
                                             suggestion.isPersonalized 
                                                 ? "bg-[color:var(--sp-bg)] border-[color:var(--sp-accent)] hover:bg-white" 
                                                 : "bg-white border-stone-200 hover:bg-zinc-50"
                                         )}
                                     >
-                                        <h3 className="text-base sm:text-sm font-semibold text-black leading-snug">
+                                        <h3 className="text-lg sm:text-base font-semibold text-black leading-snug">
                                             {suggestion.title}
                                         </h3>
-                                        <p className="text-sm sm:text-xs text-neutral-500 mt-2 leading-relaxed">
+                                        <p className="text-base sm:text-sm text-neutral-500 mt-3 leading-relaxed">
                                             {suggestion.description}
                                         </p>
                                     </button>
                                 ))}
                             </div>
+                        </div>
                         </div>
                     </div>
                 ) : (
