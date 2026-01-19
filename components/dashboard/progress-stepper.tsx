@@ -26,13 +26,20 @@ interface MobileProgressProps {
 export function MobileProgress({ currentPart, currentQuestion, totalQuestionsInPart, pillarName }: MobileProgressProps) {
     const overallProgress = ((currentPart - 1) / PILLARS.length) * 100 +
         (currentQuestion && totalQuestionsInPart ? (currentQuestion / totalQuestionsInPart / PILLARS.length) * 100 : 0)
+    const progressPercent = Math.round(overallProgress)
 
     return (
         <div className="lg:hidden mb-4">
+            {/* Progress header with percentage */}
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Progress</span>
+                <span className="text-sm font-bold text-[#E8632B]">{progressPercent}%</span>
+            </div>
+
             {/* Progress bar */}
-            <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden mb-3">
+            <div className="h-2.5 w-full bg-gray-200 rounded-full overflow-hidden mb-3">
                 <div
-                    className="h-full bg-[#E8632B] rounded-full transition-all duration-300"
+                    className="h-full bg-gradient-to-r from-[#E8632B] to-[#F97316] rounded-full transition-all duration-300"
                     style={{ width: `${Math.min(overallProgress, 100)}%` }}
                 />
             </div>
@@ -74,9 +81,28 @@ export function MobileProgress({ currentPart, currentQuestion, totalQuestionsInP
 }
 
 // Desktop Progress Stepper - hidden on mobile
-export function ProgressStepper({ currentPart }: ProgressStepperProps) {
+export function ProgressStepper({ currentPart, currentQuestion, totalQuestionsInPart }: ProgressStepperProps) {
+    // Calculate overall progress percentage
+    const completedParts = currentPart - 1
+    const partProgress = currentQuestion && totalQuestionsInPart ? (currentQuestion / totalQuestionsInPart) : 0
+    const overallProgress = Math.round(((completedParts + partProgress) / PILLARS.length) * 100)
+
     return (
         <div className="hidden lg:block w-full max-w-[407px] rounded-xl bg-white p-8 shadow-sm border border-gray-100">
+            {/* Overall Progress Bar */}
+            <div className="mb-8">
+                <div className="flex items-center justify-between mb-2">
+                    <span className="font-inter text-sm font-semibold text-gray-800">Overall Progress</span>
+                    <span className="font-inter text-sm font-bold text-[#E8632B]">{overallProgress}%</span>
+                </div>
+                <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                        className="h-full bg-gradient-to-r from-[#E8632B] to-[#F97316] rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${overallProgress}%` }}
+                    />
+                </div>
+            </div>
+
             <div className="flex">
                 {/* Timeline line and circles */}
                 <div className="relative mr-6 flex flex-col items-center">
