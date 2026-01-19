@@ -525,11 +525,11 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                             </Button>
                         </div>
 
-                        {/* Conversations List */}
-                        <div className="flex-1 overflow-y-auto">
-                            <div className="p-3">
+                        {/* Conversations List - Limited to 5 recent, expandable */}
+                        <div className="flex-1 overflow-hidden flex flex-col relative">
+                            <div className="p-3 flex-1 flex flex-col">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">History</span>
+                                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Recent</span>
                                     {sessions.length > 0 && (
                                         <span className="text-xs text-zinc-400">{sessions.length}</span>
                                     )}
@@ -542,16 +542,82 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                         <p className="text-xs text-zinc-400 mt-1">Start chatting to see history</p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-1">
+                                    <>
+                                        <div className="space-y-1">
+                                            {sessions.slice(0, 5).map((session) => (
+                                                <button
+                                                    key={session.session_id}
+                                                    onClick={() => {
+                                                        setCurrentSessionId(session.session_id);
+                                                        if (typeof window !== 'undefined' && window.innerWidth < 1024) setSidebarOpen(false);
+                                                    }}
+                                                    className={cn(
+                                                        "w-full px-3 py-2 rounded-lg flex items-center gap-3 transition-all text-left group",
+                                                        currentSessionId === session.session_id
+                                                            ? "bg-[#E8632B]/10 border border-[#E8632B]/20"
+                                                            : "hover:bg-zinc-50 border border-transparent"
+                                                    )}
+                                                >
+                                                    <MessageSquare className={cn(
+                                                        "h-4 w-4 shrink-0 transition-colors",
+                                                        currentSessionId === session.session_id
+                                                            ? "text-[#E8632B]"
+                                                            : "text-zinc-400 group-hover:text-zinc-600"
+                                                    )} />
+                                                    <span className={cn(
+                                                        "flex-1 text-sm truncate",
+                                                        currentSessionId === session.session_id
+                                                            ? "text-[#E8632B] font-medium"
+                                                            : "text-zinc-700"
+                                                    )}>
+                                                        {session.last_message?.slice(0, 25) || "New Conversation"}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {sessions.length > 5 && (
+                                            <button
+                                                onClick={() => {
+                                                    const el = document.getElementById('full-history-drawer');
+                                                    if (el) el.classList.toggle('hidden');
+                                                }}
+                                                className="w-full mt-2 px-3 py-2 text-xs text-[#E8632B] hover:bg-[#E8632B]/5 rounded-lg transition-colors flex items-center justify-center gap-1 font-medium"
+                                            >
+                                                View all ({sessions.length})
+                                                <ChevronRight className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                            
+                            {/* Full History Drawer - Hidden by default */}
+                            {sessions.length > 5 && (
+                                <div id="full-history-drawer" className="hidden absolute inset-0 bg-white z-10 flex flex-col">
+                                    <div className="p-3 border-b border-zinc-200 flex items-center justify-between">
+                                        <span className="text-sm font-semibold text-zinc-700">All Conversations</span>
+                                        <button
+                                            onClick={() => {
+                                                const el = document.getElementById('full-history-drawer');
+                                                if (el) el.classList.add('hidden');
+                                            }}
+                                            className="p-1 hover:bg-zinc-100 rounded"
+                                        >
+                                            <X className="h-4 w-4 text-zinc-500" />
+                                        </button>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto p-3 space-y-1">
                                         {sessions.map((session) => (
                                             <button
                                                 key={session.session_id}
                                                 onClick={() => {
                                                     setCurrentSessionId(session.session_id);
+                                                    const el = document.getElementById('full-history-drawer');
+                                                    if (el) el.classList.add('hidden');
                                                     if (typeof window !== 'undefined' && window.innerWidth < 1024) setSidebarOpen(false);
                                                 }}
                                                 className={cn(
-                                                    "w-full px-3 py-2.5 rounded-lg flex items-center gap-3 transition-all text-left group",
+                                                    "w-full px-3 py-2 rounded-lg flex items-center gap-3 transition-all text-left group",
                                                     currentSessionId === session.session_id
                                                         ? "bg-[#E8632B]/10 border border-[#E8632B]/20"
                                                         : "hover:bg-zinc-50 border border-transparent"
@@ -569,13 +635,13 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                                         ? "text-[#E8632B] font-medium"
                                                         : "text-zinc-700"
                                                 )}>
-                                                    {session.last_message?.slice(0, 30) || "New Conversation"}
+                                                    {session.last_message?.slice(0, 25) || "New Conversation"}
                                                 </span>
                                             </button>
                                         ))}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Sidebar Footer - User Account */}
