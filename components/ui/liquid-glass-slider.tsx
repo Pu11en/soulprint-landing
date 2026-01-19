@@ -4,15 +4,6 @@ import * as React from "react";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import dynamic from "next/dynamic";
-
-// Dynamically import LiquidGlass to avoid SSR issues with WebGL
-const LiquidGlass = dynamic(() => import("liquid-glass-react"), {
-    ssr: false,
-    loading: () => (
-        <div className="w-16 h-16 rounded-full bg-white/80 backdrop-blur-md" />
-    ),
-});
 
 // Brand orange color from logo: #E8632B
 const BRAND_ORANGE = "#E8632B";
@@ -39,24 +30,6 @@ export function LiquidGlassSlider({
     rightLabel,
 }: LiquidGlassSliderProps) {
     const [isDragging, setIsDragging] = React.useState(false);
-    const containerRef = React.useRef<HTMLDivElement>(null);
-    const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
-
-    // Track mouse position relative to container for liquid glass effect
-    React.useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            if (containerRef.current) {
-                const rect = containerRef.current.getBoundingClientRect();
-                setMousePos({
-                    x: e.clientX - rect.left,
-                    y: e.clientY - rect.top
-                });
-            }
-        };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        return () => window.removeEventListener('mousemove', handleMouseMove);
-    }, []);
 
     // Derived values
     const progress = (value[0] - min) / (max - min);
@@ -71,16 +44,16 @@ export function LiquidGlassSlider({
     const intensity = Math.min(1, deviation * 2.5); // 0 to 1 based on how far from center
 
     return (
-        <div className={cn("relative w-full py-16 select-none touch-none", className)}>
+        <div className={cn("relative w-full py-14 select-none touch-none", className)}>
             {/* Labels container */}
             <div className="absolute top-0 w-full flex justify-between pointer-events-none px-1">
                 <motion.span
                     animate={{
                         opacity: 0.4 + leftInfluence * 0.6,
                         scale: 1 + leftInfluence * 0.1,
-                        color: leftInfluence > 0.5 ? BRAND_ORANGE : "#666"
+                        color: leftInfluence > 0.5 ? BRAND_ORANGE : "#9CA3AF"
                     }}
-                    className="text-sm font-medium transition-colors duration-300"
+                    className="text-[11px] tracking-[0.2em] font-semibold uppercase transition-colors duration-300"
                 >
                     {leftLabel}
                 </motion.span>
@@ -88,9 +61,9 @@ export function LiquidGlassSlider({
                     animate={{
                         opacity: 0.4 + rightInfluence * 0.6,
                         scale: 1 + rightInfluence * 0.1,
-                        color: rightInfluence > 0.5 ? BRAND_ORANGE : "#666"
+                        color: rightInfluence > 0.5 ? BRAND_ORANGE : "#9CA3AF"
                     }}
-                    className="text-sm font-medium transition-colors duration-300"
+                    className="text-[11px] tracking-[0.2em] font-semibold uppercase transition-colors duration-300"
                 >
                     {rightLabel}
                 </motion.span>
@@ -106,81 +79,84 @@ export function LiquidGlassSlider({
                 onPointerDown={() => setIsDragging(true)}
                 onPointerUp={() => setIsDragging(false)}
             >
-                <div ref={containerRef} className="relative w-full h-3">
+                <div className="relative w-full h-4">
+                    {/* Light track */}
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-white via-[#F7F7F7] to-white border border-[#E8E8E8] shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]" />
+                    <div className="absolute inset-0 rounded-full bg-[radial-gradient(70%_70%_at_50%_50%,rgba(255,255,255,0.95),transparent)] opacity-80" />
 
-                    {/* Background Track - Inset Glass Effect */}
-                    <div className="absolute inset-0 rounded-full bg-zinc-200/80 shadow-[inset_0_2px_6px_rgba(0,0,0,0.15),inset_0_1px_2px_rgba(0,0,0,0.1)] border border-zinc-300/50 overflow-hidden">
-                        {/* Subtle center marker */}
-                        <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-zinc-400/30 -translate-x-1/2" />
-                    </div>
+                    {/* Center marker */}
+                    <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-[#D8D8D8] -translate-x-1/2" />
 
-                    {/* Fill - Starts from center, extends left or right */}
+                    {/* Active fill - liquid glow from center */}
                     <motion.div
-                        className="absolute top-0 bottom-0 rounded-full"
+                        className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full"
                         style={{
-                            left: progress < 0.5 ? `${progress * 100}%` : '50%',
+                            left: progress < 0.5 ? `${progress * 100}%` : "50%",
                             width: `${Math.abs(progress - 0.5) * 100}%`,
-                            background: `linear-gradient(90deg, ${BRAND_ORANGE}dd, ${BRAND_ORANGE})`,
+                            background: `linear-gradient(90deg, #FF8A4C 0%, ${BRAND_ORANGE} 60%, #C94813 100%)`,
                             boxShadow: isNeutral
-                                ? 'none'
-                                : `0 0 12px ${BRAND_ORANGE}66, inset 0 1px 2px rgba(255,255,255,0.3)`,
+                                ? "none"
+                                : `0 0 10px ${BRAND_ORANGE}66, 0 0 22px ${BRAND_ORANGE}44`,
                         }}
                         animate={{
-                            opacity: isNeutral ? 0.3 : 0.9,
+                            opacity: isNeutral ? 0.35 : 0.95,
                         }}
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        transition={{ type: "spring", stiffness: 320, damping: 28 }}
                     />
 
-                    {/* Actual Radix Track (invisible functional layer) */}
+                    {/* Functional Radix track */}
                     <SliderPrimitive.Track className="relative h-full w-full rounded-full bg-transparent overflow-visible">
                         <SliderPrimitive.Range className="absolute h-full bg-transparent" />
                     </SliderPrimitive.Track>
                 </div>
 
-                {/* The Thumb - Liquid Glass */}
+                {/* Sleek tech thumb */}
                 <SliderPrimitive.Thumb
                     className="block outline-none cursor-grab active:cursor-grabbing z-20"
                     asChild
                 >
                     <motion.div
-                        animate={{
-                            scale: isDragging ? 1.1 : 1,
-                        }}
-                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                        className="relative"
+                        animate={{ scale: isDragging ? 1.08 : 1 }}
+                        transition={{ type: "spring", stiffness: 420, damping: 26 }}
+                        className="relative h-12 w-12"
                     >
-                        <LiquidGlass
-                            displacementScale={isDragging ? 80 : 60}
-                            blurAmount={0.08}
-                            saturation={120}
-                            aberrationIntensity={isDragging ? 3 : 1.5}
-                            elasticity={0.35}
-                            cornerRadius={999}
-                            padding="0"
-                            overLight={true}
-                            mouseContainer={containerRef}
-                            globalMousePos={mousePos}
-                            className="w-14 h-14 flex items-center justify-center"
-                        >
-                            {/* Inner Core */}
-                            <motion.div
-                                className="w-4 h-4 rounded-full"
-                                animate={{
-                                    scale: isNeutral ? 0.7 : 1,
-                                    backgroundColor: isNeutral ? "#9CA3AF" : BRAND_ORANGE,
-                                    boxShadow: isNeutral
-                                        ? "none"
-                                        : `0 0 8px ${BRAND_ORANGE}88`
-                                }}
-                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                            />
-                        </LiquidGlass>
+                        {/* Outer glow */}
+                        <motion.div
+                            className="absolute -inset-2 rounded-full"
+                            style={{
+                                background: `radial-gradient(circle, ${BRAND_ORANGE}66 0%, transparent 72%)`
+                            }}
+                            animate={{
+                                opacity: isNeutral ? 0.25 : 0.8,
+                                scale: isDragging ? 1.05 : 1,
+                            }}
+                        />
+
+                        {/* Glass shell */}
+                        <div className="absolute inset-0 rounded-full bg-white/85 backdrop-blur-md border border-white/80 shadow-[0_10px_24px_rgba(0,0,0,0.16)]" />
+
+                        {/* Inner ring */}
+                        <div className="absolute inset-[6px] rounded-full bg-gradient-to-br from-white/95 to-[#EFEFEF] border border-white/80" />
+
+                        {/* Core indicator */}
+                        <motion.div
+                            className="absolute inset-[14px] rounded-full"
+                            animate={{
+                                scale: isNeutral ? 0.8 : 1,
+                                backgroundColor: isNeutral ? "#9CA3AF" : BRAND_ORANGE,
+                                boxShadow: isNeutral ? "none" : `0 0 12px ${BRAND_ORANGE}99`
+                            }}
+                            transition={{ type: "spring", stiffness: 320, damping: 24 }}
+                        />
+
+                        {/* Specular highlight */}
+                        <div className="absolute top-2 left-3 h-2 w-4 rounded-full bg-white/90 blur-[1px]" />
                     </motion.div>
                 </SliderPrimitive.Thumb>
             </SliderPrimitive.Root>
 
             {/* Feedback Text below thumb */}
-            <div className="absolute top-full mt-2 left-0 w-full pointer-events-none">
+            <div className="absolute top-full mt-3 left-0 w-full pointer-events-none">
                 <motion.div
                     className="flex flex-col items-center"
                     style={{
@@ -188,7 +164,7 @@ export function LiquidGlassSlider({
                         transform: 'translateX(-50%)'
                     }}
                 >
-                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#A3A3A3]">
                         {isNeutral ? "Neutral" : `${Math.round(intensity * 100)}% Intensity`}
                     </span>
                 </motion.div>
