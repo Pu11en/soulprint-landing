@@ -47,25 +47,34 @@ const defaultSuggestions: SuggestionCard[] = [
     }
 ]
 
-// Generate personalized suggestions from past chat sessions
+// Generate personalized suggestions from past chat sessions (based on user's messages)
 function generatePersonalizedSuggestions(sessions: ChatSession[]): SuggestionCard[] {
     if (!sessions || sessions.length === 0) return []
     
     const personalized: SuggestionCard[] = []
     
-    // Get the 3 most recent sessions with content
+    // Get the 3 most recent sessions with meaningful user content
     const recentSessions = sessions
-        .filter(s => s.last_message && s.last_message.length > 10)
+        .filter(s => s.last_message && s.last_message.length > 10 && s.session_id !== 'legacy')
         .slice(0, 3)
     
     for (const session of recentSessions) {
-        const lastMsg = session.last_message || ""
-        // Truncate and create a prompt based on the topic
-        const topic = lastMsg.slice(0, 50).replace(/\n/g, ' ')
+        const userMsg = session.last_message || ""
+        // Clean up and summarize the user's question/topic
+        const cleanedTopic = userMsg
+            .replace(/\n/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+        
+        // Create a cleaner title - capitalize first letter, limit length
+        const displayTitle = cleanedTopic.length > 40 
+            ? cleanedTopic.slice(0, 40).trim() + '...'
+            : cleanedTopic
+        
         personalized.push({
-            title: `Continue: "${topic}${lastMsg.length > 50 ? '...' : ''}"`,
-            description: "Pick up where you left off",
-            prompt: `Let's continue our conversation about: ${lastMsg.slice(0, 100)}`,
+            title: displayTitle.charAt(0).toUpperCase() + displayTitle.slice(1),
+            description: "Continue this conversation",
+            prompt: userMsg, // Send the original user message as context
             isPersonalized: true
         })
     }

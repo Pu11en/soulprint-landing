@@ -24,11 +24,12 @@ export async function getChatSessions(): Promise<ChatSession[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user?.id) return [];
 
-  // 1. Get messages with sessions
+  // 1. Get USER messages only (not AI responses) for suggestions
   const { data: sessionMessages, error } = await supabase
     .from("chat_logs")
-    .select("session_id, content, created_at")
+    .select("session_id, content, created_at, role")
     .eq("user_id", user.id)
+    .eq("role", "user") // Only get user's messages, not AI responses
     .not("session_id", "is", null) // Exclude legacy messages here
     .order("created_at", { ascending: false });
 
@@ -39,13 +40,13 @@ export async function getChatSessions(): Promise<ChatSession[]> {
 
   const sessionsMap = new Map<string, ChatSession>();
 
-  // 2. Process Session Messages
+  // 2. Process Session Messages - use user's most recent message per session
   sessionMessages?.forEach(msg => {
     if (msg.session_id && !sessionsMap.has(msg.session_id)) {
       sessionsMap.set(msg.session_id, {
         session_id: msg.session_id,
         created_at: msg.created_at,
-        last_message: msg.content.substring(0, 50) + (msg.content.length > 50 ? "..." : ""),
+        last_message: msg.content.substring(0, 100) + (msg.content.length > 100 ? "..." : ""),
         message_count: 1
       });
     }
