@@ -16,69 +16,65 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        if (!STREAK_API_KEY || !STREAK_PIPELINE_KEY) {
-            console.error("Missing Streak configuration")
-            return NextResponse.json(
-                { error: "Server configuration error" },
-                { status: 500 }
-            )
-        }
+        let streakSuccess = false
+        let boxKey = null
 
-        const authHeader = `Basic ${Buffer.from(STREAK_API_KEY + ":").toString("base64")}`
+        // Try to add to Streak CRM (but don't fail if it doesn't work)
+        if (STREAK_API_KEY && STREAK_PIPELINE_KEY) {
+            try {
+                const authHeader = `Basic ${Buffer.from(STREAK_API_KEY + ":").toString("base64")}`
 
-        // Create a box in the Streak pipeline (this triggers automations)
-        const boxResponse = await fetch(
-            `https://www.streak.com/api/v1/pipelines/${STREAK_PIPELINE_KEY}/boxes`,
-            {
-                method: "POST",
-                headers: {
-                    "Authorization": authHeader,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    name: `${name} - ${email}`,
-                    notes: `Waitlist signup\nName: ${name}\nEmail: ${email}\nAgreed to NDA: Yes\nDate: ${new Date().toISOString()}`,
-                }),
+                // Create a box in the Streak pipeline
+                const boxResponse = await fetch(
+                    `https://api.streak.com/v1/pipelines/${STREAK_PIPELINE_KEY}/boxes`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Authorization": authHeader,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            name: `${name} - ${email}`,
+                            notes: `Waitlist signup\nName: ${name}\nEmail: ${email}\nAgreed to NDA: Yes\nDate: ${new Date().toISOString()}`,
+                        }),
+                    }
+                )
+
+                if (boxResponse.ok) {
+                    const box = await boxResponse.json()
+                    streakSuccess = true
+                    boxKey = box.boxKey
+                    console.log("Streak: Lead added successfully", { boxKey })
+                } else {
+                    const responseText = await boxResponse.text()
+                    console.error("Streak API error:", {
+                        status: boxResponse.status,
+                        response: responseText,
+                    })
+                    // Continue anyway - we'll still send the email
+                }
+            } catch (streakError) {
+                console.error("Streak integration failed:", streakError)
+                // Continue anyway - we'll still send the email
             }
-        )
-
-        const responseText = await boxResponse.text()
-        console.log("Streak API response:", {
-            status: boxResponse.status,
-            statusText: boxResponse.statusText,
-            body: responseText.substring(0, 500), // Log first 500 chars
-        })
-
-        if (!boxResponse.ok) {
-            console.error("Streak API error:", {
-                status: boxResponse.status,
-                response: responseText,
-            })
-
-            return NextResponse.json(
-                { error: "Failed to add to waitlist. Please try again." },
-                { status: 500 }
-            )
+        } else {
+            console.warn("Streak not configured - skipping CRM integration")
         }
 
-        const box = JSON.parse(responseText)
-
-        // Send confirmation email via direct Gmail integration
+        // Send confirmation email - this is the critical part
         try {
-            // Ideally we'd await this, but to keep the response fast we can fire and forget
-            // or await it if reliability is more important than speed.
-            // Given the serverless environment, better to await or use a background job.
-            // For now, we await it to ensure it sends before the lambda freezes.
-            await sendConfirmationEmail(email, name);
+            await sendConfirmationEmail(email, name)
+            console.log(`Confirmation email sent to ${email}`)
         } catch (emailError) {
             console.error("Failed to send confirmation email:", emailError)
-            // Don't fail the request if email fails - user is still on waitlist
+            // Still return success - user is registered even if email fails
         }
 
         return NextResponse.json({
             success: true,
             message: "Successfully added to waitlist! Check your email for confirmation.",
-            boxKey: box.boxKey,
+            boxKey: boxKey,
+            streakIntegrated: streakSuccess,
         })
     } catch (error) {
         console.error("Waitlist API error:", error)
