@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import { Loader2, ArrowRight, Mail } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 // Set to false to disable access code gate (for development)
 const REQUIRE_ACCESS_CODE = process.env.NODE_ENV === "production";
@@ -18,6 +19,7 @@ export default function EnterPage() {
     const [mode, setMode] = useState<Mode>("access");
     const [code, setCode] = useState("");
     const [codeError, setCodeError] = useState(false);
+    const [checkingAuth, setCheckingAuth] = useState(true);
     
     // Waitlist form state
     const [name, setName] = useState("");
@@ -26,10 +28,40 @@ export default function EnterPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+    // Check if user is already authenticated and redirect to dashboard
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const supabase = createClient();
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                if (user) {
+                    // User is already logged in, redirect to dashboard
+                    router.replace("/dashboard/chat");
+                    return;
+                }
+            } catch (err) {
+                console.error("Auth check error:", err);
+            }
+            setCheckingAuth(false);
+        };
+
+        checkAuth();
+    }, [router]);
+
     // If access code is not required, redirect straight to signup
     if (!REQUIRE_ACCESS_CODE) {
         router.replace("/signup");
         return null;
+    }
+
+    // Show loading while checking auth
+    if (checkingAuth) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-[#0A0A0A]">
+                <Loader2 className="h-8 w-8 animate-spin text-[#EA580C]" />
+            </div>
+        );
     }
 
     const handleCodeSubmit = (e: React.FormEvent) => {

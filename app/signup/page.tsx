@@ -2,18 +2,51 @@
 
 import { Button } from "@/components/ui/button";
 import { signUp, signInWithGoogle } from "@/app/actions/auth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SignUpPage() {
+    const router = useRouter();
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [checkingAuth, setCheckingAuth] = useState(true);
+
+    // Check if user is already authenticated and redirect to dashboard
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const supabase = createClient();
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                if (user) {
+                    router.replace("/dashboard/chat");
+                    return;
+                }
+            } catch (err) {
+                console.error("Auth check error:", err);
+            }
+            setCheckingAuth(false);
+        };
+
+        checkAuth();
+    }, [router]);
+
+    // Show loading while checking auth
+    if (checkingAuth) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#0f0f0f] to-[#1a1a2e]">
+                <Loader2 className="h-8 w-8 animate-spin text-[#EA580C]" />
+            </div>
+        );
+    }
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault();
