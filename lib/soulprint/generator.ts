@@ -215,15 +215,42 @@ Extract VoiceVectors and Pillars. Output JSON only.`;
 }
 
 // DYNAMIC PROMPT CONSTRUCTOR - CASUAL/HUMAN VERSION
+// Resilient to missing/malformed data from old SoulPrint versions
 export function constructDynamicSystemPrompt(data: SoulPrintData): string {
   if (!data) return "You're a chill AI. Talk like a real person, not a robot. Keep it casual.";
 
-  const v = data.voice_vectors || {};
-  const p = data.pillars;
-  const userName = data.name ? data.name : "this person";
+  // Handle case where data might be stringified JSON (V2.0 bug)
+  let parsedData = data;
+  if (typeof data === 'string') {
+    try {
+      parsedData = JSON.parse(data);
+    } catch {
+      return "You're a chill AI. Talk like a real person, not a robot. Keep it casual.";
+    }
+  }
+
+  // Handle case where full_system_prompt is stringified JSON (V2.0 double-encoding bug)
+  if (parsedData.full_system_prompt && typeof parsedData.full_system_prompt === 'string') {
+    const trimmed = parsedData.full_system_prompt.trim();
+    if (trimmed.startsWith('{') && trimmed.includes('"pillars"')) {
+      try {
+        const extracted = JSON.parse(trimmed);
+        // Merge extracted data into parsedData
+        if (extracted.pillars) parsedData.pillars = extracted.pillars;
+        if (extracted.voice_vectors) parsedData.voice_vectors = extracted.voice_vectors;
+        if (extracted.identity_signature) parsedData.identity_signature = extracted.identity_signature;
+      } catch {
+        // Couldn't parse, continue with existing data
+      }
+    }
+  }
+
+  const v = parsedData.voice_vectors || {};
+  const p = parsedData.pillars;
+  const userName = parsedData.name ? parsedData.name : "this person";
 
   // Build casual, human prompt
-  let prompt = `You are ${userName}'s personal AI companion. Your vibe: ${data.archetype || "trusted friend"}. ${data.identity_signature || ""}
+  let prompt = `You are ${userName}'s personal AI companion. Your vibe: ${parsedData.archetype || "trusted friend"}. ${parsedData.identity_signature || ""}
 
 ## HOW TO ACT
 - BE CONCISE. Give the shortest helpful answer. No fluff, no filler.
@@ -253,10 +280,10 @@ export function constructDynamicSystemPrompt(data: SoulPrintData): string {
 
   if (v.sentence_structure === 'fragmented') prompt += '\n- Fragment sentences ok. Bullets too.';
 
-  if (data.sign_off) prompt += `\n- End messages with: "${data.sign_off}"`;
+  if (parsedData.sign_off) prompt += `\n- End messages with: "${parsedData.sign_off}"`;
 
-  // Pillars (casual integration)
-  if (p) {
+  // Pillars (casual integration) - handle missing or malformed pillars
+  if (p && typeof p === 'object') {
     prompt += '\n\n## KNOW THIS ABOUT THEM';
     if (p.communication_style?.ai_instruction) prompt += `\n- Communication: ${p.communication_style.ai_instruction}`;
     if (p.emotional_alignment?.ai_instruction) prompt += `\n- Emotional: ${p.emotional_alignment.ai_instruction}`;
@@ -265,8 +292,8 @@ export function constructDynamicSystemPrompt(data: SoulPrintData): string {
   }
 
   // Flinch warnings
-  if (data.flinch_warnings?.length) {
-    prompt += `\n\n## AVOID THESE (they don't like it)\n- ${data.flinch_warnings.slice(0, 3).join('\n- ')}`;
+  if (parsedData.flinch_warnings?.length) {
+    prompt += `\n\n## AVOID THESE (they don't like it)\n- ${parsedData.flinch_warnings.slice(0, 3).join('\n- ')}`;
   }
 
   prompt += '\n\n## FORMAT\n- Default to SHORT responses (1-3 sentences)\n- Only elaborate if they explicitly ask for more detail\n- Use markdown sparingly - only when it genuinely helps\n- No walls of text. Ever.';
