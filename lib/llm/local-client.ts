@@ -2,7 +2,7 @@
  * LLM Client - Bedrock (Primary) -> SageMaker (Legacy) -> Ollama (Local)
  */
 import { invokeSoulPrintModel } from '@/lib/aws/sagemaker';
-import { invokeBedrockModel, ChatMessage } from '@/lib/aws/bedrock';
+import { invokeBedrockModel, invokeBedrockModelStream, ChatMessage } from '@/lib/aws/bedrock';
 
 export type { ChatMessage };
 
@@ -59,19 +59,16 @@ export async function* streamChatCompletion(
     model: string = DEFAULT_MODEL
 ): AsyncGenerator<string, void, unknown> {
     
-    // 1. AWS Bedrock (Cheapest & Best Cloud Option)
+    // 1. AWS Bedrock (Cheapest & Best Cloud Option) - TRUE STREAMING
     if (isBedrockConfigured()) {
-        console.log('[LLM] Using AWS Bedrock');
+        console.log('[LLM] Using AWS Bedrock (Streaming)');
         try {
-            const text = await invokeBedrockModel(messages);
-            const words = text.split(' ');
-            for (let i = 0; i < words.length; i++) {
-                yield words[i] + (i < words.length - 1 ? ' ' : '');
-                await new Promise(r => setTimeout(r, 10)); 
+            for await (const chunk of invokeBedrockModelStream(messages)) {
+                yield chunk;
             }
             return;
         } catch (error) {
-            console.error('[LLM] Bedrock failed, trying fallbacks...', error);
+            console.error('[LLM] Bedrock streaming failed, trying fallbacks...', error);
         }
     }
 

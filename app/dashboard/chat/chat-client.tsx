@@ -804,7 +804,6 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                         placeholder="Ask me anything..."
                                         className="w-full bg-transparent text-zinc-900 placeholder:text-neutral-400 text-lg sm:text-xl focus:outline-none min-h-[80px] resize-none leading-relaxed overflow-hidden"
                                         rows={3}
-                                        disabled={loading}
                                     />
 
                                     {/* Action Buttons Row */}
@@ -1029,7 +1028,6 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                         placeholder="Type a message..."
                                         className="flex-1 bg-transparent text-zinc-900 placeholder:text-zinc-400 text-sm focus:outline-none min-h-[56px] sm:min-h-[48px] resize-none leading-relaxed overflow-hidden"
                                         rows={3}
-                                        disabled={loading}
                                         autoFocus
                                     />
                                     <Button
