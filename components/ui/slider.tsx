@@ -39,9 +39,6 @@ export function Slider({
     const isLeftOfCenter = currentValue < center;
     const intensity = Math.abs(distanceFromCenter) / (range / 2); // 0 to 1
 
-    // Rotation speed based on intensity and direction
-    const rotationDeg = isDragging ? (isLeftOfCenter ? -360 : 360) : 0;
-
     return (
         <SliderPrimitive.Root
             className={cn(

@@ -3,7 +3,7 @@
 import * as React from "react";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import { cn } from "@/lib/utils";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion, useMotionValue } from "framer-motion";
 
 // Brand orange color from logo: #E8632B
 const BRAND_ORANGE = "#E8632B";
@@ -55,9 +55,6 @@ export function PremiumSlider({
             x.set(progress * width);
         }
     }, [progress, width, x]);
-
-    // Spring physics for organic feel
-    const springX = useTransform(x, (latest) => latest);
 
     // Calculate left/right influence for label animations
     const leftInfluence = Math.max(0, 1 - progress * 2); // 1 at 0%, 0 at 50%

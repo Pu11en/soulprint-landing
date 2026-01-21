@@ -1,8 +1,6 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
 import { SoulPrintSelector } from "@/components/dashboard/soulprint-selector"
 import { LayoutGrid } from "lucide-react"
 import { signOut as signOutAction } from "@/app/actions/auth"
@@ -12,8 +10,6 @@ interface TopBarProps {
 }
 
 export function TopBar({ onMenuClick }: TopBarProps) {
-    const supabase = createClient()
-    const router = useRouter()
 
     const handleLogout = async () => {
         // Clear local storage first

@@ -68,15 +68,6 @@ export default function NewQuestionnairePage() {
     const [sliderValue, setSliderValue] = useState([50])
     const [voiceRecorded, setVoiceRecorded] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [userName, setUserName] = useState<string | null>(null)
-
-    // Load user name from sessionStorage on mount
-    useEffect(() => {
-        const storedName = sessionStorage.getItem('soulprint_user_name')
-        if (storedName) {
-            setUserName(storedName)
-        }
-    }, [])
 
     const currentQuestion = questions[currentQuestionIndex]
 

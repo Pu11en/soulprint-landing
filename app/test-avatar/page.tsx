@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { AvatarGenerator } from "@/components/avatar/AvatarGenerator"
 import { Button } from "@/components/ui/button"
@@ -15,18 +15,14 @@ export default function TestAvatarPage() {
     const [avatarComplete, setAvatarComplete] = useState(false)
     const [savedUrl, setSavedUrl] = useState<string | null>(null)
 
-    useEffect(() => {
-        loadSoulprints()
-    }, [])
-
-    const loadSoulprints = async () => {
+    const loadSoulprints = useCallback(async () => {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
             setLoading(false)
             return
         }
 
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('soulprints')
             .select('id, soulprint_data')
             .eq('user_id', user.id)
@@ -44,7 +40,11 @@ export default function TestAvatarPage() {
             }
         }
         setLoading(false)
-    }
+    }, [supabase])
+
+    useEffect(() => {
+        loadSoulprints()
+    }, [loadSoulprints])
 
     const handleAvatarComplete = (url: string) => {
         setAvatarComplete(true)

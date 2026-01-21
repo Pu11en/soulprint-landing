@@ -305,10 +305,10 @@ export default function EnterPage() {
                         </div>
                         <div className="flex flex-col gap-3">
                             <h1 className="font-koulen text-3xl text-white tracking-tight">
-                                YOU'RE ON THE LIST!
+                                YOU&apos;RE ON THE LIST!
                             </h1>
                             <p className="font-inter text-base text-zinc-400">
-                                We'll send you an email when it's your turn to create your SoulPrint.
+                                We&apos;ll send you an email when it&apos;s your turn to create your SoulPrint.
                             </p>
                         </div>
                         <Link href="/">

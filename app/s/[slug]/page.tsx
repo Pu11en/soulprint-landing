@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
+import Link from "next/link"
 import { Brain, Heart, Scale, Users, Cpu, Shield } from "lucide-react"
 import type { SoulPrintData, SoulPrintPillar } from "@/lib/soulprint/types"
 
@@ -48,10 +49,10 @@ export default async function PublicProfilePage({ params }: PageProps) {
             {/* Header */}
             <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm sticky top-0 z-10">
                 <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <a href="/" className="flex items-center gap-2">
+                    <Link href="/" className="flex items-center gap-2">
                         <span className="font-koulen text-2xl text-white">SOULPRINT</span>
                         <span className="font-inter italic font-thin text-xl text-white">Engine</span>
-                    </a>
+                    </Link>
                     <a
                         href="/enter"
                         className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors"

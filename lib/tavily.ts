@@ -40,7 +40,18 @@ export async function searchWeb(query: string, options: SearchOptions = {}) {
     }
 }
 
-export function formatResultsForLLM(searchResponse: any): string {
+interface SearchResult {
+    title: string;
+    url: string;
+    content: string;
+}
+
+interface SearchResponse {
+    answer?: string;
+    results?: SearchResult[];
+}
+
+export function formatResultsForLLM(searchResponse: SearchResponse | null): string {
     if (!searchResponse) return "";
 
     let formatted = "";
@@ -53,7 +64,7 @@ export function formatResultsForLLM(searchResponse: any): string {
     // Add search results
     if (searchResponse.results && Array.isArray(searchResponse.results)) {
         formatted += "SEARCH RESULTS:\n";
-        searchResponse.results.forEach((result: any, i: number) => {
+        searchResponse.results.forEach((result: SearchResult, i: number) => {
             formatted += `[${i + 1}] ${result.title}\n`;
             formatted += `    Source: ${result.url}\n`;
             formatted += `    Content: ${result.content.substring(0, 300)}...\n\n`;

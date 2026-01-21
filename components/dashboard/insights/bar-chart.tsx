@@ -12,7 +12,6 @@ const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export function BarChart({ data, highlightLast = true }: BarChartProps) {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-    const maxValue = Math.max(...data.map(d => d.value), 1)
     const yAxisLabels = [600, 450, 300, 150, 0]
 
     return (

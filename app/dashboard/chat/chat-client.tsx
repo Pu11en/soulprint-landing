@@ -6,10 +6,10 @@ import { listApiKeys } from "@/app/actions/api-keys"
 import { getChatHistory, saveChatMessage, clearChatHistory, getChatSessions, type ChatSession } from "@/app/actions/chat-history"
 import {
     Send, Bot, User, Loader2, Trash2, Plus, MessageSquare,
-    ChevronLeft, ChevronRight, Menu, Globe, Paperclip,
+    ChevronLeft, ChevronRight, Paperclip,
     AudioLines,
     ChevronsUpDown, X, Download, FileJson, FileText, FileCode,
-    Sparkles, CheckCircle2
+    Sparkles
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -96,10 +96,9 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
     const [displayName, setDisplayName] = useState<string>("SoulPrint")
     const [shouldAutoScroll, setShouldAutoScroll] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(false)
-    const [expandedFolders, setExpandedFolders] = useState<string[]>([])
     const [exportMenuOpen, setExportMenuOpen] = useState(false)
-    const [coachingMode, setCoachingMode] = useState(false)
-    const [coachingGoal, setCoachingGoal] = useState<string | null>(null)
+    const [coachingMode] = useState(false)
+    const [coachingGoal] = useState<string | null>(null)
     const [soulprintTheme, setSoulprintTheme] = useState<SoulprintTheme>(() => getSoulprintTheme(null))
     const welcomeInputRef = useRef<HTMLTextAreaElement>(null)
     const chatInputRef = useRef<HTMLTextAreaElement>(null)
@@ -474,14 +473,6 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
-    }
-
-    function toggleFolder(folder: string) {
-        setExpandedFolders(prev =>
-            prev.includes(folder)
-                ? prev.filter(f => f !== folder)
-                : [...prev, folder]
-        )
     }
 
     if (initializing) {

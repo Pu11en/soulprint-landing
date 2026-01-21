@@ -82,7 +82,6 @@ export async function* streamChatCompletion(
     if (isSageMakerConfigured()) {
         try {
             const prompt = formatChatML(messages);
-            // @ts-ignore - existing function call
             const response = await invokeSoulPrintModel({
                 inputs: prompt,
                 parameters: { max_new_tokens: 512, temperature: 0.7, details: false }
@@ -140,7 +139,7 @@ export async function* streamChatCompletion(
                     const json = JSON.parse(line);
                     if (json.message?.content) yield json.message.content;
                     if (json.done) return;
-                } catch (e) { }
+                } catch { /* ignore parse errors */ }
             }
         }
     }
@@ -160,7 +159,6 @@ export async function chatCompletion(
    // Fallback logic for non-streaming...
    if (isSageMakerConfigured()) {
        const prompt = formatChatML(messages);
-        // @ts-ignore 
        const response = await invokeSoulPrintModel({
            inputs: prompt,
            parameters: { max_new_tokens: 512 }

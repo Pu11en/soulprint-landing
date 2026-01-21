@@ -221,3 +221,40 @@ EEXIST: file already exists, mkdir 'C:\Users\drewp\OneDrive\soulprint rough\Soul
   - Rate limiting is implemented for API endpoints
   - Pre-existing lint errors (4 errors, 25 warnings) are unrelated to this audit
 ---
+## ✗ Iteration 8 - US-008: Review authentication and authorization flow
+*2026-01-21T14:20:23.267Z (287s)*
+
+**Status:** Failed/Incomplete
+
+**Error:**
+EEXIST: file already exists, mkdir 'C:\Users\drewp\OneDrive\soulprint rough\Soulprint-roughdraft\.ralph-tui\iterations'
+
+---
+
+## 2026-01-21 - US-009
+- What was implemented: Fixed all ESLint errors (4) and warnings (25)
+- Files changed (16 files total):
+  - `app/s/[slug]/page.tsx` - Changed `<a>` to `<Link>` for Next.js navigation
+  - `components/ui/input.tsx` - Converted empty interface to type alias
+  - `lib/llm/local-client.ts` - Removed unnecessary @ts-expect-error directives, fixed unused catch variable
+  - `app/dashboard/chat/chat-client.tsx` - Removed unused imports (Menu, Globe, CheckCircle2), removed unused state (expandedFolders, setCoachingMode, setCoachingGoal), removed unused function (toggleFolder)
+  - `app/dashboard/profile/page.tsx` - Removed unused import (Share2)
+  - `app/enter/page.tsx` - Escaped apostrophes in JSX text
+  - `app/questionnaire/new/page.tsx` - Removed unused state (userName) and related useEffect
+  - `app/test-avatar/page.tsx` - Fixed useEffect dependency warning by using useCallback for loadSoulprints, removed unused variable (error)
+  - `components/dashboard/insights/bar-chart.tsx` - Removed unused variable (maxValue)
+  - `components/dashboard/top-bar.tsx` - Removed unused imports (createClient, useRouter)
+  - `components/ui/premium-slider.tsx` - Removed unused imports (animate, useTransform), removed unused variable (springX)
+  - `components/ui/slider.tsx` - Removed unused variable (rotationDeg)
+  - `lib/soulprint/soul-engine.ts` - Fixed unused loop variable (i)
+  - `lib/supabase/middleware.ts` - Removed unused variable (userError)
+  - `lib/tavily.ts` - Added TypeScript interfaces to replace `any` types
+- **Learnings:**
+  - Many unused imports and state variables accumulated over time as features were iterated
+  - React hooks (useEffect) dependency arrays must include all external dependencies or use useCallback
+  - Next.js requires `<Link>` component for internal navigation instead of `<a>` tags
+  - TypeScript prefers type aliases over empty interface declarations
+  - @ts-expect-error is stricter than @ts-ignore - it errors if there's no type error to suppress
+  - Unused catch parameter variables can be replaced with just `catch { }` syntax
+  - `any` types in TypeScript should be replaced with proper interfaces for type safety
+---

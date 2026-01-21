@@ -72,7 +72,7 @@ export class SoulEngine {
             // 4. Inject Memory into Prompt
             if (memories.length > 0) {
                 let memoryBlock = `\n### L3: ACTIVE MEMORY LAYER (Context: "${contextTopic}")\n`;
-                memories.forEach((m, i) => memoryBlock += `[REL_MEMORY] "${m}"\n`);
+                memories.forEach((m) => memoryBlock += `[REL_MEMORY] "${m}"\n`);
                 
                 // Replace placeholder if it exists (from generator.ts), otherwise append
                 if (prompt.includes('### L3: ACTIVE MEMORY LAYER (Placeholder)')) {
