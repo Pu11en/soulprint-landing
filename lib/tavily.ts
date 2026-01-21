@@ -29,7 +29,7 @@ export async function searchWeb(query: string, options: SearchOptions = {}) {
             maxResults: options.maxResults || 5,
             includeAnswer: options.includeAnswer || false,
             includeImages: options.includeImages || false,
-            includeRawContent: options.includeRawContent || false,
+            includeRawContent: options.includeRawContent ? "text" : undefined,
             includeDomains: options.includeDomains,
             excludeDomains: options.excludeDomains,
         });

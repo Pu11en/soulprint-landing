@@ -5,6 +5,7 @@ import { streamChatCompletion, ChatMessage } from '@/lib/llm/local-client';
 import { SoulEngine } from '@/lib/soulprint/soul-engine';
 import { generateEmbedding } from '@/lib/soulprint/memory/retrieval';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { runPostChatAnalysis } from '@/lib/soulprint/post-chat-analysis';
 
 // Supabase admin client for database operations
 const supabaseAdmin = createClient(
@@ -154,6 +155,29 @@ NEVER give information from web search without citing the source URL.`;
                   embedding: assistantEmbedding
                 }
               ]);
+
+              // 8. Post-Chat Evolution Analysis (runs every 10+ messages)
+              const totalMessages = messages.length + 1; // +1 for assistant response
+              if (totalMessages >= 10) {
+                const allMessages: ChatMessage[] = [
+                  ...messages,
+                  { role: 'assistant', content: fullResponse }
+                ];
+                
+                runPostChatAnalysis(
+                  supabaseAdmin,
+                  userId,
+                  profile.current_soulprint_id,
+                  soulData.soulprint_data,
+                  allMessages
+                ).then(result => {
+                  if (result.evolved) {
+                    console.log('[PostChatAnalysis] 🔥 SoulPrint evolved!');
+                  }
+                }).catch(err => {
+                  console.error('[PostChatAnalysis] Background analysis failed:', err);
+                });
+              }
             } catch (e) {
               console.error("Async Memory Persistence Failed:", e);
             }
