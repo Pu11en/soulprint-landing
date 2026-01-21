@@ -1,13 +1,20 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import Image from "next/image"
 
 export default function QuestionnaireIntroPage() {
     const router = useRouter()
+    const [userName, setUserName] = useState("")
 
     const handleLetsGo = () => {
+        // Store name in sessionStorage to pass to questionnaire
+        if (userName.trim()) {
+            sessionStorage.setItem('soulprint_user_name', userName.trim())
+        }
         router.push('/questionnaire/new')
     }
 
@@ -112,6 +119,23 @@ export default function QuestionnaireIntroPage() {
                                 </p>
                                 <p className="mt-4 font-inter text-base leading-7 text-black opacity-80">
                                     There&apos;s nothing to prepare. Just respond naturally, and we&apos;ll handle the rest.
+                                </p>
+                            </div>
+
+                            {/* Name Input */}
+                            <div className="mb-6 rounded-xl border border-[#e5e5e5] bg-white p-6 shadow-sm">
+                                <label className="block font-inter text-sm font-medium text-black opacity-90 mb-2">
+                                    What&apos;s your name?
+                                </label>
+                                <Input
+                                    type="text"
+                                    value={userName}
+                                    onChange={(e) => setUserName(e.target.value)}
+                                    placeholder="Enter your name"
+                                    className="w-full rounded-lg border border-[#e5e5e5] bg-white px-4 py-2 text-black placeholder:text-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                />
+                                <p className="mt-2 font-inter text-xs text-gray-500">
+                                    This helps your AI companion address you personally in conversations.
                                 </p>
                             </div>
 

@@ -38,6 +38,7 @@ export interface SoulPrintData {
     archetype: string;
     identity_signature: string;
     name?: string;
+    user_name?: string;  // User's actual name for personalization
 
     // Expanded L2 Schema Data (Optional for now)
     user_profile?: {
@@ -96,4 +97,5 @@ export interface QuestionnaireAnswers {
 
     // Metadata
     user_id?: string;
+    user_name?: string;  // User's actual name for personalization
 }

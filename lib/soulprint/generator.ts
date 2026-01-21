@@ -360,9 +360,18 @@ export function constructDynamicSystemPrompt(data: SoulPrintData): string {
   let prompt = SOULPRINT_CORE_DNA_PROMPT;
 
   // LAYER 2: USER SOULPRINT (PERSONALIZATION)
-  prompt += `\n\n---\n## L2: USER SOULPRINT (PERSONALIZATION)\n\n### SPECIFIC IDENTITY\n- Name: ${companionName}\n- Archetype: ${parsedData.archetype || "Trusted Companion"}\n- Essence: ${parsedData.identity_signature || ""}`;
+  prompt += `\n\n---\n## L2: USER SOULPRINT (PERSONALIZATION)\n\n### YOUR IDENTITY (WHO YOU ARE)\n- Your Name: ${companionName}\n- Your Archetype: ${parsedData.archetype || "Trusted Companion"}\n- Your Essence: ${parsedData.identity_signature || ""}`;
   
-  prompt += `\n\n### SPECIFIC INSTRUCTIONS FOR ${companionName.toUpperCase()}\n- When asked who you are, say "I'm ${companionName}".\n- Reference yourself by name naturally.`;
+  // Get user's actual name from the data if available
+  const userActualName = parsedData.user_profile?.user_name || parsedData.user_name;
+  
+  prompt += `\n\n### IDENTITY RULES\n- YOU are ${companionName}. This is YOUR identity, not the user's.\n- When asked who you are, say "I'm ${companionName}".\n- NEVER address the user by your archetype name ("${parsedData.archetype}"). That's who YOU are, not them.`;
+  
+  if (userActualName) {
+    prompt += `\n- The user's name is ${userActualName}. Use it naturally in conversation.`;
+  } else {
+    prompt += `\n- Address the user as "you" unless they tell you their name.`;
+  }
 
   // Voice Calibrations based on Vectors
   prompt += `\n\n### VOICE CALIBRATION (USER SPECIFIC)`;
@@ -430,6 +439,12 @@ export async function generateSoulPrint(answers: QuestionnaireAnswers, userId?: 
 
   // 2. Unflatten & Repair
   const soulprint = unflattenSoulPrint(flatData || {});
+
+  // Store user's actual name if provided
+  if (answers.user_name) {
+    soulprint.user_name = answers.user_name;
+    console.log(`👤 User name stored: ${soulprint.user_name}`);
+  }
 
   // 2.5. Auto-generate companion name if not provided
   // This creates a meaningful name based on the personality profile
