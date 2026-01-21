@@ -51,14 +51,8 @@ export async function listMySoulPrints() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-    // Auto-focus logic
-    const currentFocus = cookieStore.get(COOKIE_NAME)?.value
-    if (data && data.length > 0) {
-        if (!currentFocus || !data.find(s => s.id === currentFocus)) {
-            // Default to most recent (index 0)
-            await switchSoulPrint(data[0].id)
-        }
-    }
+    // Note: Auto-focus repair is handled client-side to avoid cookie modification in Server Components
+    // If the current focus is invalid, the client will detect and repair it
 
     // Map to simpler format for UI, extracting name from json if possible
     return data?.map(sp => ({
@@ -97,11 +91,9 @@ export async function getSelectedSoulPrintId() {
         const isValid = currentId && soulprints.some(s => s.id === currentId)
 
         if (!isValid) {
-            // Found the issue: Cookie ID is invalid or missing!
-            // Auto-repair immediately.
-            const validId = soulprints[0].id
-            await switchSoulPrint(validId)
-            return validId
+            // Invalid or missing cookie ID - return the most recent soulprint
+            // Client will handle repair via Server Action
+            return soulprints[0].id
         }
     } else {
         // User has no soulprints
