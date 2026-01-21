@@ -35,7 +35,7 @@ export function DashboardShell({ children, hasSoulprint }: DashboardShellProps) 
             {/* Main Content */}
             <div className="flex flex-1 flex-col overflow-hidden">
                 <TopBar onMenuClick={handleMenuClick} />
-                <main className="flex-1 overflow-hidden bg-[#0B0B0B] px-2 py-3 sm:px-3 sm:py-4 lg:px-4 lg:py-5">
+                <main className="flex-1 overflow-hidden bg-[#0B0B0B] px-2 sm:px-3 lg:px-4">
                     <div className="mx-auto h-full w-full max-w-none">
                         {children}
                     </div>
