@@ -17,8 +17,6 @@ import {
 export const maxDuration = 60; // Allow up to 60 seconds for processing
 
 export async function POST(request: NextRequest) {
-  console.log('[API] Voice analysis request received');
-
   try {
     // Check API key is configured
     if (!process.env.ASSEMBLYAI_API_KEY) {
@@ -49,8 +47,6 @@ export async function POST(request: NextRequest) {
       const arrayBuffer = await audioFile.arrayBuffer();
       audioBuffer = Buffer.from(arrayBuffer);
 
-      console.log('[API] FormData upload, file size:', audioBuffer.length, 'type:', mimeType);
-
     } else if (contentType.includes('application/json')) {
       // Handle JSON with base64 audio
       const body = await request.json();
@@ -79,8 +75,6 @@ export async function POST(request: NextRequest) {
       audioBuffer = Buffer.from(base64Data, 'base64');
       mimeType = body.mimeType || mimeType;
 
-      console.log('[API] JSON upload, decoded size:', audioBuffer.length, 'type:', mimeType);
-
     } else {
       return NextResponse.json(
         { error: 'Unsupported content type. Use multipart/form-data or application/json' },
@@ -104,14 +98,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Analyze with AssemblyAI
-    console.log('[API] Starting AssemblyAI analysis...');
     const startTime = Date.now();
 
     const result = await analyzeWithAssemblyAI(audioBuffer, mimeType);
 
     // Check if any speech was actually detected
     if (!result.transcript || result.words.length === 0) {
-      console.warn('[API] No speech detected in audio');
       return NextResponse.json({
         success: false,
         error: "No speech detected. Please make sure your microphone is working and you are speaking clearly.",
@@ -122,10 +114,6 @@ export async function POST(request: NextRequest) {
     }
 
     const processingTime = Date.now() - startTime;
-    console.log('[API] Analysis complete in', processingTime, 'ms');
-    console.log('[API] Transcript:', result.transcript.substring(0, 100) + '...');
-    console.log('[API] Words:', result.words.length);
-    console.log('[API] Confidence:', result.confidence);
 
     // Format for response
     const n8nPayload = formatForN8N(result);

@@ -9,16 +9,11 @@ export async function processSoulPrint(
     answers: QuestionnaireAnswers,
     userData?: { email?: string; full_name?: string; avatar_url?: string }
 ) {
-    console.log('🧠 Generating SoulPrint for user:', userId);
-
     // Generate SoulPrint via local LLM (AWS SageMaker)
     const soulprintData = await generateSoulPrint(answers, userId);
-    console.log('✅ SoulPrint generated via AWS SageMaker LLM');
-    console.log('✅ Archetype:', soulprintData.archetype);
 
     // Save to Supabase soulprints table
     const savedRecord = await saveSoulPrint(supabaseAdmin, userId, soulprintData, userData);
-    console.log('💾 SoulPrint saved to Supabase with ID:', savedRecord.id);
 
     return {
         success: true,

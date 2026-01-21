@@ -60,12 +60,9 @@ export class SoulEngine {
         }
 
         // 3. Agentic Memory Loop (The "Thinking" Step)
-        console.log(`[SoulEngine] Thinking... (Input: "${content.slice(0, 20)}...")`);
-
         try {
             // A. Infer Context
             const contextTopic = await inferContext(recentMessages);
-            console.log(`[SoulEngine] Latent Context: "${contextTopic}"`);
 
             // B. Retrieve Memories (Vector Search)
             // We combine the topic with the actual message to ground the search
@@ -87,7 +84,6 @@ export class SoulEngine {
                     prompt += memoryBlock;
                 }
             } else {
-                console.log(`[SoulEngine] No relevant memories found.`);
                 // Clean up placeholder if no memories
                  if (prompt.includes('### L3: ACTIVE MEMORY LAYER (Placeholder)')) {
                      prompt = prompt.replace(
@@ -112,12 +108,10 @@ export class SoulEngine {
      */
     async searchWeb(query: string): Promise<string> {
         if (!process.env.TAVILY_API_KEY) {
-            console.warn('[SoulEngine] Web search unavailable - TAVILY_API_KEY not set');
             return '';
         }
 
         try {
-            console.log(`[SoulEngine] Searching web for: "${query}"`);
             const results = await searchWeb(query, {
                 maxResults: 5,
                 includeAnswer: true,

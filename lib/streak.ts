@@ -11,12 +11,10 @@ const STAGE_KEY_LEAD_COLLECTED = process.env.STREAK_STAGE_KEY || '5001';
 export async function createStreakLead(name: string, email: string, ndaAgreed: boolean) {
     // Skip if Streak is not configured
     if (!STREAK_API_KEY || !PIPELINE_KEY) {
-        console.warn('Streak not configured - skipping CRM integration');
         return { success: false, error: 'Streak not configured' };
     }
 
     try {
-        console.log(`Creating Streak Lead for: ${email}`);
 
         // 1. Create the Box
         const createBoxResponse = await fetch(

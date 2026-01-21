@@ -38,7 +38,6 @@ export async function devLogin() {
     // Check for user first (more reliable than getSession in server components)
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.email === TARGET_EMAIL) {
-        console.log("✅ Dev Login: Already logged in as", user.email);
         return; // Don't redirect, let the page/middleware handle it
     }
 
@@ -49,12 +48,10 @@ export async function devLogin() {
 
     if (!initialSignInError) {
         // Success immediately
-        console.log("✅ Dev Login: Sign in successful (fast path)");
         redirect("/dashboard/chat");
     }
 
     // If failed, fix the user (Create or Update Password)
-    console.log("Dev Login: Fast path failed, fixing user account...");
     const { data: userList } = await adminSupabase.auth.admin.listUsers();
     const existingUser = userList.users.find(u => u.email === TARGET_EMAIL);
 
@@ -63,7 +60,6 @@ export async function devLogin() {
         await adminSupabase.auth.admin.updateUserById(existingUser.id, {
             password: DEV_PASSWORD
         });
-        console.log("Dev Login: Updated existing user password");
     } else {
         // Create new user
         await adminSupabase.auth.admin.createUser({
@@ -72,7 +68,6 @@ export async function devLogin() {
             email_confirm: true,
             user_metadata: { full_name: "Kid Quick (Dev)" }
         });
-        console.log("Dev Login: Created new dev user");
     }
 
     // 3. Retry Sign In
@@ -87,6 +82,5 @@ export async function devLogin() {
     }
 
     // 4. Redirect
-    console.log("✅ Dev Login: Sign in successful after fix");
     redirect("/dashboard/chat");
 }

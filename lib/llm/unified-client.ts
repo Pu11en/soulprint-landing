@@ -2,7 +2,6 @@ import { invokeSoulPrintModel, invokeSoulPrintModelStream, ChatMessage } from '@
 
 export async function unifiedChatCompletion(messages: ChatMessage[], options: { model?: string } = {}) {
     void options;
-    console.log('🚀 Using AWS SageMaker LLM');
 
     try {
         // Construct prompt (ChatML or raw)
@@ -39,7 +38,6 @@ export async function unifiedChatCompletion(messages: ChatMessage[], options: { 
 
 export async function* unifiedStreamChatCompletion(messages: ChatMessage[], options: { model?: string } = {}) {
     void options;
-    console.log('🚀 Using AWS SageMaker LLM (Streaming)');
 
     // Construct Prompt
     let prompt = "";

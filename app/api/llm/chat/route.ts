@@ -170,11 +170,7 @@ NEVER give information from web search without citing the source URL.`;
                   profile.current_soulprint_id,
                   soulData.soulprint_data,
                   allMessages
-                ).then(result => {
-                  if (result.evolved) {
-                    console.log('[PostChatAnalysis] 🔥 SoulPrint evolved!');
-                  }
-                }).catch(err => {
+                ).catch(err => {
                   console.error('[PostChatAnalysis] Background analysis failed:', err);
                 });
               }

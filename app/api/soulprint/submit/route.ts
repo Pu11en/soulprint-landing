@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
 
         // Verify user permission
         if (user.id !== user_id && user.email !== user_id) {
-            console.warn(`Unauthorized attempt: User ${user.id}/${user.email} tried to submit for ${user_id}`);
             return NextResponse.json(
                 { error: 'Unauthorized: User ID mismatch' },
                 { status: 403 }

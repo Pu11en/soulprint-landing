@@ -79,15 +79,12 @@ export async function POST(req: NextRequest) {
                     const box = await boxResponse.json()
                     streakSuccess = true
                     boxKey = box.boxKey
-                    console.log("Streak: Lead added successfully", { boxKey })
 
                     // Create contact with email + name in Streak
                     try {
                         const teamKey = await getTeamKey()
 
-                        if (!teamKey) {
-                            console.warn("Streak team key unavailable - skipping contact creation")
-                        } else {
+                        if (teamKey) {
                             const contactResponse = await fetch(
                                 `https://api.streak.com/api/v2/teams/${teamKey}/contacts`,
                                 {
@@ -129,14 +126,11 @@ export async function POST(req: NextRequest) {
                 console.error("Streak integration failed:", streakError)
                 // Continue anyway - we'll still send the email
             }
-        } else {
-            console.warn("Streak not configured - skipping CRM integration")
         }
 
         // Send confirmation email - this is the critical part
         try {
             await sendConfirmationEmail(email, name)
-            console.log(`Confirmation email sent to ${email}`)
         } catch (emailError) {
             console.error("Failed to send confirmation email:", emailError)
             // Still return success - user is registered even if email fails

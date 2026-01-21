@@ -215,7 +215,6 @@ export default function NewQuestionnairePage() {
                     .maybeSingle();
 
                 if (!profile) {
-                    console.log('🛡️ Layer 2: Self-healing missing profile before submission');
                     await supabase.from('profiles').insert({
                         id: user.id,
                         email: user.email!,

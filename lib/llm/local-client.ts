@@ -68,7 +68,6 @@ export async function* streamChatCompletion(
     
     // 1. AWS Bedrock (PRODUCTION - Claude Haiku) - TRUE STREAMING
     if (isBedrockConfigured()) {
-        console.log('[LLM] ✅ Using AWS Bedrock (Claude Haiku)');
         try {
             for await (const chunk of invokeBedrockModelStream(messages)) {
                 yield chunk;
@@ -81,7 +80,6 @@ export async function* streamChatCompletion(
 
     // 2. AWS SageMaker (Legacy Cloud Option)
     if (isSageMakerConfigured()) {
-        console.log('[LLM] ⚠️ Using SageMaker (Legacy)');
         try {
             const prompt = formatChatML(messages);
             // @ts-ignore - existing function call
@@ -117,7 +115,6 @@ export async function* streamChatCompletion(
         throw new Error('❌ No LLM available. Add AWS credentials to .env.local or run Ollama locally.');
     }
 
-    console.log('[LLM] 🔧 Using Ollama Hermes3 (Local Backup)');
     const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

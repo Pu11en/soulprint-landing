@@ -143,7 +143,6 @@ export async function* invokeSoulPrintModelStream(
           // Fallback: yield raw decoded text if parsing fails
           // This handles cases where TGI sends plain text
           if (decodedChunk.trim()) {
-            console.log('[SageMaker Stream] Raw chunk (no JSON):', decodedChunk.slice(0, 100));
             yield decodedChunk;
           }
         }
@@ -192,7 +191,6 @@ export async function deployModel() {
   const imageUri = "763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-tgi-inference:2.1.1-tgi2.0.0-gpu-py310-cu121-ubuntu22.04";
   const modelName = `${endpointName}-model-${Date.now()}`;
 
-  console.log("Creating Model...");
   await getSagemakerClient().send(new CreateModelCommand({
     ModelName: modelName,
     ExecutionRoleArn: roleArn,
@@ -209,7 +207,6 @@ export async function deployModel() {
 
   // 2. Create Endpoint Config
   const configName = `${endpointName}-config-${Date.now()}`;
-  console.log("Creating Endpoint Config...");
   await getSagemakerClient().send(new CreateEndpointConfigCommand({
     EndpointConfigName: configName,
     ProductionVariants: [
@@ -223,7 +220,6 @@ export async function deployModel() {
   }));
 
   // 3. Create Endpoint
-  console.log(`Creating Endpoint ${endpointName}...`);
   await getSagemakerClient().send(new CreateEndpointCommand({
     EndpointName: endpointName,
     EndpointConfigName: configName

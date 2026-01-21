@@ -127,7 +127,6 @@ Current Projects: ${currentSoulprint.ongoing_projects?.map(p => p.name).join(', 
         // Parse JSON response
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-            console.warn('[PostChatAnalysis] Could not parse JSON response');
             return {
                 should_evolve: false,
                 significance_score: 0,
@@ -182,7 +181,6 @@ export async function evolveSoulprint(
         // Parse updated SoulPrint
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-            console.warn('[PostChatAnalysis] Could not parse evolved SoulPrint');
             return currentSoulprint;
         }
 
@@ -190,7 +188,6 @@ export async function evolveSoulprint(
         
         // Validate critical fields exist
         if (!evolved.soulprint_version || !evolved.archetype) {
-            console.warn('[PostChatAnalysis] Invalid evolved SoulPrint, keeping original');
             return currentSoulprint;
         }
 
@@ -254,7 +251,6 @@ export async function persistEvolution(
         return false;
     }
 
-    console.log('[PostChatAnalysis] ✅ SoulPrint evolved and persisted');
     return true;
 }
 
@@ -290,12 +286,8 @@ export async function runPostChatAnalysis(
 }> {
     const cfg = { ...DEFAULT_CONFIG, ...config };
 
-    console.log(`[PostChatAnalysis] Analyzing ${messages.length} messages for user ${userId}`);
-
     // Step 1: Analyze
     const analysis = await analyzeConversation(messages, currentSoulprint);
-
-    console.log(`[PostChatAnalysis] Significance: ${analysis.significance_score}/10, Insights: ${analysis.insights.length}`);
 
     // Step 2: Save memory anchors (always, if any)
     if (analysis.memory_anchors.length > 0) {

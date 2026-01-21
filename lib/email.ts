@@ -13,7 +13,6 @@ const transporter = nodemailer.createTransport({
 
 export async function sendConfirmationEmail(email: string, name: string) {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_CLIENT_ID || !process.env.GMAIL_CLIENT_SECRET || !process.env.GMAIL_REFRESH_TOKEN) {
-    console.warn("Gmail configuration missing. Email not sent.");
     return;
   }
 
@@ -117,7 +116,6 @@ export async function sendConfirmationEmail(email: string, name: string) {
       subject: "Entry confirmed. Welcome to SoulPrint.",
       html: htmlContent,
     });
-    console.log(`Waitlist confirmation sent to ${email}`);
   } catch (error) {
     console.error("Error sending confirmation email:", error);
   }

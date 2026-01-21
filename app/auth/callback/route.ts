@@ -7,12 +7,6 @@ export async function GET(request: NextRequest) {
     const error = requestUrl.searchParams.get('error')
     const errorDescription = requestUrl.searchParams.get('error_description')
 
-    console.log('🔐 Auth callback started:', { 
-        hasCode: !!code, 
-        error, 
-        origin: requestUrl.origin 
-    })
-
     if (error) {
         console.error('❌ Auth error from Supabase:', error, errorDescription)
         return NextResponse.redirect(new URL(`/?error=${errorDescription || error}`, requestUrl.origin))
@@ -42,13 +36,6 @@ export async function GET(request: NextRequest) {
 
         const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
-        console.log('🔄 Code exchange result:', { 
-            success: !exchangeError, 
-            error: exchangeError?.message,
-            hasSession: !!sessionData?.session,
-            cookiesCollected: cookiesToSet.length
-        })
-
         if (exchangeError) {
             console.error('❌ Exchange error:', exchangeError)
             return NextResponse.redirect(new URL(`/?error=${exchangeError.message}`, requestUrl.origin))
@@ -62,8 +49,6 @@ export async function GET(request: NextRequest) {
             
             // Check for existing soulprint
             if (user) {
-                console.log('👤 User authenticated:', user.email)
-                
                 const { count } = await supabase
                     .from('soulprints')
                     .select('*', { count: 'exact', head: true })
@@ -74,15 +59,12 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            console.log('🚀 Redirecting to:', redirectUrl)
-
             // Create redirect response
             const redirectResponse = NextResponse.redirect(new URL(redirectUrl, requestUrl.origin))
             
             // Apply all collected cookies to the redirect response
             // Using the exact options that Supabase SSR provides
             cookiesToSet.forEach(({ name, value, options }) => {
-                console.log('🍪 Setting cookie:', name, 'length:', value.length)
                 redirectResponse.cookies.set(name, value, {
                     ...options,
                     // Ensure these critical options are set for production

@@ -62,7 +62,6 @@ export default function QuestionnaireCompletePage() {
                 .maybeSingle();
 
             if (!profile) {
-                console.log('🛡️ Layer 2: Final self-healing for profile on completion page');
                 await supabase.from('profiles').insert({
                     id: user.id,
                     email: user.email!,

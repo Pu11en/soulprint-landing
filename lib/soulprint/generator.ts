@@ -416,8 +416,6 @@ export function constructDynamicSystemPrompt(data: SoulPrintData): string {
 }
 
 export async function generateSoulPrint(answers: QuestionnaireAnswers, userId?: string): Promise<SoulPrintData> {
-  console.log('🧠 Generating SoulPrint Meta-Architect V3.1 (Flat Schema)...');
-
   // 1. Generate Base JSON
   const userPrompt = buildUserPromptFull(answers, userId);
   const baseMessages: ChatMessage[] = [
@@ -429,7 +427,6 @@ export async function generateSoulPrint(answers: QuestionnaireAnswers, userId?: 
 
   try {
     const response = await chatCompletion(baseMessages);
-    console.log("RAW LLM OUTPUT:", response.slice(0, 200) + "...");
     const cleanJson = response.replace(/^[\s\S]*?{/, '{').replace(/}[\s\S]*?$/, '}');
     flatData = JSON.parse(cleanJson);
   } catch (e) {
@@ -443,18 +440,15 @@ export async function generateSoulPrint(answers: QuestionnaireAnswers, userId?: 
   // Store user's actual name if provided
   if (answers.user_name) {
     soulprint.user_name = answers.user_name;
-    console.log(`👤 User name stored: ${soulprint.user_name}`);
   }
 
   // 2.5. Auto-generate companion name if not provided
   // This creates a meaningful name based on the personality profile
   if (!soulprint.name) {
     soulprint.name = generateCompanionName(soulprint);
-    console.log(`🏷️ Auto-generated companion name: ${soulprint.name}`);
   }
 
   // 3. Dynamic Prompt Construction
-  console.log('📝 Constructing Dynamic System Prompt...');
   const promptFull = constructDynamicSystemPrompt(soulprint);
 
   // Tiered Prompts

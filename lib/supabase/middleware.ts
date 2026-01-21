@@ -17,7 +17,6 @@ export async function updateSession(request: NextRequest) {
     // DEV BYPASS: Skip auth on localhost for testing
     const isLocalhost = request.headers.get('host')?.includes('localhost')
     if (isLocalhost && process.env.NODE_ENV === 'development') {
-        console.log('🔓 DEV MODE: Auth bypassed for localhost')
         return supabaseResponse
     }
 
@@ -28,7 +27,6 @@ export async function updateSession(request: NextRequest) {
     // If env vars are missing, skip Supabase auth and just continue
     // This prevents the middleware from crashing during build or when env is not loaded
     if (!supabaseUrl || !supabaseAnonKey) {
-        console.warn('Supabase environment variables not found, skipping auth middleware')
         return supabaseResponse
     }
 
@@ -62,22 +60,12 @@ export async function updateSession(request: NextRequest) {
         error: userError
     } = await supabase.auth.getUser()
 
-    // Debug logging for protected routes
+    // Protected routes check
     const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/questionnaire')
-    if (isProtectedRoute) {
-        console.log('🔒 Middleware check for protected route:', {
-            path: request.nextUrl.pathname,
-            hasUser: !!user,
-            userEmail: user?.email,
-            error: userError?.message,
-            cookies: request.cookies.getAll().map(c => c.name)
-        })
-    }
 
     // Protected routes logic - keep it simple
     if (isProtectedRoute) {
         if (!user) {
-            console.log('⛔ No user found, redirecting to home')
             return NextResponse.redirect(new URL('/', request.url))
         }
 
@@ -90,7 +78,6 @@ export async function updateSession(request: NextRequest) {
                 .maybeSingle()
 
             if (!profile && !profileError) {
-                console.log('🛡️ Layer 1: Creating missing profile in middleware for:', user.email)
                 await supabase.from('profiles').insert({
                     id: user.id,
                     email: user.email!,

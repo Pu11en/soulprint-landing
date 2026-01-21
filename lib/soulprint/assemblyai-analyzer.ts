@@ -121,8 +121,6 @@ export async function analyzeWithAssemblyAI(
     ? Buffer.from(audioData, 'base64')
     : audioData;
   
-  console.log('[AssemblyAI] Starting transcription, audio size:', audioBuffer.length, 'bytes');
-  
   // Upload and transcribe with all features enabled
   const transcript = await client.transcripts.transcribe({
     audio: audioBuffer,
@@ -133,9 +131,7 @@ export async function analyzeWithAssemblyAI(
   if (transcript.status === 'error') {
     throw new Error(`AssemblyAI transcription failed: ${transcript.error}`);
   }
-  
-  console.log('[AssemblyAI] Transcription complete, confidence:', transcript.confidence);
-  
+
   // Extract words
   const words = (transcript.words || []).map(w => ({
     text: w.text,

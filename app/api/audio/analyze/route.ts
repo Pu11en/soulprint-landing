@@ -88,8 +88,7 @@ async function convertToWav(inputPath: string, outputPath: string): Promise<void
   return new Promise((resolve, reject) => {
     // Get ffmpeg path (bundled or system)
     const ffmpegBin = getFfmpegPath();
-    console.log('Using ffmpeg at:', ffmpegBin);
-    
+
     const ffmpeg = spawn(ffmpegBin, [
       '-i', inputPath,
       '-ar', '16000',      // Sample rate
@@ -164,8 +163,8 @@ async function cleanupFiles(...paths: string[]): Promise<void> {
       if (existsSync(filePath)) {
         await unlink(filePath);
       }
-    } catch (e) {
-      console.warn(`Failed to cleanup ${filePath}:`, e);
+    } catch {
+      // Ignore cleanup errors
     }
   }
 }

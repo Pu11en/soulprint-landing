@@ -34,9 +34,8 @@ interface WebhookConfig {
  */
 function getWebhookConfig(): WebhookConfig | null {
   const url = process.env.SOULPRINT_AUTOMATION_WEBHOOK_URL;
-  
+
   if (!url) {
-    console.warn('SOULPRINT_AUTOMATION_WEBHOOK_URL not configured');
     return null;
   }
   
@@ -132,7 +131,6 @@ async function sendWithRetry(
     clearTimeout(timeoutId);
     
     if (response.ok) {
-      console.log(`[Webhook] Successfully sent to ${config.url}`);
       return { success: true, statusCode: response.status };
     }
     
@@ -141,7 +139,6 @@ async function sendWithRetry(
     
     // Retry on 5xx errors
     if (response.status >= 500 && attempt < (config.retryCount || 2)) {
-      console.log(`[Webhook] Retrying... attempt ${attempt + 1}`);
       await new Promise(resolve => setTimeout(resolve, config.retryDelay || 1000));
       return sendWithRetry(config, payload, attempt + 1);
     }
@@ -154,7 +151,6 @@ async function sendWithRetry(
     
     // Retry on network errors
     if (attempt < (config.retryCount || 2)) {
-      console.log(`[Webhook] Retrying... attempt ${attempt + 1}`);
       await new Promise(resolve => setTimeout(resolve, config.retryDelay || 1000));
       return sendWithRetry(config, payload, attempt + 1);
     }
@@ -224,7 +220,6 @@ export function sendToAutomationWebhookAsync(
   const config = getWebhookConfig();
   
   if (!config) {
-    console.warn('[Webhook] Skipping async webhook - URL not configured');
     return { analysisId: generateAnalysisId() };
   }
   
