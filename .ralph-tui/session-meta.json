@@ -1,0 +1,15 @@
+{
+  "id": "680f02de-165b-4873-85db-69b3643f0565",
+  "status": "interrupted",
+  "startedAt": "2026-01-21T13:42:22.602Z",
+  "updatedAt": "2026-01-21T14:33:17.091Z",
+  "agentPlugin": "claude",
+  "trackerPlugin": "json",
+  "prdPath": "./tasks/prd.json",
+  "currentIteration": 11,
+  "maxIterations": 15,
+  "totalTasks": 0,
+  "tasksCompleted": 2,
+  "cwd": "C:\\Users\\drewp\\OneDrive\\soulprint rough\\Soulprint-roughdraft",
+  "endedAt": "2026-01-21T14:33:17.091Z"
+}

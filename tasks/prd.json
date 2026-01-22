@@ -1,0 +1,243 @@
+{
+  "name": "SoulPrint Production Cleanup",
+  "description": "Prepare the SoulPrint Next.js application for production deployment by removing debug code, eliminating duplicate components, cleaning up root directory clutter, consolidating environment configuration, and conducting a security audit.",
+  "branchName": "ralph/production-cleanup",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Audit duplicate components and determine which to keep",
+      "description": "As a developer, I want to audit the duplicate/versioned components so that I can decide which versions to keep and which to remove.",
+      "acceptanceCriteria": [
+        "Audit VoiceRecorder.tsx, VoiceRecorderV2.tsx, VoiceRecorderV3.tsx - determine which is actively used",
+        "Audit voice-analyzer.ts vs voice-analyzer-v2.ts - determine which is actively used",
+        "Audit migration scripts (migrate-soulprints.ts, migrate_soulprints.ts, migrate_soulprints_v31.js)",
+        "Document findings with recommendation for each duplicate set in a CLEANUP-AUDIT.md file",
+        "Create list of files safe to delete",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Remove unused duplicate components",
+      "description": "As a developer, I want to remove unused duplicate components so that the codebase has a single source of truth for each feature.",
+      "acceptanceCriteria": [
+        "Remove unused VoiceRecorder versions based on audit",
+        "Remove unused voice-analyzer version based on audit",
+        "Remove outdated migration scripts based on audit",
+        "Update any imports that referenced removed files",
+        "Verify application still functions after removal",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-003",
+      "title": "Remove all console.log statements from production code",
+      "description": "As a developer, I want to remove all console.log/warn statements so that production builds don't leak debug information.",
+      "acceptanceCriteria": [
+        "Remove console.log statements from all files in lib/ directory",
+        "Remove console.log statements from all files in app/ directory",
+        "Remove console.log statements from all files in components/ directory",
+        "Keep console.error only where genuinely needed for error tracking",
+        "Verify no console output in browser during normal operation",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-004",
+      "title": "Clean up scripts directory",
+      "description": "As a developer, I want to remove non-essential scripts so that only deployment and necessary utility scripts remain.",
+      "acceptanceCriteria": [
+        "Remove all test-*.ts scripts (test-bedrock, test-aws, test-chat-local, etc.)",
+        "Remove benchmark scripts (benchmark-soul.ts)",
+        "Remove one-off export scripts (export_soulprints.js, export_ronnie_soulprint.js)",
+        "Keep deployment scripts (deploy-*.ts)",
+        "Keep essential utilities (clean-start.js, seed-demo.js)",
+        "Update any npm scripts that referenced removed files",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-005",
+      "title": "Delete root directory data files and clutter",
+      "description": "As a developer, I want to remove data exports and temporary files from the root directory so that the project root is clean.",
+      "acceptanceCriteria": [
+        "Delete logs_result*.json and logs_result*.csv files",
+        "Delete ronnie_soulprint.txt",
+        "Delete soulprints_export.csv",
+        "Delete lint_output.txt",
+        "Delete aws-error.log",
+        "Delete nul file (Windows artifact)",
+        "Delete tmpclaude-*.cwd files",
+        "Add patterns to .gitignore to prevent future commits of similar files",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-006",
+      "title": "Consolidate environment files",
+      "description": "As a developer, I want a single .env.example file so that environment setup is clear and consistent.",
+      "acceptanceCriteria": [
+        "Create comprehensive .env.example with all required variables documented",
+        "Remove duplicate/outdated env files (keep only .env.example and .env.local)",
+        "Add comments in .env.example explaining each variable's purpose",
+        "Ensure .env.local and .env.production are in .gitignore",
+        "Verify application works with the documented env setup",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-007",
+      "title": "Audit for exposed secrets and hardcoded credentials",
+      "description": "As a developer, I want to ensure no secrets are hardcoded so that the application is secure for production.",
+      "acceptanceCriteria": [
+        "Search codebase for hardcoded API keys (OpenAI, AWS, Supabase, etc.)",
+        "Search for hardcoded passwords or tokens",
+        "Search for hardcoded URLs that should be environment variables",
+        "Verify all secrets are loaded from environment variables",
+        "Check that no .env files (except .example) are committed",
+        "Document any findings in SECURITY-AUDIT.md and remediate",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-008",
+      "title": "Review authentication and authorization flow",
+      "description": "As a developer, I want to verify the auth flow is secure so that user data is protected in production.",
+      "acceptanceCriteria": [
+        "Review app/actions/gate.ts for secure access control",
+        "Review Supabase authentication implementation in lib/supabase/",
+        "Verify protected routes require authentication",
+        "Check for proper session handling and token management",
+        "Ensure no auth bypass vulnerabilities exist",
+        "Document the auth flow and any recommendations in SECURITY-AUDIT.md",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-007"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-009",
+      "title": "Fix all lint errors and warnings",
+      "description": "As a developer, I want to resolve all ESLint issues so that the codebase meets quality standards.",
+      "acceptanceCriteria": [
+        "Run npm run lint and document all errors/warnings",
+        "Fix all ESLint errors",
+        "Address critical warnings (unused variables, any types, etc.)",
+        "npm run build passes",
+        "npm run lint passes with zero errors",
+        "tsc --noEmit passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-002",
+        "US-003",
+        "US-004"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-010",
+      "title": "Fix all TypeScript errors",
+      "description": "As a developer, I want to resolve all TypeScript errors so that type safety is ensured.",
+      "acceptanceCriteria": [
+        "Run tsc --noEmit and document all type errors",
+        "Fix explicit type errors (not just warnings)",
+        "Address critical any type usage where possible",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes with zero errors"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-009"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-011",
+      "title": "Verify production build succeeds",
+      "description": "As a developer, I want to confirm the production build works so that deployment can proceed.",
+      "acceptanceCriteria": [
+        "Run npm run build successfully",
+        "No build warnings related to removed files or broken imports",
+        "Build output size is reasonable (no bloat from debug code)",
+        "Run npm run start and verify application loads correctly",
+        "npm run build passes",
+        "npm run lint passes",
+        "tsc --noEmit passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "",
+      "dependsOn": [
+        "US-010"
+      ],
+      "completionNotes": "Completed by agent"
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-01-21T14:33:15.993Z"
+  }
+}
