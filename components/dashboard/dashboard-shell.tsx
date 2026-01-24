@@ -40,7 +40,7 @@ export function DashboardShell({ children, hasSoulprint }: DashboardShellProps) 
     }, [])
 
     return (
-        <div className="flex min-h-screen bg-[#0B0B0B] text-white">
+        <div className="flex min-h-dvh bg-[#0B0B0B] text-white">
             {/* Onboarding Tour */}
             {showTour && (
                 <OnboardingTour onComplete={handleTourComplete} />

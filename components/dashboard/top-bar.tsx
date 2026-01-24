@@ -26,7 +26,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
     return (
         <>
-            <header className="flex h-[52px] items-center justify-between border-b border-[#111111] bg-[#111111] px-4">
+            <header className="flex min-h-[52px] items-center justify-between border-b border-[#111111] bg-[#111111] px-4 pt-[env(safe-area-inset-top)]">
                 {/* Left side - Logo + branding */}
                 <div className="flex items-center gap-2">
                     {/* SoulPrint Logo */}

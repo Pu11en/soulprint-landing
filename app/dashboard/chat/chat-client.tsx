@@ -467,7 +467,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                     : "w-0 -translate-x-full lg:translate-x-0"
             )}>
                 {sidebarOpen && (
-                    <div className="flex flex-col h-full w-[280px] overflow-hidden">
+                    <div className="flex flex-col h-full w-[280px] overflow-hidden pt-[env(safe-area-inset-top)]">
                         {/* Sidebar Header - Your SoulPrint Identity */}
                         <div className="p-4 bg-gradient-to-br from-zinc-900 to-zinc-800">
                             <div className="flex items-center gap-3">
@@ -661,7 +661,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
             >
 
                 {/* Mobile Chat Header */}
-                <div className="flex items-center gap-2 p-3 lg:hidden border-b border-zinc-200 bg-white">
+                <div className="flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden border-b border-zinc-200 bg-white">
                     <button
                         onClick={() => setSidebarOpen(true)}
                         className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 p-2 text-zinc-700 hover:bg-zinc-100"
