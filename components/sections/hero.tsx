@@ -11,9 +11,9 @@ export function Hero() {
         <>
             {/* Mobile Hero - Full-bleed background design */}
             <section className="lg:hidden relative flex flex-col min-h-[100dvh] w-full overflow-hidden">
-                {/* Full-bleed Background Image */}
+                {/* Full-bleed Background Image with Zoom */}
                 <div
-                    className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-110 origin-center"
                     style={{ backgroundImage: "url('/images/hero-bg-mobile.png')" }}
                 />
 
@@ -22,14 +22,14 @@ export function Hero() {
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
 
                 {/* Brutalist Header - Logo + Login */}
-                <header className="relative flex items-center justify-between px-6 pt-8 pb-4 z-20">
+                <header className="relative flex items-center justify-between px-6 pt-10 pb-4 z-20">
                     <div className="inline-flex items-center gap-2">
                         <Image
                             src="/images/soulprintlogomain.png"
                             alt="SoulPrint Logo"
-                            width={32}
-                            height={32}
-                            className="w-8 h-8 object-contain"
+                            width={36}
+                            height={36}
+                            className="w-9 h-9 object-contain"
                         />
                         <span className="text-white text-3xl font-normal font-koulen leading-9 tracking-tight">SOULPRINT</span>
                     </div>
@@ -38,38 +38,51 @@ export function Hero() {
                     </Link>
                 </header>
 
-                {/* Content - headline at top */}
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.2 }}
-                    className="relative flex flex-col items-center text-center space-y-4 px-6 z-10 flex-1 justify-center"
-                >
-                    {/* Headline */}
-                    <h1 className="text-[2.25rem] xs:text-[2.5rem] sm:text-[3rem] md:text-[5rem] font-black uppercase tracking-[-0.03em] leading-[0.9] text-white drop-shadow-2xl">
-                        YOUR AI
-                        <br />
-                        SHOULD KNOW
-                        <br />
-                        <span className="text-[#FF4D00]">WHO YOU ARE</span>
-                    </h1>
+                {/* Content & CTA Container */}
+                <div className="relative flex flex-1 flex-col z-10">
+                    {/* Top Spacer */}
+                    <div className="flex-[0.5]" />
 
-                    {/* Subheading */}
-                    <p className="text-white/80 text-sm sm:text-lg md:text-xl font-medium leading-relaxed max-w-[320px] sm:max-w-[480px] md:max-w-[600px]">
-                        The world&apos;s first high-fidelity digital identity platform. Capture your essence forever.
-                    </p>
-                </motion.div>
+                    {/* Headline and Subheading */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                        className="flex flex-col items-center text-center space-y-5 px-6"
+                    >
+                        <h1 className="text-[2.75rem] xs:text-[3.25rem] sm:text-[4.5rem] font-black uppercase tracking-tight leading-[0.85] text-white drop-shadow-2xl">
+                            YOUR AI
+                            <br />
+                            SHOULD KNOW
+                            <br />
+                            <span className="text-[#FF4D00]">WHO YOU ARE</span>
+                        </h1>
 
+                        <p className="text-white/80 text-base sm:text-xl font-medium leading-relaxed max-w-[300px] sm:max-w-[480px]">
+                            The world&apos;s first high-fidelity digital identity platform. Capture your essence.
+                        </p>
+                    </motion.div>
 
+                    {/* Spacer A - Balanced Gap */}
+                    <div className="flex-1" />
 
-                {/* CTA Button */}
-                <div className="relative px-6 pb-12 z-10">
-                    <Link href="/enter" className="block w-full">
-                        <button className="w-full h-14 md:h-16 bg-[#FF4D00] hover:bg-[#FF6A29] active:scale-[0.98] transition-all flex items-center justify-between px-6 group">
-                            <span className="text-black font-black text-base md:text-xl uppercase tracking-tight">Enter SoulPrint</span>
-                            <ArrowRight className="w-5 h-5 md:w-6 md:h-6 text-black group-hover:translate-x-1 transition-transform" />
-                        </button>
-                    </Link>
+                    {/* CTA Button centered in remaining space */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.4 }}
+                        className="px-6 w-full max-w-[600px] mx-auto"
+                    >
+                        <Link href="/enter" className="block w-full">
+                            <button className="w-full h-16 bg-[#FF4D00] hover:bg-[#FF662E] active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-[#FF4D00]/20">
+                                <span className="text-black font-black text-xl uppercase tracking-tight">Enter SoulPrint</span>
+                                <ArrowRight className="w-6 h-6 text-black group-hover:translate-x-1 transition-transform" />
+                            </button>
+                        </Link>
+                    </motion.div>
+
+                    {/* Spacer B - Balanced Gap (Same as A) */}
+                    <div className="flex-1" />
                 </div>
 
 

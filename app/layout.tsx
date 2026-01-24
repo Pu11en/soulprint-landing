@@ -3,7 +3,6 @@ import { Inter, Koulen, Geist, Host_Grotesk, Cinzel, JetBrains_Mono } from "next
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { cn } from "@/lib/utils";
-import { IOSInstallPrompt } from "@/components/ios-install-prompt";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const koulen = Koulen({
@@ -135,7 +134,6 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <IOSInstallPrompt />
         </ThemeProvider>
         <script
           dangerouslySetInnerHTML={{

@@ -44,7 +44,7 @@ const SPLASH_SCREENS = [
 ];
 
 // Brand colors
-const BACKGROUND_COLOR = '#0a0a0a';
+const BACKGROUND_COLOR = '#000000';
 const ICON_PADDING = 0.15; // 15% padding for maskable icons
 
 async function ensureDir(dir) {
@@ -67,13 +67,13 @@ async function generateIcons() {
     const iconSize = size - (padding * 2);
 
     await sharp(SOURCE_ICON)
-      .resize(iconSize, iconSize, { fit: 'contain', background: { r: 10, g: 10, b: 10, alpha: 1 } })
+      .resize(iconSize, iconSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 1 } })
       .extend({
         top: padding,
         bottom: padding,
         left: padding,
         right: padding,
-        background: { r: 10, g: 10, b: 10, alpha: 1 }
+        background: { r: 0, g: 0, b: 0, alpha: 1 }
       })
       .png()
       .toFile(outputPath);
@@ -83,7 +83,7 @@ async function generateIcons() {
 
   // Generate Apple touch icon (180x180)
   await sharp(SOURCE_ICON)
-    .resize(180, 180, { fit: 'contain', background: { r: 10, g: 10, b: 10, alpha: 1 } })
+    .resize(180, 180, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 1 } })
     .png()
     .toFile(join(ICONS_DIR, 'apple-touch-icon.png'));
 
@@ -112,15 +112,15 @@ async function generateSplashScreens() {
         width,
         height,
         channels: 4,
-        background: { r: 10, g: 10, b: 10, alpha: 1 }
+        background: { r: 0, g: 0, b: 0, alpha: 1 }
       }
     })
-    .composite([{
-      input: iconBuffer,
-      gravity: 'center'
-    }])
-    .png()
-    .toFile(outputPath);
+      .composite([{
+        input: iconBuffer,
+        gravity: 'center'
+      }])
+      .png()
+      .toFile(outputPath);
 
     console.log(`  Generated: ${name}`);
   }

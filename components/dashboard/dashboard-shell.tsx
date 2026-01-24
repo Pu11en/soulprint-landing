@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react"
 import { Sidebar, MobileSidebar } from "@/components/dashboard/sidebar"
 import { TopBar } from "@/components/dashboard/top-bar"
 import { OnboardingTour } from "@/components/onboarding-tour"
+import { InstallPromptBanner } from "@/components/install-prompt-banner"
 
 interface DashboardShellProps {
     children: React.ReactNode
@@ -18,7 +19,7 @@ export function DashboardShell({ children, hasSoulprint }: DashboardShellProps) 
         // Check if we should show the onboarding tour
         const tourCompleted = localStorage.getItem("soulprint-tour-completed")
         const isFirstLogin = localStorage.getItem("soulprint-first-login")
-        
+
         if (isFirstLogin === "true" && tourCompleted !== "true") {
             // Small delay to let the UI render first
             const timer = setTimeout(() => setShowTour(true), 500)
@@ -44,6 +45,9 @@ export function DashboardShell({ children, hasSoulprint }: DashboardShellProps) 
             {showTour && (
                 <OnboardingTour onComplete={handleTourComplete} />
             )}
+
+            {/* Install Prompt */}
+            <InstallPromptBanner />
 
             {/* Desktop Sidebar */}
             <Sidebar hasSoulprint={hasSoulprint} />

@@ -109,13 +109,13 @@ export default function EnterPage() {
 
     return (
         <div className="flex flex-col lg:flex-row w-full h-full min-h-screen bg-[#0A0A0A]">
-            {/* Left Side - Image */}
+            {/* Left Side - Hero Image */}
             <div className="relative hidden lg:flex lg:w-1/2 bg-black">
                 <Image
-                    src="/images/Soulprintengine-logo.png"
+                    src="/images/enter-hero.png"
                     alt="SoulPrint Engine"
                     fill
-                    className="object-cover opacity-80"
+                    className="object-cover"
                     priority
                 />
             </div>
