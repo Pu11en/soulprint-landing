@@ -10,11 +10,11 @@ export function Hero() {
     return (
         <>
             {/* Mobile Hero - Full-bleed background design */}
-            <section className="lg:hidden relative flex flex-col min-h-[100dvh] w-full overflow-hidden">
+            <section className="lg:hidden relative flex flex-col min-h-[85dvh] w-full overflow-hidden">
                 {/* Full-bleed Background Image with Zoom */}
                 <div
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-110 origin-center"
-                    style={{ backgroundImage: "url('/images/mobile-hero-cosmic.png')" }}
+                    style={{ backgroundImage: "url('/images/mobile-hero-v2.png')" }}
                 />
 
                 {/* Gradient overlays for text readability */}
@@ -33,8 +33,11 @@ export function Hero() {
                         />
                         <span className="text-white text-3xl font-normal font-koulen leading-9 tracking-tight">SOULPRINT</span>
                     </div>
-                    <Link href="/enter" className="text-white text-sm font-bold uppercase tracking-wide hover:text-[#FF4D00] transition-colors">
-                        Login
+                    <Link href="/enter" className="relative group overflow-hidden">
+                        <span className="text-white text-sm font-bold uppercase tracking-wide group-hover:text-orange-600 transition-colors duration-300">
+                            Login
+                        </span>
+                        <span className="absolute bottom-0 left-0 w-full h-[2px] bg-orange-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                     </Link>
                 </header>
 
@@ -50,12 +53,12 @@ export function Hero() {
                         transition={{ duration: 0.6, delay: 0.2 }}
                         className="flex flex-col items-center text-center space-y-5 px-6"
                     >
-                        <h1 className="text-[2.75rem] xs:text-[3.25rem] sm:text-[4.5rem] font-black uppercase tracking-tight leading-[0.85] text-white drop-shadow-2xl">
+                        <h1 className="text-[2.75rem] xs:text-[3.25rem] sm:text-[4.5rem] font-koulen uppercase tracking-tight leading-[0.85] text-white drop-shadow-2xl">
                             YOUR AI
                             <br />
                             SHOULD KNOW
                             <br />
-                            <span className="text-[#FF4D00]">WHO YOU ARE</span>
+                            <span className="text-orange-600">WHO YOU ARE</span>
                         </h1>
 
                         <p className="text-white/80 text-base sm:text-xl font-medium leading-relaxed max-w-[300px] sm:max-w-[480px]">
@@ -74,8 +77,8 @@ export function Hero() {
                         className="px-6 w-full max-w-[600px] mx-auto"
                     >
                         <Link href="/enter" className="block w-full">
-                            <button className="w-full h-16 bg-[#FF4D00] hover:bg-[#FF662E] active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-[#FF4D00]/20">
-                                <span className="text-black font-black text-xl uppercase tracking-tight">Enter SoulPrint</span>
+                            <button className="w-full h-16 bg-orange-600 hover:bg-orange-500 active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-orange-600/20 rounded-none">
+                                <span className="text-black font-black text-xl uppercase tracking-wider font-koulen">Enter SoulPrint</span>
                                 <ArrowRight className="w-6 h-6 text-black group-hover:translate-x-1 transition-transform" />
                             </button>
                         </Link>
@@ -93,7 +96,7 @@ export function Hero() {
                 {/* Full-bleed Background Image */}
                 <div
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                    style={{ backgroundImage: "url('/images/hero-bg-desktop.png')" }}
+                    style={{ backgroundImage: "url('/images/desktop-hero-v2.png')" }}
                 />
 
                 {/* Gradient overlays for text readability */}
@@ -112,8 +115,11 @@ export function Hero() {
                         />
                         <span className="text-white text-4xl font-normal font-koulen leading-10 tracking-tight">SOULPRINT</span>
                     </div>
-                    <Link href="/enter" className="text-white text-base font-bold uppercase tracking-wide hover:text-[#FF4D00] transition-colors">
-                        Login
+                    <Link href="/enter" className="relative group overflow-hidden">
+                        <span className="text-white text-base font-bold uppercase tracking-wide group-hover:text-orange-600 transition-colors duration-300">
+                            Login
+                        </span>
+                        <span className="absolute bottom-0 left-0 w-full h-[3px] bg-orange-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                     </Link>
                 </header>
 
@@ -129,12 +135,12 @@ export function Hero() {
                         transition={{ duration: 0.6, delay: 0.2 }}
                         className="flex flex-col items-center text-center space-y-6 px-12"
                     >
-                        <h1 className="text-[5rem] xl:text-[6rem] 2xl:text-[7rem] font-black uppercase tracking-tight leading-[0.85] text-white drop-shadow-2xl">
+                        <h1 className="text-[5rem] xl:text-[6rem] 2xl:text-[7rem] font-koulen uppercase tracking-tight leading-[0.85] text-white drop-shadow-2xl">
                             YOUR AI
                             <br />
                             SHOULD KNOW
                             <br />
-                            <span className="text-[#FF4D00]">WHO YOU ARE</span>
+                            <span className="text-orange-600">WHO YOU ARE</span>
                         </h1>
 
                         <p className="text-white/80 text-xl xl:text-2xl font-medium leading-relaxed max-w-[700px]">
@@ -153,8 +159,8 @@ export function Hero() {
                         className="px-12 w-full max-w-[500px] mx-auto"
                     >
                         <Link href="/enter" className="block w-full">
-                            <button className="w-full h-16 bg-[#FF4D00] hover:bg-[#FF662E] active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-[#FF4D00]/20">
-                                <span className="text-black font-black text-xl uppercase tracking-tight">Enter SoulPrint</span>
+                            <button className="w-full h-16 bg-orange-600 hover:bg-orange-500 active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-orange-600/20 rounded-none">
+                                <span className="text-black font-black text-xl uppercase tracking-wider font-koulen">Enter SoulPrint</span>
                                 <ArrowRight className="w-6 h-6 text-black group-hover:translate-x-1 transition-transform" />
                             </button>
                         </Link>
