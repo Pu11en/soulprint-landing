@@ -5,12 +5,14 @@ import { signUp, signInWithGoogle } from "@/app/actions/auth";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2, UserCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { validateReferralCode } from "@/app/actions/referral";
 
 export default function SignUpPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -18,10 +20,13 @@ export default function SignUpPage() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [checkingAuth, setCheckingAuth] = useState(true);
+    const [referralCode, setReferralCode] = useState<string | null>(null);
+    const [referrerName, setReferrerName] = useState<string | null>(null);
 
     // Check if user is already authenticated and redirect to dashboard
+    // Also check for referral code in URL
     useEffect(() => {
-        const checkAuth = async () => {
+        const checkAuthAndReferral = async () => {
             try {
                 const supabase = createClient();
                 const { data: { user } } = await supabase.auth.getUser();
@@ -30,14 +35,24 @@ export default function SignUpPage() {
                     router.replace("/dashboard/chat");
                     return;
                 }
+
+                // Check for referral code in URL
+                const refCode = searchParams.get("ref");
+                if (refCode) {
+                    const result = await validateReferralCode(refCode);
+                    if (result.valid && result.teamMember) {
+                        setReferralCode(refCode);
+                        setReferrerName(result.teamMember.name);
+                    }
+                }
             } catch (err) {
                 console.error("Auth check error:", err);
             }
             setCheckingAuth(false);
         };
 
-        checkAuth();
-    }, [router]);
+        checkAuthAndReferral();
+    }, [router, searchParams]);
 
     // Show loading while checking auth
     if (checkingAuth) {
@@ -57,6 +72,9 @@ export default function SignUpPage() {
         formData.append("name", name);
         formData.append("email", email);
         formData.append("password", password);
+        if (referralCode) {
+            formData.append("referralCode", referralCode);
+        }
 
         try {
             const result = await signUp(formData);
@@ -75,7 +93,7 @@ export default function SignUpPage() {
 
     const handleGoogleSignIn = async () => {
         setLoading(true);
-        const result = await signInWithGoogle();
+        const result = await signInWithGoogle(referralCode || undefined);
         if (result?.error) {
             setError(result.error);
             setLoading(false);
@@ -146,6 +164,19 @@ export default function SignUpPage() {
                 </div>
 
                 <div className="w-full max-w-[350px] flex flex-col gap-8 sm:gap-6 mt-4 lg:mt-0">
+                    {/* Referral Banner */}
+                    {referrerName && (
+                        <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-xl animate-in fade-in slide-in-from-top-2">
+                            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                                <UserCheck className="h-5 w-5 text-green-500" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-green-400">Invited by {referrerName}</p>
+                                <p className="text-xs text-gray-500">You have exclusive access</p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Header */}
                     <div className="flex flex-col gap-2 text-center">
                         <h2 className="font-host-grotesk font-semibold text-3xl sm:text-2xl leading-tight tracking-[-0.4px] text-white">

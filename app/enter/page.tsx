@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, ArrowRight, Mail } from "lucide-react";
+import { Loader2, ArrowRight, Mail, UserCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { validateReferralCode } from "@/app/actions/referral";
 
 // Access code gate - set to true to require access code
 const REQUIRE_ACCESS_CODE = true;
@@ -16,10 +17,13 @@ type Mode = "access" | "waitlist" | "success";
 
 export default function EnterPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [mode, setMode] = useState<Mode>("access");
     const [code, setCode] = useState("");
     const [codeError, setCodeError] = useState(false);
     const [checkingAuth, setCheckingAuth] = useState(true);
+    const [referralInfo, setReferralInfo] = useState<{ name: string } | null>(null);
+    const [validatingReferral, setValidatingReferral] = useState(false);
 
     // Waitlist form state
     const [name, setName] = useState("");
@@ -29,9 +33,9 @@ export default function EnterPage() {
     const [error, setError] = useState("");
 
     // Check if user is already authenticated and redirect to dashboard
-    // Also handle access code bypass for development
+    // Also handle referral code from URL
     useEffect(() => {
-        const checkAuth = async () => {
+        const checkAuthAndReferral = async () => {
             // If access code is not required, redirect straight to signup
             if (!REQUIRE_ACCESS_CODE) {
                 router.replace("/signup");
@@ -47,20 +51,53 @@ export default function EnterPage() {
                     router.replace("/dashboard/chat");
                     return;
                 }
+
+                // Check for referral code in URL
+                const refCode = searchParams.get("ref");
+                if (refCode) {
+                    setValidatingReferral(true);
+                    const result = await validateReferralCode(refCode);
+
+                    if (result.valid && result.teamMember) {
+                        // Valid referral - show welcome message and redirect to signup
+                        setReferralInfo({ name: result.teamMember.name });
+                        // Short delay to show the referral message, then redirect
+                        setTimeout(() => {
+                            router.push(`/signup?ref=${encodeURIComponent(refCode)}`);
+                        }, 1500);
+                        return;
+                    }
+                    setValidatingReferral(false);
+                }
             } catch (err) {
                 console.error("Auth check error:", err);
             }
             setCheckingAuth(false);
         };
 
-        checkAuth();
-    }, [router]);
+        checkAuthAndReferral();
+    }, [router, searchParams]);
 
     // Show loading while checking auth
-    if (checkingAuth) {
+    if (checkingAuth || validatingReferral) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-[#0A0A0A]">
-                <Loader2 className="h-8 w-8 animate-spin text-[#EA580C]" />
+            <div className="flex flex-col items-center justify-center min-h-screen bg-[#0A0A0A] gap-4">
+                {referralInfo ? (
+                    <>
+                        <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center border border-green-500/30">
+                            <UserCheck className="h-8 w-8 text-green-500" />
+                        </div>
+                        <div className="text-center">
+                            <h2 className="text-xl font-semibold text-white mb-2">
+                                Welcome! You&apos;ve been invited by {referralInfo.name}
+                            </h2>
+                            <p className="text-zinc-400">Redirecting you to sign up...</p>
+                        </div>
+                        <Loader2 className="h-6 w-6 animate-spin text-[#EA580C] mt-2" />
+                    </>
+                ) : (
+                    <Loader2 className="h-8 w-8 animate-spin text-[#EA580C]" />
+                )}
             </div>
         );
     }
