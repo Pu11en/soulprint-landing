@@ -8,8 +8,8 @@ import Link from "next/link";
 import { Loader2, ArrowRight, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-// Set to false to disable access code gate (for development)
-const REQUIRE_ACCESS_CODE = process.env.NODE_ENV === "production";
+// Access code gate - set to true to require access code
+const REQUIRE_ACCESS_CODE = true;
 const ACCESS_CODE = "!Arche!";
 
 type Mode = "access" | "waitlist" | "success";
@@ -20,7 +20,7 @@ export default function EnterPage() {
     const [code, setCode] = useState("");
     const [codeError, setCodeError] = useState(false);
     const [checkingAuth, setCheckingAuth] = useState(true);
-    
+
     // Waitlist form state
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -41,7 +41,7 @@ export default function EnterPage() {
             try {
                 const supabase = createClient();
                 const { data: { user } } = await supabase.auth.getUser();
-                
+
                 if (user) {
                     // User is already logged in, redirect to dashboard
                     router.replace("/dashboard/chat");
@@ -255,11 +255,10 @@ export default function EnterPage() {
                                         onChange={(e) => setNdaOptIn(e.target.checked)}
                                         className="sr-only"
                                     />
-                                    <div className={`w-5 h-5 rounded border-2 transition-all flex items-center justify-center ${
-                                        ndaOptIn 
-                                            ? "bg-[#EA580C] border-[#EA580C]" 
+                                    <div className={`w-5 h-5 rounded border-2 transition-all flex items-center justify-center ${ndaOptIn
+                                            ? "bg-[#EA580C] border-[#EA580C]"
                                             : "border-zinc-600 group-hover:border-zinc-400"
-                                    }`}>
+                                        }`}>
                                         {ndaOptIn && (
                                             <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
