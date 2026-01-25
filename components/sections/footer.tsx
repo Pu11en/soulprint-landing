@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Instagram, Twitter, Linkedin, Github } from "lucide-react";
+import { Instagram, Twitter, Linkedin } from "lucide-react";
 import Image from "next/image";
 
 export function Footer() {
@@ -26,7 +26,6 @@ export function Footer() {
                         <SocialLink href="https://twitter.com/soulprintengine" icon={<Twitter className="h-5 w-5" />} label="Twitter" />
                         <SocialLink href="https://instagram.com/soulprintengine" icon={<Instagram className="h-5 w-5" />} label="Instagram" />
                         <SocialLink href="https://linkedin.com/company/soulprintengine" icon={<Linkedin className="h-5 w-5" />} label="LinkedIn" />
-                        <SocialLink href="https://github.com/clawdbot/clawdbot" icon={<Github className="h-5 w-5" />} label="Clawdbot on GitHub" />
                     </div>
                 </div>
 
