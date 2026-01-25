@@ -14,7 +14,8 @@ import {
     BarChart3,
     GitCompareArrows,
     LucideIcon,
-    X
+    X,
+    Bot
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -23,6 +24,7 @@ interface SidebarItem {
     label: string
     href: string
     tourId?: string
+    external?: boolean
 }
 
 const sidebarItems: SidebarItem[] = [
@@ -32,6 +34,7 @@ const sidebarItems: SidebarItem[] = [
     { icon: BarChart3, label: "Insights", href: "/dashboard/insights", tourId: "insights" },
     { icon: GitCompareArrows, label: "Compare", href: "/dashboard/compare", tourId: "compare" },
     { icon: Key, label: "API Keys", href: "/dashboard/bot", tourId: "api-keys" },
+    { icon: Bot, label: "Clawdbot", href: "https://github.com/clawdbot/clawdbot", tourId: "clawdbot", external: true },
     { icon: Settings2, label: "Settings", href: "/dashboard/settings", tourId: "settings" },
 ]
 
@@ -80,6 +83,10 @@ export function Sidebar({ hasSoulprint }: SidebarProps) {
                         (item.label === "Home" && pathname.startsWith("/dashboard/chat")) ||
                         (item.label === "Questionnaire" && pathname.startsWith("/questionnaire"))
 
+                    const linkProps = item.external
+                        ? { target: "_blank" as const, rel: "noopener noreferrer" }
+                        : {}
+
                     return (
                         <Link
                             key={item.label}
@@ -92,6 +99,7 @@ export function Sidebar({ hasSoulprint }: SidebarProps) {
                                     : "text-[#e5e5e5] hover:bg-white/5"
                             )}
                             title={item.label}
+                            {...linkProps}
                         >
                             {mounted ? <Icon className="h-5 w-5" /> : <div className="h-5 w-5" />}
                             <span className="sr-only">{item.label}</span>
@@ -192,6 +200,10 @@ export function MobileSidebar({ hasSoulprint, isOpen, onClose }: MobileSidebarPr
                             (item.label === "Home" && pathname.startsWith("/dashboard/chat")) ||
                             (item.label === "Questionnaire" && pathname.startsWith("/questionnaire"))
 
+                        const linkProps = item.external
+                            ? { target: "_blank" as const, rel: "noopener noreferrer" }
+                            : {}
+
                         return (
                             <Link
                                 key={item.label}
@@ -202,6 +214,7 @@ export function MobileSidebar({ hasSoulprint, isOpen, onClose }: MobileSidebarPr
                                         ? "bg-[#E8632B] text-white"
                                         : "text-[#e5e5e5] hover:bg-white/5"
                                 )}
+                                {...linkProps}
                             >
                                 {mounted ? <Icon className="h-5 w-5" /> : <div className="h-5 w-5" />}
                                 <span className="font-medium">{item.label}</span>
