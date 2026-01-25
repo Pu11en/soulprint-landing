@@ -11,8 +11,8 @@ import { analyzeChatsForSoulPrint } from '@/lib/soulprint/import/chat-analyzer';
 import { generateUniqueName, detectNicknameFromChat } from '@/lib/soulprint/name-generator';
 import { constructDynamicSystemPrompt } from '@/lib/soulprint/generator';
 
-// Allow long running imports (up to 10 minutes)
-export const maxDuration = 600;
+// Allow long running imports (up to 5 minutes - Vercel hobby limit)
+export const maxDuration = 300;
 export const runtime = 'nodejs';
 
 // Supabase admin client for service role operations

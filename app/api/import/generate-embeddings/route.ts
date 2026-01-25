@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { generateEmbedding } from '@/lib/aws/embeddings';
 
-// Allow long running (up to 10 minutes)
-export const maxDuration = 600;
+// Allow long running (up to 5 minutes - Vercel hobby limit)
+export const maxDuration = 300;
 export const runtime = 'nodejs';
 
 const supabaseAdmin = createAdminClient(

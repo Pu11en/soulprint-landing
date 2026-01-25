@@ -9,8 +9,8 @@ import {
   GPTConversation,
 } from '@/lib/soulprint/import/gpt-parser';
 
-// Allow long running imports (up to 10 minutes)
-export const maxDuration = 600;
+// Allow long running imports (up to 5 minutes - Vercel hobby limit)
+export const maxDuration = 300;
 export const runtime = 'nodejs';
 
 // Supabase admin client for service role operations
