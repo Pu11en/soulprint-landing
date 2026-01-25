@@ -82,9 +82,10 @@ export async function* streamChatCompletion(
             }
             return;
         } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
             console.error('[LLM] ⚠️ Bedrock failed, trying fallbacks...', {
-                error: error.message,
-                stack: error.stack
+                error: err.message,
+                stack: err.stack
             });
         }
     }
@@ -115,8 +116,9 @@ export async function* streamChatCompletion(
             }
             return;
         } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
             console.error('[LLM] SageMaker failed:', {
-                error: error.message,
+                error: err.message,
                 serverless: configStatus.serverless
             });
             if (configStatus.serverless) throw error;

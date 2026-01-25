@@ -7,6 +7,7 @@ import {
     SquareTerminal,
     Home,
     Key,
+    Settings,
     Settings2,
     User,
     HelpCircle,
