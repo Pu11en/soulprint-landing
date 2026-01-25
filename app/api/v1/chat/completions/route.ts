@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         }
 
         // ===================================
-        // 🚦 USAGE LIMIT CHECK (Gate Logic)
+        // 🚦 USAGE LIMIT CHECK (Gate Logic) - Atomic
         // ===================================
         const { data: profile } = await supabaseAdmin
             .from('profiles')
@@ -52,19 +52,33 @@ export async function POST(req: NextRequest) {
             .single();
 
         const limit = profile?.usage_limit ?? 20; // Default hard limit
-        const count = profile?.usage_count ?? 0;
 
-        if (count >= limit) {
+        // Try atomic increment first (prevents race condition)
+        const { data: allowed, error: rpcError } = await supabaseAdmin
+            .rpc('increment_usage_if_under_limit', {
+                p_user_id: keyData.user_id,
+                p_limit: limit
+            });
+
+        if (rpcError) {
+            // Fallback to non-atomic check if RPC doesn't exist yet
+            console.warn('[UsageLimit] Atomic RPC not available, using fallback:', rpcError.message);
+            const count = profile?.usage_count ?? 0;
+            if (count >= limit) {
+                return NextResponse.json({
+                    error: "SoulPrint Trial Limit Reached (20 Interactions). Access is currently restricted."
+                }, { status: 403 });
+            }
+            // Non-atomic increment (race condition possible)
+            await supabaseAdmin
+                .from('profiles')
+                .update({ usage_count: count + 1 })
+                .eq('id', keyData.user_id);
+        } else if (!allowed) {
             return NextResponse.json({
                 error: "SoulPrint Trial Limit Reached (20 Interactions). Access is currently restricted."
             }, { status: 403 });
         }
-
-        // Increment Usage (Blocking to ensure enforcement)
-        await supabaseAdmin
-            .from('profiles')
-            .update({ usage_count: count + 1 })
-            .eq('id', keyData.user_id);
 
 
         // 3. Parse Request Body

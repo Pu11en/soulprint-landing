@@ -9,6 +9,8 @@ import {
 const REGION = process.env.AWS_REGION || "us-east-1";
 
 let _client: BedrockRuntimeClient | null = null;
+let _lastConnectionError: number | null = null;
+const CONNECTION_RESET_WINDOW = 30000; // 30 seconds
 
 /**
  * Sleep helper for retry delays
@@ -17,7 +19,21 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Mark connection as errored - will force client reset on next call
+ */
+export function markConnectionError() {
+  _lastConnectionError = Date.now();
+}
+
 function getClient() {
+  // Reset client if recent connection error (within 30s)
+  if (_lastConnectionError && Date.now() - _lastConnectionError < CONNECTION_RESET_WINDOW) {
+    console.log("[Bedrock] Resetting client due to recent connection error");
+    _client = null;
+    _lastConnectionError = null;
+  }
+
   if (!_client) {
     _client = new BedrockRuntimeClient({
       region: REGION,
@@ -95,6 +111,7 @@ export async function invokeBedrockModel(
       }
 
       console.error("AWS Bedrock Error:", error);
+      markConnectionError(); // Reset client on next call
       throw error;
     }
   }
@@ -173,6 +190,7 @@ export async function* invokeBedrockModelStream(
       }
 
       console.error("AWS Bedrock Streaming Error:", error);
+      markConnectionError(); // Reset client on next call
       throw error;
     }
   }

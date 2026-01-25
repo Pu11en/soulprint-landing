@@ -63,6 +63,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'SoulPrint data corrupted' }, { status: 500 });
     }
 
+    // 2.5 Validate SoulPrint structure
+    const spData = soulData.soulprint_data;
+    const isValidSoulprint = spData && typeof spData === 'object' &&
+      (typeof spData.archetype === 'string' || typeof spData.identity_signature === 'string' || typeof spData.name === 'string');
+
+    if (!isValidSoulprint) {
+      console.warn(`[Chat] Invalid soulprint data structure for user ${userId}, using empty defaults`);
+    }
+
     // 3. Initialize SoulEngine
     const engine = new SoulEngine(supabaseAdmin, userId, soulData.soulprint_data);
 
@@ -79,7 +88,14 @@ export async function POST(request: NextRequest) {
 
     // 5.5 Web Search Augmentation (Real-time Info)
     const lastUserMsg = messages[messages.length - 1];
-    if (lastUserMsg && lastUserMsg.role === 'user' && engine.needsWebSearch(lastUserMsg.content)) {
+    const canWebSearch = !!process.env.TAVILY_API_KEY;
+    const needsSearch = lastUserMsg && lastUserMsg.role === 'user' && engine.needsWebSearch(lastUserMsg.content);
+
+    if (needsSearch && !canWebSearch) {
+      console.warn('[Chat] Web search requested but TAVILY_API_KEY not configured');
+    }
+
+    if (needsSearch && canWebSearch) {
       const webContext = await engine.searchWeb(lastUserMsg.content);
       if (webContext) {
         systemPrompt += `\n\n## REAL-TIME WEB SEARCH RESULTS\n${webContext}\n\n## CITATION INSTRUCTIONS (MANDATORY)
@@ -181,7 +197,14 @@ NEVER give information from web search without citing the source URL.`;
 
         } catch (e) {
           console.error("Streaming failed:", e);
-          controller.error(e);
+          // Send error event to client before closing stream
+          const errorMsg = e instanceof Error ? e.message : 'Stream failed';
+          const errorEvent = JSON.stringify({
+            error: { message: errorMsg, type: 'stream_error' }
+          });
+          controller.enqueue(encoder.encode(`data: ${errorEvent}\n\n`));
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
         }
       }
     });

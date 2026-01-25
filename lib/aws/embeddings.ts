@@ -96,11 +96,20 @@ export async function generateEmbedding(
         continue;
       }
 
-      console.error("AWS Bedrock Embedding Error:", error);
-      return []; // Return empty on failure to not block chat
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("AWS Bedrock Embedding Error:", {
+        error: errorMessage,
+        attempt: attempt + 1,
+        maxRetries,
+        textLength: text.length,
+        warning: "⚠️ MEMORY INJECTION WILL FAIL - embeddings not generated"
+      });
+      // Return empty on failure to not block chat, but log clearly
+      return [];
     }
   }
 
+  console.warn("⚠️ Embedding generation exhausted all retries - memory context will be missing");
   return [];
 }
 

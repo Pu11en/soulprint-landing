@@ -21,12 +21,40 @@ interface CacheEntry<T> {
 const queryCache = new Map<string, CacheEntry<MemoryResult[]>>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 500;
+let lastCleanup = 0;
+const CLEANUP_INTERVAL = 60 * 1000; // Clean every 60 seconds max
+
+/**
+ * Clean expired entries from cache to prevent memory leak
+ */
+function cleanExpiredCache(): void {
+    const now = Date.now();
+
+    // Only clean periodically to avoid performance hit
+    if (now - lastCleanup < CLEANUP_INTERVAL) return;
+    lastCleanup = now;
+
+    let cleaned = 0;
+    for (const [key, entry] of queryCache.entries()) {
+        if (now > entry.expiresAt) {
+            queryCache.delete(key);
+            cleaned++;
+        }
+    }
+
+    if (cleaned > 0) {
+        console.log(`[MemoryCache] Cleaned ${cleaned} expired entries, ${queryCache.size} remaining`);
+    }
+}
 
 function generateQueryHash(userId: string, query: string): string {
     return createHash('sha256').update(`${userId}:${query.toLowerCase().trim()}`).digest('hex');
 }
 
 function getCachedResult(hash: string): MemoryResult[] | null {
+    // Clean expired entries periodically
+    cleanExpiredCache();
+
     const entry = queryCache.get(hash);
     if (!entry) return null;
 
@@ -39,6 +67,9 @@ function getCachedResult(hash: string): MemoryResult[] | null {
 }
 
 function setCacheResult(hash: string, results: MemoryResult[]): void {
+    // Clean expired entries periodically
+    cleanExpiredCache();
+
     // Evict oldest entries if cache is full
     if (queryCache.size >= MAX_CACHE_SIZE) {
         const firstKey = queryCache.keys().next().value;
