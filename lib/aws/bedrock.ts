@@ -58,7 +58,7 @@ export async function invokeBedrockModel(
 ): Promise<string> {
   // Default to Claude 3.5 Haiku (Fast & high quality)
   // Ensure you requested access to this model in AWS Bedrock Console
-  const modelId = process.env.BEDROCK_MODEL_ID || "us.anthropic.claude-3-5-haiku-20241022-v1:0";
+  const modelId = process.env.BEDROCK_MODEL_ID || "us.anthropic.claude-haiku-4-5-20251001-v1:0";
   const maxRetries = options?.maxRetries ?? 5;
   const initialDelay = options?.initialDelay ?? 1000;
 
@@ -128,7 +128,7 @@ export async function* invokeBedrockModelStream(
   messages: ChatMessage[],
   options?: { maxRetries?: number; initialDelay?: number }
 ): AsyncGenerator<string, void, unknown> {
-  const modelId = process.env.BEDROCK_MODEL_ID || "us.anthropic.claude-3-5-haiku-20241022-v1:0";
+  const modelId = process.env.BEDROCK_MODEL_ID || "us.anthropic.claude-haiku-4-5-20251001-v1:0";
   const maxRetries = options?.maxRetries ?? 5;
   const initialDelay = options?.initialDelay ?? 1000;
 
