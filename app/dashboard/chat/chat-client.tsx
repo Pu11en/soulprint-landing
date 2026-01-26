@@ -838,12 +838,9 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                     <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-6 overflow-y-auto">
                         <div className="w-full max-w-[1100px] flex flex-col items-center">
                             {/* Logo - At top of content group */}
-                            <div className="flex items-center justify-center gap-3 mb-8 sm:mb-10">
+                            <div className="flex items-center justify-center mb-8 sm:mb-10">
                                 <span className="font-koulen text-5xl sm:text-6xl lg:text-7xl text-white tracking-wide">
-                                    SOULPRINT
-                                </span>
-                                <span className="font-inter italic font-thin text-4xl sm:text-5xl lg:text-6xl text-orange-500 tracking-tight">
-                                    Engine
+                                    SOULPRINT ENGINE
                                 </span>
                             </div>
 
