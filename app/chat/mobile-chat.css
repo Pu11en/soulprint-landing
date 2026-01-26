@@ -418,6 +418,28 @@
     font-weight: 500;
 }
 
+.header-status.offline {
+    color: #ef4444;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.header-status.offline::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: #ef4444;
+    border-radius: 50%;
+    animation: offlinePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes offlinePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
 .header-avatar {
     width: 40px;
     height: 40px;

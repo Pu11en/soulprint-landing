@@ -91,6 +91,7 @@ export function MobileChatClient() {
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
     const [showSidebar, setShowSidebar] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
+    const [isOnline, setIsOnline] = useState(true)
     
     // Filter sessions by search query
     const filteredSessions = sessions.filter(session => 
@@ -106,6 +107,21 @@ export function MobileChatClient() {
     // Voice recording
     const { isRecording, isSupported: voiceSupported, startRecording, stopRecording, transcript } = useVoiceRecorder()
     
+    // Track online/offline status
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true)
+        const handleOffline = () => setIsOnline(false)
+        
+        setIsOnline(navigator.onLine)
+        window.addEventListener('online', handleOnline)
+        window.addEventListener('offline', handleOffline)
+        
+        return () => {
+            window.removeEventListener('online', handleOnline)
+            window.removeEventListener('offline', handleOffline)
+        }
+    }, [])
+
     // Update input when voice transcript changes
     useEffect(() => {
         if (transcript) {
@@ -674,9 +690,11 @@ export function MobileChatClient() {
                 
                 <div className="header-center">
                     <span className="header-name">{soulprintName}</span>
-                    {isLoading && (
+                    {!isOnline ? (
+                        <span className="header-status offline">Offline</span>
+                    ) : isLoading ? (
                         <span className="header-status typing">typing...</span>
-                    )}
+                    ) : null}
                 </div>
 
                 <div className="header-actions">
