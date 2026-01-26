@@ -31,7 +31,6 @@
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.84.0",
     "@tavily/core": "^0.7.1",
-    "@telegram-apps/telegram-ui": "^2.1.13",
     "@types/hark": "^1.2.5",
     "ai": "^6.0.49",
     "assemblyai": "^4.19.0",
