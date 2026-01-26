@@ -353,9 +353,6 @@ Extract VoiceVectors and Pillars. Output JSON only.`;
 // DYNAMIC PROMPT CONSTRUCTOR - v3.0 (3-Layer Architecture)
 // Resilient to missing/malformed data from old SoulPrint versions
 export function constructDynamicSystemPrompt(data: SoulPrintData): string {
-  const commStyle = getCommunicationStyle();
-  console.log(`[SoulPrint] Building prompt with communication style: ${commStyle}`);
-  
   if (!data) return "You're a chill AI. Talk like a real person, not a robot. Keep it casual.";
 
   // Handle case where data might be stringified JSON (V2.0 bug)
