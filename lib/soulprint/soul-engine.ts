@@ -12,10 +12,9 @@ async function inferContext(messages: ChatMessage[]): Promise<string> {
 import { getDisplayName } from './name-generator';
 import { searchWeb, formatResultsForLLM } from '@/lib/tavily';
 import { 
-    queryMemoryService, 
-    formatMemoriesForPrompt, 
-    getUserHistoryForMemory
-} from '@/lib/memory-service/client';
+    queryMemory, 
+    formatMemoriesForPrompt
+} from '@/lib/memory-service/query';
 
 /**
  * SOUL ENGINE V1
@@ -78,16 +77,8 @@ export class SoulEngine {
             
             console.log(`[SoulEngine] Memory query: "${searchQuery.substring(0, 50)}..."`);
 
-            // B. Get user's conversation history for memory service
-            const userHistory = await getUserHistoryForMemory(this.supabase, this.userId, 100);
-            
-            // C. Query the memory service (LLM-powered extraction)
-            const memoryResponse = await queryMemoryService(
-                this.userId,
-                searchQuery,
-                userHistory,
-                10
-            );
+            // B. Query memory (gets history internally)
+            const memoryResponse = await queryMemory(this.userId, searchQuery);
 
             // D. Inject Memory into Prompt
             if (memoryResponse.success && memoryResponse.relevant_memories.length > 0) {
