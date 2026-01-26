@@ -358,6 +358,8 @@ export function MobileChatClient() {
                 console.error("Init error:", err)
             } finally {
                 setIsInitializing(false)
+                // Auto-focus input after init (slight delay for DOM)
+                setTimeout(() => inputRef.current?.focus(), 100)
             }
         }
         init()
