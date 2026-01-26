@@ -579,8 +579,19 @@ function MessageBubble({
     soulprintName: string
     isConsecutive: boolean
 }) {
+    const [copied, setCopied] = useState(false)
     const isUser = message.role === "user"
     const time = message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(message.content)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+        } catch (err) {
+            console.error("Failed to copy:", err)
+        }
+    }
 
     return (
         <div className={cn(
@@ -588,11 +599,20 @@ function MessageBubble({
             isUser ? "user" : "assistant",
             isConsecutive && "consecutive"
         )}>
-            <div className={cn(
-                "message-bubble",
-                isUser ? "user" : "assistant",
-                isConsecutive && "consecutive"
-            )}>
+            <div 
+                className={cn(
+                    "message-bubble",
+                    isUser ? "user" : "assistant",
+                    isConsecutive && "consecutive",
+                    copied && "copied"
+                )}
+                onClick={handleCopy}
+                title="Tap to copy"
+            >
+                {copied && (
+                    <span className="copy-toast">Copied!</span>
+                )}
+                
                 {!isUser && !isConsecutive && (
                     <span className="bubble-name">{soulprintName}</span>
                 )}
