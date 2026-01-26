@@ -158,6 +158,44 @@ export function MobileChatClient() {
         setShowSidebar(false)
     }, [user, loadSessionMessages])
 
+    // Delete a session
+    const deleteSession = useCallback(async (sessionId: string, e: React.MouseEvent) => {
+        e.stopPropagation() // Don't trigger session switch
+        if (!user?.id) return
+        
+        // Confirm deletion
+        if (!confirm("Delete this conversation?")) return
+        
+        // Delete all messages in this session
+        if (sessionId === "legacy") {
+            await supabase
+                .from("chat_logs")
+                .delete()
+                .eq("user_id", user.id)
+                .is("session_id", null)
+        } else {
+            await supabase
+                .from("chat_logs")
+                .delete()
+                .eq("user_id", user.id)
+                .eq("session_id", sessionId)
+        }
+        
+        // Remove from local state
+        setSessions(prev => prev.filter(s => s.session_id !== sessionId))
+        
+        // If we deleted the current session, switch to another or create new
+        if (currentSessionId === sessionId) {
+            const remaining = sessions.filter(s => s.session_id !== sessionId)
+            if (remaining.length > 0) {
+                setCurrentSessionId(remaining[0].session_id)
+                await loadSessionMessages(user.id, remaining[0].session_id)
+            } else {
+                createNewSession()
+            }
+        }
+    }, [user, supabase, currentSessionId, sessions, loadSessionMessages, createNewSession])
+
     // Initialize
     useEffect(() => {
         async function init() {
@@ -379,7 +417,7 @@ export function MobileChatClient() {
                 
                 <div className="session-list">
                     {sessions.map(session => (
-                        <button
+                        <div
                             key={session.session_id}
                             onClick={() => switchSession(session.session_id)}
                             className={cn(
@@ -394,7 +432,14 @@ export function MobileChatClient() {
                                     {new Date(session.created_at).toLocaleDateString()}
                                 </span>
                             </div>
-                        </button>
+                            <button 
+                                onClick={(e) => deleteSession(session.session_id, e)}
+                                className="session-delete"
+                                title="Delete conversation"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        </div>
                     ))}
                     {sessions.length === 0 && (
                         <p className="no-sessions">No conversations yet</p>
