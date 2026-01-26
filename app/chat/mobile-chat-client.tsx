@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Send, Loader2, Sparkles, ChevronLeft, Paperclip, Smile, Mic } from "lucide-react"
+import { Send, Loader2, ChevronLeft, Paperclip, Smile, Mic } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import ReactMarkdown from "react-markdown"
@@ -351,16 +351,17 @@ export function MobileChatClient() {
                         onMouseDown={startRecording}
                         onMouseUp={stopRecording}
                         onMouseLeave={() => isRecording && stopRecording()}
+                        title="Hold to speak"
                     >
                         {isRecording ? (
                             <Mic className="h-5 w-5 text-white animate-pulse" />
                         ) : (
-                            <Sparkles className="h-5 w-5 text-white" />
+                            <img src="/logo.svg" alt="Voice" className="h-6 w-6" />
                         )}
                     </button>
                 ) : (
-                    <button className="voice-logo-btn" disabled>
-                        <Sparkles className="h-5 w-5 text-white" />
+                    <button className="voice-logo-btn" disabled title="Voice not supported">
+                        <img src="/logo.svg" alt="Voice" className="h-6 w-6 opacity-50" />
                     </button>
                 )}
             </footer>
