@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Send, Loader2, ChevronLeft, Paperclip, Smile, Mic, Menu, Plus, MessageSquare, X, Trash2, Search, Download } from "lucide-react"
+import { Send, Loader2, ChevronLeft, Paperclip, Smile, Mic, Menu, Plus, MessageSquare, X, Trash2, Search, Download, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import ReactMarkdown from "react-markdown"
@@ -55,8 +55,10 @@ export function MobileChatClient() {
     )
     
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const messagesContainerRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
     const supabase = createClient()
+    const [showScrollButton, setShowScrollButton] = useState(false)
     
     // Voice recording
     const { isRecording, isSupported: voiceSupported, startRecording, stopRecording, transcript } = useVoiceRecorder()
@@ -80,6 +82,21 @@ export function MobileChatClient() {
             inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px"
         }
     }, [input])
+
+    // Handle scroll to show/hide scroll button
+    const handleScroll = useCallback(() => {
+        const container = messagesContainerRef.current
+        if (!container) return
+        
+        const { scrollTop, scrollHeight, clientHeight } = container
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+        setShowScrollButton(distanceFromBottom > 100)
+    }, [])
+
+    const scrollToBottom = useCallback(() => {
+        haptic.light()
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }, [])
 
     // Load sessions for sidebar
     const loadSessions = useCallback(async (userId: string) => {
@@ -566,7 +583,11 @@ export function MobileChatClient() {
             </header>
 
             {/* Messages Area */}
-            <main className="mobile-chat-messages">
+            <main 
+                ref={messagesContainerRef}
+                className="mobile-chat-messages"
+                onScroll={handleScroll}
+            >
                 {messages.length === 0 ? (
                     <div className="mobile-empty-state">
                         <div className="empty-avatar">
@@ -623,6 +644,17 @@ export function MobileChatClient() {
                 )}
                 
                 <div ref={messagesEndRef} />
+                
+                {/* Scroll to bottom button */}
+                {showScrollButton && (
+                    <button 
+                        className="scroll-to-bottom"
+                        onClick={scrollToBottom}
+                        title="Scroll to bottom"
+                    >
+                        <ChevronDown className="h-5 w-5" />
+                    </button>
+                )}
             </main>
 
             {/* Input Area - Telegram style */}
