@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Send, Loader2, ChevronLeft, Paperclip, Smile, Mic } from "lucide-react"
+import { Send, Loader2, ChevronLeft, Paperclip, Smile, Mic, Menu, Plus, MessageSquare, X, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import ReactMarkdown from "react-markdown"
@@ -15,6 +15,14 @@ interface Message {
     role: "user" | "assistant"
     content: string
     timestamp: Date
+    session_id?: string
+}
+
+interface ChatSession {
+    session_id: string
+    created_at: string
+    last_message: string
+    message_count: number
 }
 
 export function MobileChatClient() {
@@ -25,6 +33,11 @@ export function MobileChatClient() {
     const [soulprintName, setSoulprintName] = useState("SoulPrint")
     const [apiKey, setApiKey] = useState<string | null>(null)
     const [isInitializing, setIsInitializing] = useState(true)
+    
+    // Session management
+    const [sessions, setSessions] = useState<ChatSession[]>([])
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+    const [showSidebar, setShowSidebar] = useState(false)
     
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -52,6 +65,98 @@ export function MobileChatClient() {
             inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px"
         }
     }, [input])
+
+    // Load sessions for sidebar
+    const loadSessions = useCallback(async (userId: string) => {
+        const { data: sessionMessages } = await supabase
+            .from("chat_logs")
+            .select("session_id, content, created_at, role")
+            .eq("user_id", userId)
+            .eq("role", "user")
+            .not("session_id", "is", null)
+            .order("created_at", { ascending: false })
+
+        const sessionsMap = new Map<string, ChatSession>()
+        sessionMessages?.forEach(msg => {
+            if (msg.session_id && !sessionsMap.has(msg.session_id)) {
+                sessionsMap.set(msg.session_id, {
+                    session_id: msg.session_id,
+                    created_at: msg.created_at,
+                    last_message: msg.content.substring(0, 50) + (msg.content.length > 50 ? "..." : ""),
+                    message_count: 1
+                })
+            }
+        })
+
+        // Check for legacy messages
+        const { data: legacyMsg } = await supabase
+            .from("chat_logs")
+            .select("content, created_at")
+            .eq("user_id", userId)
+            .is("session_id", null)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+        if (legacyMsg) {
+            sessionsMap.set("legacy", {
+                session_id: "legacy",
+                created_at: legacyMsg.created_at,
+                last_message: "Previous conversations",
+                message_count: 1
+            })
+        }
+
+        const sessionList = Array.from(sessionsMap.values()).sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        setSessions(sessionList)
+        return sessionList
+    }, [supabase])
+
+    // Load messages for a specific session
+    const loadSessionMessages = useCallback(async (userId: string, sessionId: string | null) => {
+        let query = supabase
+            .from("chat_logs")
+            .select("id, session_id, role, content, created_at")
+            .eq("user_id", userId)
+
+        if (sessionId === "legacy" || sessionId === null) {
+            query = query.is("session_id", null)
+        } else {
+            query = query.eq("session_id", sessionId)
+        }
+
+        const { data: history } = await query.order("created_at", { ascending: true })
+        
+        if (history) {
+            setMessages(history.map((m: { id: string; session_id: string | null; role: string; content: string; created_at: string }) => ({
+                id: m.id,
+                role: m.role as "user" | "assistant",
+                content: m.content,
+                timestamp: new Date(m.created_at),
+                session_id: m.session_id || undefined
+            })))
+        } else {
+            setMessages([])
+        }
+    }, [supabase])
+
+    // Create new session
+    const createNewSession = useCallback(() => {
+        const newSessionId = crypto.randomUUID()
+        setCurrentSessionId(newSessionId)
+        setMessages([])
+        setShowSidebar(false)
+    }, [])
+
+    // Switch to a session
+    const switchSession = useCallback(async (sessionId: string) => {
+        if (!user?.id) return
+        setCurrentSessionId(sessionId)
+        await loadSessionMessages(user.id, sessionId)
+        setShowSidebar(false)
+    }, [user, loadSessionMessages])
 
     // Initialize
     useEffect(() => {
@@ -91,21 +196,17 @@ export function MobileChatClient() {
                     }
                 }
 
-                // Load chat history
-                const { data: history } = await supabase
-                    .from("chat_logs")
-                    .select("*")
-                    .eq("user_id", currentUser.id)
-                    .order("created_at", { ascending: true })
-                    .limit(50)
+                // Load sessions
+                const sessionList = await loadSessions(currentUser.id)
                 
-                if (history) {
-                    setMessages(history.map((m: { id: string; role: string; content: string; created_at: string }) => ({
-                        id: m.id,
-                        role: m.role as "user" | "assistant",
-                        content: m.content,
-                        timestamp: new Date(m.created_at)
-                    })))
+                // Start with most recent session or create new one
+                if (sessionList.length > 0) {
+                    const mostRecent = sessionList[0]
+                    setCurrentSessionId(mostRecent.session_id)
+                    await loadSessionMessages(currentUser.id, mostRecent.session_id)
+                } else {
+                    // Create a new session for first-time users
+                    setCurrentSessionId(crypto.randomUUID())
                 }
             } catch (err) {
                 console.error("Init error:", err)
@@ -114,7 +215,7 @@ export function MobileChatClient() {
             }
         }
         init()
-    }, [supabase])
+    }, [supabase, loadSessions, loadSessionMessages])
 
     const sendMessage = useCallback(async () => {
         if (!input.trim() || isLoading || !apiKey) return
@@ -123,7 +224,8 @@ export function MobileChatClient() {
             id: crypto.randomUUID(),
             role: "user",
             content: input.trim(),
-            timestamp: new Date()
+            timestamp: new Date(),
+            session_id: currentSessionId || undefined
         }
 
         setMessages(prev => [...prev, userMessage])
@@ -136,10 +238,11 @@ export function MobileChatClient() {
         }
 
         try {
-            // Save user message
+            // Save user message with session_id
             if (user?.id) {
                 await supabase.from("chat_logs").insert({
                     user_id: user.id,
+                    session_id: currentSessionId,
                     role: "user",
                     content: userMessage.content
                 })
@@ -212,13 +315,17 @@ export function MobileChatClient() {
                 }
             }
 
-            // Save assistant message
+            // Save assistant message with session_id
             if (user?.id && assistantMessage.content) {
                 await supabase.from("chat_logs").insert({
                     user_id: user.id,
+                    session_id: currentSessionId,
                     role: "assistant",
                     content: assistantMessage.content
                 })
+                
+                // Refresh sessions list to show updated last message
+                loadSessions(user.id)
             }
 
         } catch (err) {
@@ -237,7 +344,7 @@ export function MobileChatClient() {
         } finally {
             setIsLoading(false)
         }
-    }, [input, isLoading, apiKey, messages, user, supabase])
+    }, [input, isLoading, apiKey, messages, user, supabase, currentSessionId, loadSessions])
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && !e.shiftKey) {
@@ -256,11 +363,55 @@ export function MobileChatClient() {
 
     return (
         <div className="mobile-chat-container">
+            {/* Session Sidebar */}
+            <div className={cn("session-sidebar", showSidebar && "open")}>
+                <div className="sidebar-header">
+                    <h2>Conversations</h2>
+                    <button onClick={() => setShowSidebar(false)} className="sidebar-close">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+                
+                <button onClick={createNewSession} className="new-chat-btn">
+                    <Plus className="h-5 w-5" />
+                    <span>New Chat</span>
+                </button>
+                
+                <div className="session-list">
+                    {sessions.map(session => (
+                        <button
+                            key={session.session_id}
+                            onClick={() => switchSession(session.session_id)}
+                            className={cn(
+                                "session-item",
+                                currentSessionId === session.session_id && "active"
+                            )}
+                        >
+                            <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                            <div className="session-info">
+                                <span className="session-preview">{session.last_message}</span>
+                                <span className="session-date">
+                                    {new Date(session.created_at).toLocaleDateString()}
+                                </span>
+                            </div>
+                        </button>
+                    ))}
+                    {sessions.length === 0 && (
+                        <p className="no-sessions">No conversations yet</p>
+                    )}
+                </div>
+            </div>
+            
+            {/* Sidebar Overlay */}
+            {showSidebar && (
+                <div className="sidebar-overlay" onClick={() => setShowSidebar(false)} />
+            )}
+
             {/* Header - Telegram style */}
             <header className="mobile-chat-header">
-                <Link href="/dashboard" className="header-back">
-                    <ChevronLeft className="h-6 w-6" />
-                </Link>
+                <button onClick={() => setShowSidebar(true)} className="header-menu">
+                    <Menu className="h-6 w-6" />
+                </button>
                 
                 <div className="header-center">
                     <span className="header-name">{soulprintName}</span>
@@ -269,9 +420,9 @@ export function MobileChatClient() {
                     )}
                 </div>
 
-                <div className="header-avatar">
-                    <img src="/logo.svg" alt="" className="h-6 w-6" />
-                </div>
+                <button onClick={createNewSession} className="header-new-chat" title="New Chat">
+                    <Plus className="h-5 w-5" />
+                </button>
             </header>
 
             {/* Messages Area */}
@@ -283,11 +434,15 @@ export function MobileChatClient() {
                         </div>
                         <h2 className="empty-title">{soulprintName}</h2>
                         <p className="empty-subtitle">
-                            {!apiKey ? "Setting up..." : "Your AI companion"}
+                            {!apiKey ? "Setting up..." : "Start a new conversation"}
                         </p>
-                        {!apiKey && (
+                        {!apiKey ? (
                             <p className="empty-hint">
                                 Go to Settings to create an API key
+                            </p>
+                        ) : (
+                            <p className="empty-hint">
+                                Say hello or ask me anything
                             </p>
                         )}
                     </div>
