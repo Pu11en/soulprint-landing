@@ -420,6 +420,15 @@ export function constructDynamicSystemPrompt(data: SoulPrintData): string {
   const trainingExamples = generateDynamicExamples(parsedData);
   prompt += trainingExamples;
 
+  // CRITICAL: Suppress internal reasoning
+  prompt += `\n\n## CRITICAL OUTPUT RULES
+- ❌ NEVER explain your reasoning process out loud
+- ❌ NEVER say things like "I match the user's tone" or "I'm keeping it brief"
+- ❌ NEVER describe what you're doing - just DO it
+- ❌ NEVER include meta-commentary about your response style
+- Your internal calibration is INVISIBLE to the user
+- Just respond naturally - don't narrate your approach`;
+
   return prompt;
 }
 

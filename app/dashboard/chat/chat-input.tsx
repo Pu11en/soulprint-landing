@@ -89,18 +89,18 @@ export function ChatInput({ onSend, disabled, placeholder = "Type a message..." 
 
             <div
                 className={cn(
-                    "flex items-center gap-2 border rounded-xl p-2 sm:p-3 bg-zinc-50 transition-all",
-                    "focus-within:border-[color:var(--sp-primary)] focus-within:ring-1 focus-within:ring-[color:var(--sp-primary)]",
+                    "flex items-center gap-2 border rounded-xl p-2 sm:p-3 bg-zinc-900 transition-all",
+                    "focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500",
                     isListening
-                        ? "border-red-400 ring-2 ring-red-200 animate-pulse"
-                        : "border-zinc-300"
+                        ? "border-red-500 ring-2 ring-red-500/30 animate-pulse"
+                        : "border-zinc-700"
                 )}
             >
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => alert("File attachments coming soon!")}
-                    className="h-10 w-10 sm:h-8 sm:w-8 text-neutral-500 hover:text-neutral-700 shrink-0"
+                    className="h-10 w-10 sm:h-8 sm:w-8 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 shrink-0"
                     title="Attach file (Coming Soon)"
                 >
                     <Paperclip className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -120,8 +120,8 @@ export function ChatInput({ onSend, disabled, placeholder = "Type a message..." 
                         onInput={(e) => autoResizeTextarea(e.currentTarget)}
                         placeholder={displayPlaceholder}
                         className={cn(
-                            "w-full bg-transparent text-zinc-900 text-sm focus:outline-none min-h-[56px] sm:min-h-[48px] resize-none leading-relaxed overflow-hidden",
-                            isListening ? "placeholder:text-red-400" : "placeholder:text-zinc-400"
+                            "w-full bg-transparent text-zinc-100 text-sm focus:outline-none min-h-[56px] sm:min-h-[48px] resize-none leading-relaxed overflow-hidden",
+                            isListening ? "placeholder:text-red-400" : "placeholder:text-zinc-500"
                         )}
                         rows={1}
                         disabled={disabled}
@@ -144,8 +144,8 @@ export function ChatInput({ onSend, disabled, placeholder = "Type a message..." 
                         className={cn(
                             "h-10 w-10 sm:h-8 sm:w-8 shrink-0 transition-all",
                             isListening
-                                ? "text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100"
-                                : "text-neutral-500 hover:text-neutral-700"
+                                ? "text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
                         )}
                         title={isListening ? "Stop recording" : "Start voice input"}
                     >
@@ -160,7 +160,7 @@ export function ChatInput({ onSend, disabled, placeholder = "Type a message..." 
                         variant="ghost"
                         size="icon"
                         disabled
-                        className="h-10 w-10 sm:h-8 sm:w-8 text-neutral-300 shrink-0 cursor-not-allowed"
+                        className="h-10 w-10 sm:h-8 sm:w-8 text-zinc-600 shrink-0 cursor-not-allowed"
                         title="Voice input not supported in this browser"
                     >
                         <Mic className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -171,7 +171,7 @@ export function ChatInput({ onSend, disabled, placeholder = "Type a message..." 
                     size="icon"
                     onClick={handleSend}
                     disabled={disabled || !input.trim()}
-                    className="bg-[color:var(--sp-primary)] hover:bg-[color:var(--sp-primary-dark)] h-10 w-10 sm:h-8 sm:w-8 rounded-lg shrink-0 transition-opacity disabled:opacity-50"
+                    className="bg-orange-600 hover:bg-orange-500 h-10 w-10 sm:h-8 sm:w-8 rounded-lg shrink-0 transition-opacity disabled:opacity-50"
                 >
                     <Send className="h-5 w-5 sm:h-4 sm:w-4" />
                 </Button>

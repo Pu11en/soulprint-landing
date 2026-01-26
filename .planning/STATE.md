@@ -18,15 +18,28 @@ Progress: ██░░░░░░░░ 15%
 
 ### HANDOFF: What Needs to Happen
 
-The LLM deployment to SageMaker is not working. Multiple approaches tried:
+**UPDATE 2026-01-25:** SageMaker is NOT needed! The codebase already supports AWS Bedrock.
 
-1. **Custom container (TGI)** - Container health check failed
-2. **JumpStart (current attempt)** - Script runs but no AWS resources created after 20+ min
+The LLM client (`lib/llm/local-client.ts`) has smart fallback:
+1. **AWS Bedrock** (PRODUCTION) ← Ready to use!
+2. **SageMaker** (Legacy) ← Skip this
+3. **Ollama** (Local dev) ← Works for offline
 
-**Options for next AI:**
-1. Debug JumpStart deployment (`scripts/deploy-jumpstart.py`)
-2. Use AWS Bedrock instead (simpler, no deployment needed)
-3. Use external provider (OpenRouter, Together.ai) as fallback
+**To unblock Phase 2 with Bedrock (SIMPLER PATH):**
+1. Go to AWS Bedrock Console (us-east-1)
+2. Enable model access for `anthropic.claude-3-5-haiku-20241022-v2:0`
+3. Add to Vercel env vars: `BEDROCK_MODEL_ID=anthropic.claude-3-5-haiku-20241022-v2:0`
+4. Deploy - done!
+
+The research recommended self-hosted Llama for cost, but Bedrock/Claude:
+- No infrastructure to manage
+- Pay-per-token (cheaper to start)
+- Already integrated in code
+- Can switch to Llama later for scale
+
+**Original SageMaker attempts (for reference):**
+1. Custom container (TGI) - Container health check failed
+2. JumpStart - Script runs but no AWS resources created
 
 ## Performance Metrics
 

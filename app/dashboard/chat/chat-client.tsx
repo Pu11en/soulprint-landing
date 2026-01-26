@@ -177,14 +177,22 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
 
                 // 4. Get API key
                 const storedKey = localStorage.getItem("soulprint_internal_key")
-                if (storedKey) {
+                if (storedKey && storedKey.startsWith('sk-soulprint-')) {
+                    console.log('[Chat] Using stored API key from localStorage')
                     setApiKey(storedKey)
                 } else {
-                    const { keys } = await listApiKeys()
-                    if (keys && keys.length > 0 && keys[0].encrypted_key) {
-                        setApiKey(keys[0].encrypted_key)
+                    console.log('[Chat] Fetching API key from server...')
+                    const { keys, error: keyError } = await listApiKeys()
+                    if (keyError) {
+                        console.error('[Chat] Failed to list API keys:', keyError)
                     }
-                    // If no valid key exists, apiKey remains null and chat will be blocked
+                    if (keys && keys.length > 0 && keys[0].encrypted_key) {
+                        console.log('[Chat] Got API key from server, storing in localStorage')
+                        localStorage.setItem("soulprint_internal_key", keys[0].encrypted_key)
+                        setApiKey(keys[0].encrypted_key)
+                    } else {
+                        console.error('[Chat] No valid API key found. Keys:', keys)
+                    }
                 }
 
             } catch (error) {
@@ -257,12 +265,17 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
 
     const handleSend = useCallback(async (userMsg: string) => {
         if (!userMsg.trim()) {
+            console.warn('[Chat] Empty message, skipping')
             return
         }
         
         if (!apiKey) {
+            console.error('[Chat] No API key available! Cannot send message.')
+            alert('No API key found. Please refresh the page or check your settings.')
             return
         }
+        
+        console.log('[Chat] Sending message with API key:', apiKey.substring(0, 20) + '...')
 
         setShouldAutoScroll(true)
         setMessages(prev => [...prev, { role: "user", content: userMsg }])
@@ -322,6 +335,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
             const reader = res.body?.getReader()
             const decoder = new TextDecoder()
             let botMsg = ""
+            let buffer = "" // Buffer for incomplete lines
 
             setMessages(prev => [...prev, { role: "assistant", content: "" }])
 
@@ -340,23 +354,22 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                     }
                 }, 30000) // 30 second timeout
 
-                while (true) {
-                    const { done, value } = await reader.read()
-                    if (done) {
-                        clearTimeout(streamTimeout)
-                        break
-                    }
-                    const chunk = decoder.decode(value)
-                    const lines = chunk.split("\n")
-                    for (const line of lines) {
-                        if (line.startsWith("data: ")) {
-                            const dataStr = line.slice(6)
-                            if (dataStr === "[DONE]") continue
-                            try {
-                                const data = JSON.parse(dataStr)
-                                const content = data.choices[0]?.delta?.content || ""
-                                if (content && botMsg.length === 0) {
-                                    clearTimeout(streamTimeout) // Clear timeout once we start getting content
+                // Helper to process SSE lines
+                const processLine = (line: string) => {
+                    const trimmedLine = line.trim()
+                    if (trimmedLine.startsWith("data: ")) {
+                        const dataStr = trimmedLine.slice(6)
+                        if (dataStr === "[DONE]") {
+                            console.log('[Chat] Received [DONE] signal')
+                            return
+                        }
+                        try {
+                            const data = JSON.parse(dataStr)
+                            const content = data.choices?.[0]?.delta?.content || ""
+                            if (content) {
+                                if (botMsg.length === 0) {
+                                    clearTimeout(streamTimeout)
+                                    console.log('[Chat] First content received')
                                 }
                                 botMsg += content
                                 setMessages(prev => {
@@ -365,11 +378,37 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                     if (lastMsg.role === "assistant") lastMsg.content = botMsg
                                     return newMessages
                                 })
-                            } catch (parseError) {
-                                console.warn('Stream parse error:', parseError)
-                                // Continue processing, don't break the stream
                             }
+                        } catch (parseError) {
+                            console.warn('[Chat] Stream parse error:', parseError, 'Data:', dataStr.substring(0, 100))
                         }
+                    }
+                }
+
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) {
+                        clearTimeout(streamTimeout)
+                        // Flush decoder and add any remaining bytes to buffer
+                        buffer += decoder.decode()
+                        // Process any remaining content in buffer before exiting
+                        if (buffer.trim()) {
+                            console.log('[Chat] Processing remaining buffer:', buffer.substring(0, 50))
+                            processLine(buffer)
+                        }
+                        console.log('[Chat] Stream complete. Total response:', botMsg.length, 'chars')
+                        break
+                    }
+                    
+                    // Append new chunk to buffer and process complete lines
+                    buffer += decoder.decode(value, { stream: true })
+                    const lines = buffer.split("\n")
+                    
+                    // Keep the last incomplete line in buffer
+                    buffer = lines.pop() || ""
+                    
+                    for (const line of lines) {
+                        processLine(line)
                     }
                 }
             }
@@ -495,10 +534,10 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
 
     if (initializing) {
         return (
-            <div className="flex h-full items-center justify-center bg-zinc-300">
+            <div className="flex h-full items-center justify-center bg-[#0a0a0a]">
                 <div className="text-center">
-                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-zinc-600" />
-                    <p className="mt-2 text-zinc-600">Updating SoulContext...</p>
+                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-orange-500" />
+                    <p className="mt-2 text-zinc-400">Updating SoulContext...</p>
                 </div>
             </div>
         )
@@ -507,7 +546,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
     const showWelcome = messages.length === 0
 
     return (
-        <div className="flex h-full w-full overflow-hidden rounded-xl bg-zinc-100 shadow-[0px_4px_4px_2px_rgba(0,0,0,0.25)]">
+        <div className="flex h-full w-full overflow-hidden rounded-xl bg-[#0a0a0a] shadow-[0px_4px_4px_2px_rgba(0,0,0,0.5)]">
             {/* Mobile Backdrop */}
             {sidebarOpen && (
                 <div
@@ -516,9 +555,9 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                 />
             )}
 
-            {/* Light Sidebar */}
+            {/* Dark Sidebar */}
             <div className={cn(
-                "flex flex-col bg-white transition-all duration-300 ease-in-out z-50 border-r border-zinc-200",
+                "flex flex-col bg-[#111111] transition-all duration-300 ease-in-out z-50 border-r border-zinc-800",
                 "fixed inset-y-0 left-0 lg:relative lg:inset-auto",
                 sidebarOpen
                     ? "w-[280px] translate-x-0"
@@ -527,31 +566,31 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                 {sidebarOpen && (
                     <div className="flex flex-col h-full w-[280px] overflow-hidden pt-[env(safe-area-inset-top)]">
                         {/* Sidebar Header - Your SoulPrint Identity */}
-                        <div className="p-4 bg-gradient-to-br from-zinc-900 to-zinc-800">
+                        <div className="p-4 bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] border-b border-zinc-800">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-[#E8632B] flex items-center justify-center shadow-lg">
+                                <div className="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center shadow-lg">
                                     <Sparkles className="h-5 w-5 text-white" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <span className="text-base font-semibold text-white block truncate">
                                         {displayName}
                                     </span>
-                                    <span className="text-xs text-zinc-400">AI Companion</span>
+                                    <span className="text-xs text-zinc-500">AI Companion</span>
                                 </div>
                                 <button
                                     onClick={() => setSidebarOpen(false)}
                                     className="lg:hidden p-1.5 hover:bg-white/10 rounded-lg transition-colors"
                                 >
-                                    <X className="h-4 w-4 text-zinc-300" />
+                                    <X className="h-4 w-4 text-zinc-400" />
                                 </button>
                             </div>
                         </div>
 
                         {/* New Conversation Button */}
-                        <div className="p-3 border-b border-zinc-100">
+                        <div className="p-3 border-b border-zinc-800">
                             <Button
                                 onClick={handleNewChat}
-                                className="w-full bg-[#E8632B] hover:bg-[#d55a26] text-white gap-2 h-10 font-medium shadow-sm"
+                                className="w-full bg-orange-600 hover:bg-orange-500 text-white gap-2 h-10 font-medium shadow-sm"
                             >
                                 <Plus className="h-4 w-4" />
                                 New Conversation
@@ -564,15 +603,15 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Recent</span>
                                     {sessions.length > 0 && (
-                                        <span className="text-xs text-zinc-400">{sessions.length}</span>
+                                        <span className="text-xs text-zinc-500">{sessions.length}</span>
                                     )}
                                 </div>
 
                                 {sessions.length === 0 ? (
                                     <div className="py-8 text-center">
-                                        <MessageSquare className="h-8 w-8 text-zinc-300 mx-auto mb-2" />
-                                        <p className="text-sm text-zinc-400">No conversations yet</p>
-                                        <p className="text-xs text-zinc-400 mt-1">Start chatting to see history</p>
+                                        <MessageSquare className="h-8 w-8 text-zinc-700 mx-auto mb-2" />
+                                        <p className="text-sm text-zinc-500">No conversations yet</p>
+                                        <p className="text-xs text-zinc-600 mt-1">Start chatting to see history</p>
                                     </div>
                                 ) : (
                                     <>
@@ -587,21 +626,21 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                                     className={cn(
                                                         "w-full px-3 py-2 rounded-lg flex items-center gap-3 transition-all text-left group",
                                                         currentSessionId === session.session_id
-                                                            ? "bg-[#E8632B]/10 border border-[#E8632B]/20"
-                                                            : "hover:bg-zinc-50 border border-transparent"
+                                                            ? "bg-orange-600/10 border border-orange-600/20"
+                                                            : "hover:bg-zinc-800 border border-transparent"
                                                     )}
                                                 >
                                                     <MessageSquare className={cn(
                                                         "h-4 w-4 shrink-0 transition-colors",
                                                         currentSessionId === session.session_id
-                                                            ? "text-[#E8632B]"
-                                                            : "text-zinc-400 group-hover:text-zinc-600"
+                                                            ? "text-orange-500"
+                                                            : "text-zinc-500 group-hover:text-zinc-300"
                                                     )} />
                                                     <span className={cn(
                                                         "flex-1 text-sm truncate",
                                                         currentSessionId === session.session_id
-                                                            ? "text-[#E8632B] font-medium"
-                                                            : "text-zinc-700"
+                                                            ? "text-orange-500 font-medium"
+                                                            : "text-zinc-300"
                                                     )}>
                                                         {session.last_message?.slice(0, 25) || "New Conversation"}
                                                     </span>
@@ -614,7 +653,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                                     const el = document.getElementById('full-history-drawer');
                                                     if (el) el.classList.toggle('hidden');
                                                 }}
-                                                className="w-full mt-2 px-3 py-2 text-xs text-[#E8632B] hover:bg-[#E8632B]/5 rounded-lg transition-colors flex items-center justify-center gap-1 font-medium"
+                                                className="w-full mt-2 px-3 py-2 text-xs text-orange-500 hover:bg-orange-600/10 rounded-lg transition-colors flex items-center justify-center gap-1 font-medium"
                                             >
                                                 View all ({sessions.length})
                                                 <ChevronRight className="h-3 w-3" />
@@ -626,17 +665,17 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
 
                             {/* Full History Drawer - Hidden by default */}
                             {sessions.length > 5 && (
-                                <div id="full-history-drawer" className="hidden absolute inset-0 bg-white z-10 flex flex-col">
-                                    <div className="p-3 border-b border-zinc-200 flex items-center justify-between">
-                                        <span className="text-sm font-semibold text-zinc-700">All Conversations</span>
+                                <div id="full-history-drawer" className="hidden absolute inset-0 bg-[#111111] z-10 flex flex-col">
+                                    <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
+                                        <span className="text-sm font-semibold text-zinc-200">All Conversations</span>
                                         <button
                                             onClick={() => {
                                                 const el = document.getElementById('full-history-drawer');
                                                 if (el) el.classList.add('hidden');
                                             }}
-                                            className="p-1 hover:bg-zinc-100 rounded"
+                                            className="p-1 hover:bg-zinc-800 rounded"
                                         >
-                                            <X className="h-4 w-4 text-zinc-500" />
+                                            <X className="h-4 w-4 text-zinc-400" />
                                         </button>
                                     </div>
                                     <div className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -652,21 +691,21 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                                 className={cn(
                                                     "w-full px-3 py-2 rounded-lg flex items-center gap-3 transition-all text-left group",
                                                     currentSessionId === session.session_id
-                                                        ? "bg-[#E8632B]/10 border border-[#E8632B]/20"
-                                                        : "hover:bg-zinc-50 border border-transparent"
+                                                        ? "bg-orange-600/10 border border-orange-600/20"
+                                                        : "hover:bg-zinc-800 border border-transparent"
                                                 )}
                                             >
                                                 <MessageSquare className={cn(
                                                     "h-4 w-4 shrink-0 transition-colors",
                                                     currentSessionId === session.session_id
-                                                        ? "text-[#E8632B]"
-                                                        : "text-zinc-400 group-hover:text-zinc-600"
+                                                        ? "text-orange-500"
+                                                        : "text-zinc-500 group-hover:text-zinc-300"
                                                 )} />
                                                 <span className={cn(
                                                     "flex-1 text-sm truncate",
                                                     currentSessionId === session.session_id
-                                                        ? "text-[#E8632B] font-medium"
-                                                        : "text-zinc-700"
+                                                        ? "text-orange-500 font-medium"
+                                                        : "text-zinc-300"
                                                 )}>
                                                     {session.last_message?.slice(0, 25) || "New Conversation"}
                                                 </span>
@@ -678,23 +717,23 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                         </div>
 
                         {/* Sidebar Footer - User Account */}
-                        <div className="p-3 bg-zinc-50 border-t border-zinc-200">
+                        <div className="p-3 bg-[#0a0a0a] border-t border-zinc-800">
                             <button
                                 onClick={() => window.open('/dashboard/settings', '_self')}
-                                className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-100 transition-colors"
+                                className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors"
                             >
-                                <div className="w-9 h-9 bg-zinc-200 rounded-full flex items-center justify-center">
-                                    <User className="h-4 w-4 text-zinc-600" />
+                                <div className="w-9 h-9 bg-zinc-700 rounded-full flex items-center justify-center">
+                                    <User className="h-4 w-4 text-zinc-300" />
                                 </div>
                                 <div className="flex-1 min-w-0 text-left">
-                                    <div className="text-sm font-medium text-zinc-800 truncate">
+                                    <div className="text-sm font-medium text-zinc-200 truncate">
                                         {user?.email?.split('@')[0] || 'User'}
                                     </div>
                                     <div className="text-xs text-zinc-500 truncate">
                                         {user?.email || 'View Account'}
                                     </div>
                                 </div>
-                                <ChevronsUpDown className="h-4 w-4 text-zinc-400 shrink-0" />
+                                <ChevronsUpDown className="h-4 w-4 text-zinc-500 shrink-0" />
                             </button>
                         </div>
                     </div>
@@ -703,38 +742,38 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
 
             {/* Main Chat Area */}
             <div
-                className="flex-1 flex flex-col h-full overflow-hidden bg-neutral-50 relative"
+                className="flex-1 flex flex-col h-full overflow-hidden bg-[#0a0a0a] relative"
                 style={
                     {
-                        "--sp-primary": soulprintTheme.colors.primary,
-                        "--sp-primary-dark": soulprintTheme.colors.primaryDark,
-                        "--sp-accent": soulprintTheme.colors.accent,
-                        "--sp-text": soulprintTheme.colors.text,
-                        "--sp-bg": soulprintTheme.colors.bg,
-                        "--sp-surface": soulprintTheme.colors.surface,
-                        "--sp-muted": soulprintTheme.colors.muted,
+                        "--sp-primary": "#EA580C",
+                        "--sp-primary-dark": "#C2410C",
+                        "--sp-accent": "#FDBA74",
+                        "--sp-text": "#F5F5F5",
+                        "--sp-bg": "#0a0a0a",
+                        "--sp-surface": "#111111",
+                        "--sp-muted": "#71717A",
                         fontFamily: soulprintTheme.fontFamily
                     } as CSSProperties
                 }
             >
 
                 {/* Mobile Chat Header */}
-                <div className="flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden border-b border-zinc-200 bg-white">
+                <div className="flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden border-b border-zinc-800 bg-[#111111]">
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 p-2 text-zinc-700 hover:bg-zinc-100"
+                        className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 p-2 text-zinc-300 hover:bg-zinc-700"
                         aria-label="Open history"
                     >
                         <MessageSquare className="h-4 w-4" />
                     </button>
                     <div className="flex-1 min-w-0 text-center">
-                        <div className="text-sm font-semibold truncate text-[color:var(--sp-text)]">{displayName}</div>
+                        <div className="text-sm font-semibold truncate text-zinc-100">{displayName}</div>
                     </div>
                     {messages.length > 0 && (
                         <div className="relative">
                             <button
                                 onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                                className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white p-2 text-zinc-600 hover:bg-zinc-100"
+                                className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 p-2 text-zinc-300 hover:bg-zinc-700"
                                 title="Export"
                             >
                                 <Download className="h-4 w-4" />
@@ -745,26 +784,26 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                         className="fixed inset-0 z-40"
                                         onClick={() => setExportMenuOpen(false)}
                                     />
-                                    <div className="absolute right-0 mt-2 w-44 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg z-50">
+                                    <div className="absolute right-0 mt-2 w-44 rounded-lg border border-zinc-700 bg-zinc-800 py-1 shadow-lg z-50">
                                         <button
                                             onClick={exportAsJSON}
-                                            className="w-full px-4 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
+                                            className="w-full px-4 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
                                         >
                                             <FileJson className="h-4 w-4 text-orange-500" />
                                             Export JSON
                                         </button>
                                         <button
                                             onClick={exportAsMarkdown}
-                                            className="w-full px-4 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
+                                            className="w-full px-4 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
                                         >
-                                            <FileCode className="h-4 w-4 text-blue-500" />
+                                            <FileCode className="h-4 w-4 text-blue-400" />
                                             Export Markdown
                                         </button>
                                         <button
                                             onClick={exportAsText}
-                                            className="w-full px-4 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
+                                            className="w-full px-4 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
                                         >
-                                            <FileText className="h-4 w-4 text-zinc-500" />
+                                            <FileText className="h-4 w-4 text-zinc-400" />
                                             Export Text
                                         </button>
                                     </div>
@@ -777,28 +816,28 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                 {/* Desktop Toggle Button */}
                 <button
                     onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-20 h-16 w-4 bg-zinc-200 hover:bg-zinc-300 items-center justify-center rounded-r-md transition-colors"
+                    className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-20 h-16 w-4 bg-zinc-800 hover:bg-zinc-700 items-center justify-center rounded-r-md transition-colors text-zinc-400"
                 >
                     {sidebarOpen ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                 </button>
 
                 {showWelcome ? (
-                    /* Welcome Screen - Content centered in middle of white area */
+                    /* Welcome Screen - Dark theme */
                     <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-10 xl:px-16 py-6 overflow-y-auto">
                         <div className="w-full max-w-[1100px] flex flex-col items-center">
                             {/* Logo - At top of content group */}
                             <div className="flex items-center justify-center gap-3 mb-8 sm:mb-10">
-                                <span className="font-koulen text-5xl sm:text-6xl lg:text-7xl text-black tracking-wide">
+                                <span className="font-koulen text-5xl sm:text-6xl lg:text-7xl text-white tracking-wide">
                                     SOULPRINT
                                 </span>
-                                <span className="font-inter italic font-thin text-4xl sm:text-5xl lg:text-6xl text-black tracking-tight">
+                                <span className="font-inter italic font-thin text-4xl sm:text-5xl lg:text-6xl text-orange-500 tracking-tight">
                                     Engine
                                 </span>
                             </div>
 
-                            {/* Input Card - Larger */}
+                            {/* Input Card - Dark theme */}
                             <div className="w-full mb-8 sm:mb-10">
-                                <div className="border border-stone-300 rounded-2xl p-5 sm:p-6 bg-white shadow-sm">
+                                <div className="border border-zinc-700 rounded-2xl p-5 sm:p-6 bg-zinc-900 shadow-lg">
                                     <ChatInput
                                         onSend={handleSend}
                                         disabled={loading}
@@ -807,7 +846,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                 </div>
                             </div>
 
-                            {/* Suggestion Cards - Larger */}
+                            {/* Suggestion Cards - Dark theme */}
                             <div className="w-full">
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
                                     {smartSuggestions.map((suggestion, idx) => (
@@ -815,16 +854,16 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                             key={`${suggestion.title}-${idx}`}
                                             onClick={() => handleSuggestionClick(suggestion.prompt)}
                                             className={cn(
-                                                "hover:scale-[1.02] active:scale-[0.98] border rounded-xl p-5 sm:p-6 text-left transition-all flex flex-col justify-start shadow-sm min-h-[120px]",
+                                                "hover:scale-[1.02] active:scale-[0.98] border rounded-xl p-5 sm:p-6 text-left transition-all flex flex-col justify-start shadow-lg min-h-[120px]",
                                                 suggestion.isPersonalized
-                                                    ? "bg-[color:var(--sp-bg)] border-[color:var(--sp-accent)] hover:bg-white"
-                                                    : "bg-white border-stone-200 hover:bg-zinc-50"
+                                                    ? "bg-orange-600/10 border-orange-600/30 hover:bg-orange-600/20"
+                                                    : "bg-zinc-900 border-zinc-700 hover:bg-zinc-800"
                                             )}
                                         >
-                                            <h3 className="text-lg sm:text-base font-semibold text-black leading-snug">
+                                            <h3 className="text-lg sm:text-base font-semibold text-white leading-snug">
                                                 {suggestion.title}
                                             </h3>
-                                            <p className="text-base sm:text-sm text-neutral-500 mt-3 leading-relaxed">
+                                            <p className="text-base sm:text-sm text-zinc-400 mt-3 leading-relaxed">
                                                 {suggestion.description}
                                             </p>
                                         </button>
@@ -837,17 +876,16 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                     /* Chat Messages View */
                     <>
                         {/* Desktop Chat Header */}
-                        <div className="hidden lg:flex items-center justify-between border-b border-zinc-200 bg-white p-3 min-h-[52px]">
+                        <div className="hidden lg:flex items-center justify-between border-b border-zinc-800 bg-[#111111] p-3 min-h-[52px]">
                             <div className="flex items-center gap-3 pl-6">
                                 <div
-                                    className="flex h-8 w-8 items-center justify-center rounded-full"
-                                    style={{ backgroundColor: "var(--sp-accent)", color: "var(--sp-primary)" }}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-600"
                                 >
-                                    <Bot className="h-5 w-5" />
+                                    <Bot className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="font-semibold text-sm text-[color:var(--sp-text)]">{displayName}</h2>
-                                    <p className="text-xs text-[color:var(--sp-muted)]">
+                                    <h2 className="font-semibold text-sm text-zinc-100">{displayName}</h2>
+                                    <p className="text-xs text-zinc-500">
                                         {currentSessionId ? 'Active Session' : 'New Session'}
                                     </p>
                                 </div>
@@ -860,7 +898,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                                            className="text-zinc-500 hover:text-zinc-700"
+                                            className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
                                         >
                                             <Download className="h-4 w-4 mr-1" />
                                             Export
@@ -871,26 +909,26 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                                     className="fixed inset-0 z-40"
                                                     onClick={() => setExportMenuOpen(false)}
                                                 />
-                                                <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 z-50">
+                                                <div className="absolute right-0 mt-1 w-48 bg-zinc-800 rounded-lg shadow-lg border border-zinc-700 py-1 z-50">
                                                     <button
                                                         onClick={exportAsJSON}
-                                                        className="w-full px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
+                                                        className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
                                                     >
                                                         <FileJson className="h-4 w-4 text-orange-500" />
                                                         Export as JSON
                                                     </button>
                                                     <button
                                                         onClick={exportAsMarkdown}
-                                                        className="w-full px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
+                                                        className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
                                                     >
-                                                        <FileCode className="h-4 w-4 text-blue-500" />
+                                                        <FileCode className="h-4 w-4 text-blue-400" />
                                                         Export as Markdown
                                                     </button>
                                                     <button
                                                         onClick={exportAsText}
-                                                        className="w-full px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 flex items-center gap-2"
+                                                        className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
                                                     >
-                                                        <FileText className="h-4 w-4 text-zinc-500" />
+                                                        <FileText className="h-4 w-4 text-zinc-400" />
                                                         Export as Text
                                                     </button>
                                                 </div>
@@ -901,7 +939,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                                         variant="ghost"
                                         size="sm"
                                         onClick={handleClearHistory}
-                                        className="text-zinc-500 hover:text-red-500"
+                                        className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800"
                                     >
                                         <Trash2 className="h-4 w-4 mr-1" />
                                         Clear
@@ -918,15 +956,14 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                             {loading && (
                                 <div className="flex gap-3">
                                     <div
-                                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
-                                        style={{ backgroundColor: "var(--sp-accent)", color: "var(--sp-primary)" }}
+                                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-orange-600"
                                     >
-                                        <Bot className="h-4 w-4" />
+                                        <Bot className="h-4 w-4 text-white" />
                                     </div>
-                                    <div className="flex items-center gap-1 rounded-xl bg-white border border-zinc-200 p-3">
-                                        <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-400" style={{ animationDelay: "0ms" }} />
-                                        <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-400" style={{ animationDelay: "150ms" }} />
-                                        <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-400" style={{ animationDelay: "300ms" }} />
+                                    <div className="flex items-center gap-1 rounded-xl bg-zinc-800 border border-zinc-700 p-3">
+                                        <span className="h-2 w-2 animate-bounce rounded-full bg-orange-500" style={{ animationDelay: "0ms" }} />
+                                        <span className="h-2 w-2 animate-bounce rounded-full bg-orange-500" style={{ animationDelay: "150ms" }} />
+                                        <span className="h-2 w-2 animate-bounce rounded-full bg-orange-500" style={{ animationDelay: "300ms" }} />
                                     </div>
                                 </div>
                             )}
@@ -934,7 +971,7 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                         </div>
 
                         {/* Input Area (Active Chat) */}
-                        <div className="border-t border-zinc-200 p-3 sm:p-4 bg-white">
+                        <div className="border-t border-zinc-800 p-3 sm:p-4 bg-[#111111]">
                             <div className="max-w-4xl mx-auto">
                                 <ChatInput
                                     onSend={handleSend}
