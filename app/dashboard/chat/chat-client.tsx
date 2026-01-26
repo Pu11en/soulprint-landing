@@ -769,8 +769,8 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                 }
             >
 
-                {/* Mobile Chat Header - Sticky */}
-                <div className="sticky top-0 z-30 flex items-center gap-2 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] lg:hidden border-b border-zinc-800 bg-[#111111]">
+                {/* Mobile Chat Header - Fixed at top, never scrolls */}
+                <div className="flex-shrink-0 z-30 flex items-center gap-2 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] lg:hidden border-b border-zinc-800 bg-[#111111]">
                     {/* Left: Chat icon - opens sidebar/history */}
                     <button
                         onClick={() => setSidebarOpen(true)}
