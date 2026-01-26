@@ -12,6 +12,7 @@ export const viewport: Viewport = {
     maximumScale: 1,
     userScalable: false,
     viewportFit: "cover",
+    interactiveWidget: "resizes-content",
 }
 
 export default function ChatPage() {

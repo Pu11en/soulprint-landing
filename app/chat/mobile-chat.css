@@ -3,11 +3,12 @@
  * Brand Orange: #e2500c
  */
 
-/* Container */
+/* Container - handles iOS keyboard properly */
 .mobile-chat-container {
     display: flex;
     flex-direction: column;
     height: 100dvh;
+    height: 100vh;
     width: 100vw;
     background-color: #0e0e12;
     overflow: hidden;
@@ -16,6 +17,13 @@
     left: 0;
     right: 0;
     bottom: 0;
+}
+
+/* iOS keyboard fix */
+@supports (-webkit-touch-callout: none) {
+    .mobile-chat-container {
+        height: -webkit-fill-available;
+    }
 }
 
 /* ===== HEADER - Telegram style ===== */
@@ -88,6 +96,8 @@
     overflow-x: hidden;
     padding: 8px 8px;
     background-color: #0e0e12;
+    /* Prevent keyboard from pushing content out of view */
+    min-height: 0;
     /* Subtle pattern */
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23E8632B' fill-opacity='0.02'%3E%3Cpath d='M30 30c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10zm-20 0c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
