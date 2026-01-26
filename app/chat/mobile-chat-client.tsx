@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Send, Loader2, Sparkles, ChevronLeft, Paperclip, Smile } from "lucide-react"
+import { Send, Loader2, Sparkles, ChevronLeft, Paperclip, Smile, Mic, MicOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import Link from "next/link"
+import { useVoiceRecorder } from "./use-voice-recorder"
 import "./mobile-chat.css"
 
 interface Message {
@@ -28,6 +29,16 @@ export function MobileChatClient() {
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
     const supabase = createClient()
+    
+    // Voice recording
+    const { isRecording, isSupported: voiceSupported, startRecording, stopRecording, transcript } = useVoiceRecorder()
+    
+    // Update input when voice transcript changes
+    useEffect(() => {
+        if (transcript) {
+            setInput(prev => prev + transcript)
+        }
+    }, [transcript])
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -320,8 +331,23 @@ export function MobileChatClient() {
                             <Send className="h-5 w-5" />
                         )}
                     </button>
+                ) : voiceSupported ? (
+                    <button 
+                        className={cn("voice-logo-btn", isRecording && "recording")}
+                        onTouchStart={startRecording}
+                        onTouchEnd={stopRecording}
+                        onMouseDown={startRecording}
+                        onMouseUp={stopRecording}
+                        onMouseLeave={() => isRecording && stopRecording()}
+                    >
+                        {isRecording ? (
+                            <Mic className="h-5 w-5 text-white animate-pulse" />
+                        ) : (
+                            <Sparkles className="h-5 w-5 text-white" />
+                        )}
+                    </button>
                 ) : (
-                    <button className="voice-logo-btn">
+                    <button className="voice-logo-btn" disabled>
                         <Sparkles className="h-5 w-5 text-white" />
                     </button>
                 )}
