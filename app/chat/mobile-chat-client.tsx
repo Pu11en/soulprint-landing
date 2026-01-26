@@ -10,6 +10,15 @@ import Link from "next/link"
 import { useVoiceRecorder } from "./use-voice-recorder"
 import "./mobile-chat.css"
 
+// Haptic feedback utility
+const haptic = {
+    light: () => navigator.vibrate?.(10),
+    medium: () => navigator.vibrate?.(25),
+    heavy: () => navigator.vibrate?.(50),
+    success: () => navigator.vibrate?.([10, 50, 10]),
+    error: () => navigator.vibrate?.([50, 30, 50]),
+}
+
 interface Message {
     id: string
     role: "user" | "assistant"
@@ -144,6 +153,7 @@ export function MobileChatClient() {
 
     // Create new session
     const createNewSession = useCallback(() => {
+        haptic.medium()
         const newSessionId = crypto.randomUUID()
         setCurrentSessionId(newSessionId)
         setMessages([])
@@ -153,6 +163,7 @@ export function MobileChatClient() {
     // Switch to a session
     const switchSession = useCallback(async (sessionId: string) => {
         if (!user?.id) return
+        haptic.light()
         setCurrentSessionId(sessionId)
         await loadSessionMessages(user.id, sessionId)
         setShowSidebar(false)
@@ -163,8 +174,11 @@ export function MobileChatClient() {
         e.stopPropagation() // Don't trigger session switch
         if (!user?.id) return
         
+        haptic.heavy()
         // Confirm deletion
         if (!confirm("Delete this conversation?")) return
+        
+        haptic.success()
         
         // Delete all messages in this session
         if (sessionId === "legacy") {
@@ -257,6 +271,7 @@ export function MobileChatClient() {
 
     const sendMessage = useCallback(async () => {
         if (!input.trim() || isLoading || !apiKey) return
+        haptic.light()
 
         const userMessage: Message = {
             id: crypto.randomUUID(),
@@ -606,6 +621,7 @@ function MessageBubble({
 
     const handleCopy = async () => {
         try {
+            haptic.success()
             await navigator.clipboard.writeText(message.content)
             setCopied(true)
             setTimeout(() => setCopied(false), 1500)
