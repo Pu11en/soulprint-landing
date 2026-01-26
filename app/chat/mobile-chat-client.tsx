@@ -244,15 +244,12 @@ export function MobileChatClient() {
             <header className="mobile-chat-header">
                 <Link href="/dashboard" className="header-back">
                     <ChevronLeft className="h-6 w-6" />
-                    <span className="header-count">{messages.length}</span>
                 </Link>
                 
                 <div className="header-center">
                     <span className="header-name">{soulprintName}</span>
-                    {isLoading ? (
+                    {isLoading && (
                         <span className="header-status typing">typing...</span>
-                    ) : (
-                        <span className="header-status">AI companion</span>
                     )}
                 </div>
 

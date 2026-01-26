@@ -45,11 +45,6 @@
     background: rgba(139, 92, 246, 0.1);
 }
 
-.header-count {
-    font-size: 16px;
-    font-weight: 500;
-}
-
 .header-center {
     flex: 1;
     display: flex;
