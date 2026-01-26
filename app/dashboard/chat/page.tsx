@@ -1,4 +1,5 @@
 import { ChatClient } from "./chat-client"
+import { MobileChat } from "./mobile-chat"
 import { getSelectedSoulPrintId } from "@/app/actions/soulprint-selection"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
@@ -22,5 +23,17 @@ export default async function ChatPage() {
     // and fetches the latest cookie value.
     const soulprintId = await getSelectedSoulPrintId() || null
 
-    return <ChatClient initialSoulprintId={soulprintId} />
+    return (
+        <>
+            {/* Mobile: Clean, fluid chat experience */}
+            <div className="lg:hidden h-full">
+                <MobileChat initialSoulprintId={soulprintId} />
+            </div>
+            
+            {/* Desktop: Full featured chat with sidebar */}
+            <div className="hidden lg:block h-full">
+                <ChatClient initialSoulprintId={soulprintId} />
+            </div>
+        </>
+    )
 }
