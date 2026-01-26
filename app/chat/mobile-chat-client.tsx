@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Send, Loader2, ChevronLeft, Paperclip, Smile, Mic, Menu, Plus, MessageSquare, X, Trash2, Search, Download, ChevronDown } from "lucide-react"
+import { Send, Loader2, ChevronLeft, Paperclip, Smile, Mic, Menu, Plus, MessageSquare, X, Trash2, Search, Download, ChevronDown, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import ReactMarkdown from "react-markdown"
@@ -68,6 +68,7 @@ interface Message {
     content: string
     timestamp: Date
     session_id?: string
+    status?: "sending" | "sent" | "failed"
 }
 
 interface ChatSession {
@@ -870,11 +871,13 @@ export function MobileChatClient() {
 function MessageBubble({ 
     message, 
     soulprintName,
-    isConsecutive 
+    isConsecutive,
+    onRetry
 }: { 
     message: Message
     soulprintName: string
     isConsecutive: boolean
+    onRetry?: () => void
 }) {
     const [copied, setCopied] = useState(false)
     const [liked, setLiked] = useState(false)
@@ -983,6 +986,21 @@ function MessageBubble({
                     <span className={cn("bubble-time", isUser ? "user" : "assistant")}>
                         {time}
                     </span>
+                    {isUser && message.status === "sending" && (
+                        <span className="message-status sending">●</span>
+                    )}
+                    {isUser && message.status === "sent" && (
+                        <span className="message-status sent">✓</span>
+                    )}
+                    {isUser && message.status === "failed" && (
+                        <button 
+                            className="message-retry" 
+                            onClick={(e) => { e.stopPropagation(); onRetry?.(); }}
+                            title="Retry"
+                        >
+                            <RefreshCw className="h-3 w-3" /> Failed
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
