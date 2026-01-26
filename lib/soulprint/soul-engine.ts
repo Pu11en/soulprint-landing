@@ -2,7 +2,13 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { SoulPrintData } from './types';
 import { ChatMessage } from '@/lib/llm/local-client';
 import { constructDynamicSystemPrompt } from './generator';
-import { inferContext } from './memory/retrieval';
+// Context inference - simple keyword extraction
+async function inferContext(messages: ChatMessage[]): Promise<string> {
+    const lastUserMsg = messages.filter(m => m.role === 'user').pop();
+    if (!lastUserMsg) return 'general';
+    // Return first 50 chars as context topic
+    return lastUserMsg.content.substring(0, 50);
+}
 import { getDisplayName } from './name-generator';
 import { searchWeb, formatResultsForLLM } from '@/lib/tavily';
 import { 

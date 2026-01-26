@@ -177,7 +177,7 @@ async def extract_personality(req: MemoryQuery):
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("RLM_PORT", "8100"))
+    port = int(os.getenv("PORT", os.getenv("RLM_PORT", "8100")))
     print(f"🧠 Memory Service starting on port {port}")
     print(f"📍 Model: {get_model()}")
     uvicorn.run(app, host="0.0.0.0", port=port)
