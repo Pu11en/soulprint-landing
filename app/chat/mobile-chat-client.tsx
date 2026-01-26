@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Send, Loader2, Sparkles, MoreVertical } from "lucide-react"
+import { Send, Loader2, Sparkles, ChevronLeft, Paperclip, Smile, Mic } from "lucide-react"
 import { cn } from "@/lib/utils"
-import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import Link from "next/link"
 import "./mobile-chat.css"
 
 interface Message {
@@ -240,27 +240,36 @@ export function MobileChatClient() {
 
     return (
         <div className="mobile-chat-container">
-            {/* Header - Clean with minimal menu */}
+            {/* Header - Telegram style */}
             <header className="mobile-chat-header">
-                <div className="mobile-header-left">
-                    <div className="mobile-logo">
-                        <Sparkles className="h-5 w-5 text-white" />
-                    </div>
-                    <span className="mobile-header-title">{soulprintName}</span>
-                </div>
-                <Link href="/dashboard" className="mobile-menu-btn">
-                    <MoreVertical className="h-5 w-5" />
+                <Link href="/dashboard" className="header-back">
+                    <ChevronLeft className="h-6 w-6" />
+                    <span className="header-count">{messages.length}</span>
                 </Link>
+                
+                <div className="header-center">
+                    <span className="header-name">{soulprintName}</span>
+                    {isLoading ? (
+                        <span className="header-status typing">typing...</span>
+                    ) : (
+                        <span className="header-status">AI companion</span>
+                    )}
+                </div>
+
+                <div className="header-avatar">
+                    <Sparkles className="h-5 w-5 text-white" />
+                </div>
             </header>
 
             {/* Messages Area */}
             <main className="mobile-chat-messages">
                 {messages.length === 0 ? (
                     <div className="mobile-empty-state">
-                        <div className="mobile-logo large mb-4">
-                            <Sparkles className="h-10 w-10 text-white" />
+                        <div className="empty-avatar">
+                            <Sparkles className="h-12 w-12 text-white" />
                         </div>
-                        <p className="text-zinc-500 text-sm">Start a conversation</p>
+                        <h2 className="empty-title">{soulprintName}</h2>
+                        <p className="empty-subtitle">Your AI companion</p>
                     </div>
                 ) : (
                     messages.map((msg, idx) => (
@@ -280,35 +289,51 @@ export function MobileChatClient() {
                 <div ref={messagesEndRef} />
             </main>
 
-            {/* Input Area */}
+            {/* Input Area - Telegram style */}
             <footer className="mobile-chat-input">
-                <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Message"
-                    disabled={isLoading || !apiKey}
-                    rows={1}
-                    className="mobile-textarea"
-                />
-                <button
-                    onClick={sendMessage}
-                    disabled={isLoading || !input.trim() || !apiKey}
-                    className="mobile-send-btn"
-                >
-                    {isLoading ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                        <Send className="h-5 w-5" />
-                    )}
+                <button className="input-icon-btn">
+                    <Paperclip className="h-5 w-5" />
                 </button>
+                
+                <div className="input-field-wrapper">
+                    <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Message"
+                        disabled={isLoading || !apiKey}
+                        rows={1}
+                        className="input-field"
+                    />
+                    <button className="input-emoji-btn">
+                        <Smile className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {input.trim() ? (
+                    <button
+                        onClick={sendMessage}
+                        disabled={isLoading || !apiKey}
+                        className="send-btn"
+                    >
+                        {isLoading ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                            <Send className="h-5 w-5" />
+                        )}
+                    </button>
+                ) : (
+                    <button className="mic-btn">
+                        <Mic className="h-5 w-5" />
+                    </button>
+                )}
             </footer>
         </div>
     )
 }
 
-// Message Bubble Component - Telegram style with consecutive message support
+// Message Bubble Component
 function MessageBubble({ 
     message, 
     soulprintName,
@@ -323,30 +348,30 @@ function MessageBubble({
 
     return (
         <div className={cn(
-            "mobile-message",
+            "message-row",
             isUser ? "user" : "assistant",
             isConsecutive && "consecutive"
         )}>
             <div className={cn(
-                "mobile-bubble",
+                "message-bubble",
                 isUser ? "user" : "assistant",
                 isConsecutive && "consecutive"
             )}>
                 {!isUser && !isConsecutive && (
-                    <span className="mobile-bubble-name">{soulprintName}</span>
+                    <span className="bubble-name">{soulprintName}</span>
                 )}
                 
                 {isUser ? (
-                    <p className="mobile-bubble-text">{message.content}</p>
+                    <p className="bubble-text">{message.content}</p>
                 ) : (
-                    <div className="mobile-bubble-markdown">
+                    <div className="bubble-markdown">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {message.content}
                         </ReactMarkdown>
                     </div>
                 )}
                 
-                <span className={cn("mobile-bubble-time", isUser ? "user" : "assistant")}>
+                <span className={cn("bubble-time", isUser ? "user" : "assistant")}>
                     {time}
                 </span>
             </div>
@@ -354,16 +379,16 @@ function MessageBubble({
     )
 }
 
-// Typing Indicator - Simple dots
+// Typing Indicator
 function TypingIndicator() {
     return (
-        <div className="mobile-message assistant">
-            <div className="mobile-bubble assistant typing">
-                <div className="mobile-typing">
-                    <span className="mobile-typing-dot" />
-                    <span className="mobile-typing-dot" />
-                    <span className="mobile-typing-dot" />
-                </div>
+        <div className="message-row assistant">
+            <div className="message-bubble assistant typing">
+                <span className="typing-dots">
+                    <span className="dot" />
+                    <span className="dot" />
+                    <span className="dot" />
+                </span>
             </div>
         </div>
     )
