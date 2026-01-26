@@ -1,10 +1,7 @@
 /**
  * Memory Service Client
- * Calls the Python memory service for intelligent memory retrieval.
- * Replaces traditional RAG with LLM-powered memory exploration.
+ * Calls the internal /api/memory/query endpoint for intelligent memory retrieval.
  */
-
-const MEMORY_SERVICE_URL = process.env.MEMORY_SERVICE_URL || 'http://localhost:8100';
 
 export interface MemoryResult {
     content: string;
@@ -21,23 +18,7 @@ export interface MemoryResponse {
 }
 
 /**
- * Check if memory service is available
- */
-export async function checkMemoryServiceHealth(): Promise<boolean> {
-    try {
-        const response = await fetch(`${MEMORY_SERVICE_URL}/health`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(2000),
-        });
-        return response.ok;
-    } catch {
-        console.warn('[Memory] Service not available');
-        return false;
-    }
-}
-
-/**
- * Query memory service for relevant context
+ * Query memory for relevant context - calls internal API
  */
 export async function queryMemoryService(
     userId: string,
@@ -46,9 +27,10 @@ export async function queryMemoryService(
     maxResults: number = 10
 ): Promise<MemoryResponse> {
     try {
-        console.log(`[Memory] Querying: "${query.substring(0, 50)}..."`);
+        // Call internal API route
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
         
-        const response = await fetch(`${MEMORY_SERVICE_URL}/query`, {
+        const response = await fetch(`${baseUrl}/api/memory/query`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -57,16 +39,13 @@ export async function queryMemoryService(
                 history,
                 max_results: maxResults,
             }),
-            signal: AbortSignal.timeout(30000), // 30s timeout
         });
 
         if (!response.ok) {
-            throw new Error(`Memory service error: ${response.status}`);
+            throw new Error(`Memory API error: ${response.status}`);
         }
 
-        const result = await response.json();
-        console.log(`[Memory] Got ${result.relevant_memories?.length || 0} memories`);
-        return result;
+        return await response.json();
     } catch (error) {
         console.error('[Memory] Query failed:', error);
         return {
@@ -87,9 +66,8 @@ export function formatMemoriesForPrompt(response: MemoryResponse): string {
         return '';
     }
 
-    let block = '\n### L3: ACTIVE MEMORY LAYER (LLM-Extracted)\n';
+    let block = '\n### MEMORY CONTEXT\n';
     
-    // Add relevant memories with significance tags
     for (const mem of response.relevant_memories) {
         const sigTag = mem.significance !== 'unknown' ? `[${mem.significance.toUpperCase()}]` : '';
         block += `${sigTag} "${mem.content}"`;
@@ -99,12 +77,10 @@ export function formatMemoriesForPrompt(response: MemoryResponse): string {
         block += '\n';
     }
     
-    // Add detected patterns
     if (response.patterns_detected.length > 0) {
-        block += '\n**User Patterns:** ' + response.patterns_detected.join(', ') + '\n';
+        block += '\n**Patterns:** ' + response.patterns_detected.join(', ') + '\n';
     }
     
-    // Add user context summary
     if (response.user_context) {
         block += `\n**Context:** ${response.user_context}\n`;
     }
@@ -113,7 +89,8 @@ export function formatMemoriesForPrompt(response: MemoryResponse): string {
 }
 
 /**
- * Get user's full conversation history from database for memory queries
+ * Get user's conversation history from database
+ * Note: This is now handled by the API route, but kept for direct access if needed
  */
 export async function getUserHistoryForMemory(
     supabase: any,
@@ -121,46 +98,39 @@ export async function getUserHistoryForMemory(
     limit: number = 100
 ): Promise<string> {
     try {
-        // Get native chat logs
-        const { data: nativeLogs } = await supabase
-            .from('chat_logs')
-            .select('role, content, created_at')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(limit);
+        let history = '';
 
-        // Get imported chats
-        const { data: importedLogs } = await supabase
+        const { data: imported } = await supabase
             .from('imported_chats')
-            .select('role, content, original_timestamp')
+            .select('role, content')
             .eq('user_id', userId)
             .order('original_timestamp', { ascending: false })
             .limit(limit);
 
-        // Format as conversation history string
-        let history = '';
-        
-        // Add imported history first (older)
-        if (importedLogs && importedLogs.length > 0) {
+        if (imported && imported.length > 0) {
             history += '=== IMPORTED HISTORY ===\n';
-            for (const log of importedLogs.reverse()) {
-                const role = log.role === 'user' ? 'User' : 'Assistant';
-                history += `${role}: ${log.content}\n`;
+            for (const msg of imported.reverse()) {
+                history += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n`;
             }
         }
-        
-        // Add native history (recent)
-        if (nativeLogs && nativeLogs.length > 0) {
+
+        const { data: native } = await supabase
+            .from('chat_logs')
+            .select('role, content')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (native && native.length > 0) {
             history += '\n=== RECENT CONVERSATIONS ===\n';
-            for (const log of nativeLogs.reverse()) {
-                const role = log.role === 'user' ? 'User' : 'Assistant';
-                history += `${role}: ${log.content}\n`;
+            for (const msg of native.reverse()) {
+                history += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n`;
             }
         }
 
         return history || 'No conversation history available.';
     } catch (error) {
-        console.error('[Memory] Failed to get user history:', error);
+        console.error('[Memory] Failed to get history:', error);
         return 'Error retrieving history.';
     }
 }
