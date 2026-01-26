@@ -769,60 +769,89 @@ export function ChatClient({ initialSoulprintId }: { initialSoulprintId: string 
                 }
             >
 
-                {/* Mobile Chat Header */}
-                <div className="flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden border-b border-zinc-800 bg-[#111111]">
+                {/* Mobile Chat Header - Sticky */}
+                <div className="sticky top-0 z-30 flex items-center gap-2 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] lg:hidden border-b border-zinc-800 bg-[#111111]">
+                    {/* Left: Chat icon - opens sidebar/history */}
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 p-2 text-zinc-300 hover:bg-zinc-700"
-                        aria-label="Open history"
+                        className="inline-flex items-center justify-center rounded-full w-9 h-9 text-zinc-300 hover:bg-zinc-800 transition-colors"
+                        aria-label="Chat history"
                     >
-                        <MessageSquare className="h-4 w-4" />
+                        <MessageSquare className="h-5 w-5" />
                     </button>
+
+                    {/* Center: AI Name */}
                     <div className="flex-1 min-w-0 text-center">
-                        <div className="text-sm font-semibold truncate text-zinc-100">{displayName}</div>
+                        <div className="text-base font-semibold truncate text-zinc-100">{displayName}</div>
                     </div>
-                    {messages.length > 0 && (
-                        <div className="relative">
-                            <button
-                                onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                                className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 p-2 text-zinc-300 hover:bg-zinc-700"
-                                title="Export"
-                            >
-                                <Download className="h-4 w-4" />
-                            </button>
-                            {exportMenuOpen && (
-                                <>
-                                    <div
-                                        className="fixed inset-0 z-40"
-                                        onClick={() => setExportMenuOpen(false)}
-                                    />
-                                    <div className="absolute right-0 mt-2 w-44 rounded-lg border border-zinc-700 bg-zinc-800 py-1 shadow-lg z-50">
-                                        <button
-                                            onClick={exportAsJSON}
-                                            className="w-full px-4 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
-                                        >
-                                            <FileJson className="h-4 w-4 text-orange-500" />
-                                            Export JSON
-                                        </button>
-                                        <button
-                                            onClick={exportAsMarkdown}
-                                            className="w-full px-4 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
-                                        >
-                                            <FileCode className="h-4 w-4 text-blue-400" />
-                                            Export Markdown
-                                        </button>
-                                        <button
-                                            onClick={exportAsText}
-                                            className="w-full px-4 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
-                                        >
-                                            <FileText className="h-4 w-4 text-zinc-400" />
-                                            Export Text
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    )}
+
+                    {/* Right: Menu icon - opens action menu */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                            className="inline-flex items-center justify-center rounded-full w-9 h-9 text-zinc-300 hover:bg-zinc-800 transition-colors"
+                            aria-label="Menu"
+                        >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                        {exportMenuOpen && (
+                            <>
+                                <div
+                                    className="fixed inset-0 z-40"
+                                    onClick={() => setExportMenuOpen(false)}
+                                />
+                                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-xl z-50">
+                                    {/* New Chat */}
+                                    <button
+                                        onClick={() => { handleNewChat(); setExportMenuOpen(false); }}
+                                        className="w-full px-4 py-2.5 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3"
+                                    >
+                                        <Plus className="h-4 w-4 text-orange-500" />
+                                        New Chat
+                                    </button>
+                                    
+                                    {messages.length > 0 && (
+                                        <>
+                                            <div className="h-px bg-zinc-800 my-1" />
+                                            {/* Export Options */}
+                                            <button
+                                                onClick={exportAsJSON}
+                                                className="w-full px-4 py-2.5 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3"
+                                            >
+                                                <FileJson className="h-4 w-4 text-blue-400" />
+                                                Export JSON
+                                            </button>
+                                            <button
+                                                onClick={exportAsMarkdown}
+                                                className="w-full px-4 py-2.5 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3"
+                                            >
+                                                <FileCode className="h-4 w-4 text-purple-400" />
+                                                Export Markdown
+                                            </button>
+                                            <button
+                                                onClick={exportAsText}
+                                                className="w-full px-4 py-2.5 text-left text-sm text-zinc-300 hover:bg-zinc-800 flex items-center gap-3"
+                                            >
+                                                <FileText className="h-4 w-4 text-zinc-400" />
+                                                Export Text
+                                            </button>
+                                            <div className="h-px bg-zinc-800 my-1" />
+                                            {/* Clear Chat */}
+                                            <button
+                                                onClick={() => { handleClearHistory(); setExportMenuOpen(false); }}
+                                                className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-zinc-800 flex items-center gap-3"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                Clear Chat
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* Desktop Toggle Button */}
