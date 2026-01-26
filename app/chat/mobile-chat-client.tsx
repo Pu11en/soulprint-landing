@@ -728,18 +728,35 @@ function MessageBubble({
     isConsecutive: boolean
 }) {
     const [copied, setCopied] = useState(false)
+    const [liked, setLiked] = useState(false)
+    const [showHeart, setShowHeart] = useState(false)
+    const lastTapRef = useRef(0)
     const isUser = message.role === "user"
     const time = message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
-    const handleCopy = async () => {
-        try {
-            haptic.success()
-            await navigator.clipboard.writeText(message.content)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 1500)
-        } catch (err) {
-            console.error("Failed to copy:", err)
+    const handleTap = async () => {
+        const now = Date.now()
+        const timeSinceLastTap = now - lastTapRef.current
+        
+        if (timeSinceLastTap < 300) {
+            // Double tap - toggle like
+            haptic.medium()
+            setLiked(prev => !prev)
+            setShowHeart(true)
+            setTimeout(() => setShowHeart(false), 800)
+        } else {
+            // Single tap - copy
+            try {
+                haptic.success()
+                await navigator.clipboard.writeText(message.content)
+                setCopied(true)
+                setTimeout(() => setCopied(false), 1500)
+            } catch (err) {
+                console.error("Failed to copy:", err)
+            }
         }
+        
+        lastTapRef.current = now
     }
 
     return (
@@ -755,11 +772,15 @@ function MessageBubble({
                     isConsecutive && "consecutive",
                     copied && "copied"
                 )}
-                onClick={handleCopy}
-                title="Tap to copy"
+                onClick={handleTap}
+                title="Tap to copy, double-tap to like"
             >
                 {copied && (
                     <span className="copy-toast">Copied!</span>
+                )}
+                
+                {showHeart && (
+                    <span className="heart-burst">❤️</span>
                 )}
                 
                 {!isUser && !isConsecutive && (
@@ -776,9 +797,12 @@ function MessageBubble({
                     </div>
                 )}
                 
-                <span className={cn("bubble-time", isUser ? "user" : "assistant")}>
-                    {time}
-                </span>
+                <div className="bubble-footer">
+                    {liked && <span className="liked-heart">❤️</span>}
+                    <span className={cn("bubble-time", isUser ? "user" : "assistant")}>
+                        {time}
+                    </span>
+                </div>
             </div>
         </div>
     )
