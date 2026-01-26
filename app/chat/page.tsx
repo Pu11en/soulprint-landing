@@ -1,5 +1,5 @@
 import { Metadata, Viewport } from "next"
-import { MobileChatClient } from "./mobile-chat-client"
+import { AssistantChat } from "./assistant-chat"
 
 export const metadata: Metadata = {
     title: "SoulPrint Chat",
@@ -16,5 +16,5 @@ export const viewport: Viewport = {
 }
 
 export default function ChatPage() {
-    return <MobileChatClient />
+    return <AssistantChat />
 }

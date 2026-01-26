@@ -54,12 +54,8 @@ interface SpeechRecognitionInstance extends EventTarget {
     onstart: (() => void) | null
 }
 
-declare global {
-    interface Window {
-        SpeechRecognition: new () => SpeechRecognitionInstance
-        webkitSpeechRecognition: new () => SpeechRecognitionInstance
-    }
-}
+// Using type assertion instead of global declaration to avoid conflicts
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance
 
 export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     const [isListening, setIsListening] = useState(false)
@@ -73,7 +69,8 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     // Check for browser support
     useEffect(() => {
         if (typeof window !== "undefined") {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+            const win = window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }
+            const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition
             setIsSupported(!!SpeechRecognition)
         }
     }, [])
@@ -82,10 +79,11 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     useEffect(() => {
         if (typeof window === "undefined") return
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+        const win = window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }
+        const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition
         if (!SpeechRecognition) return
 
-        const recognition = new SpeechRecognition()
+        const recognition = new SpeechRecognition() as unknown as SpeechRecognitionInstance
         recognition.continuous = true
         recognition.interimResults = true
         recognition.lang = "en-US"
