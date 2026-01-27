@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 type Message = {
   id: string;
@@ -21,8 +21,11 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [hasMemoryContext, setHasMemoryContext] = useState(false);
+  const [memoryChunksUsed, setMemoryChunksUsed] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -32,7 +35,7 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
@@ -42,22 +45,96 @@ export default function ChatPage() {
       content: input.trim(),
     };
 
+    const currentInput = input.trim();
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setHasMemoryContext(false);
+    setMemoryChunksUsed(0);
 
-    // TODO: Implement actual AI chat
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const aiMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: "I understand! Based on our previous conversations, I can provide more contextual responses. This is a demo response — once you connect your import, I'll have full context of your history.",
-    };
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController();
 
-    setMessages(prev => [...prev, aiMessage]);
-    setIsLoading(false);
-  };
+    // Prepare history (exclude the initial message and current message)
+    const history = messages
+      .filter(m => m.id !== '1')
+      .map(m => ({ role: m.role, content: m.content }));
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentInput,
+          history,
+        }),
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No reader');
+
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      const assistantMessageId = (Date.now() + 1).toString();
+
+      // Add empty assistant message that we'll stream into
+      setMessages(prev => [...prev, {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+      }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            
+            if (data.type === 'metadata') {
+              setHasMemoryContext(data.hasMemoryContext);
+              setMemoryChunksUsed(data.memoryChunksUsed || 0);
+            } else if (data.type === 'text') {
+              assistantContent += data.text;
+              setMessages(prev => prev.map(m => 
+                m.id === assistantMessageId 
+                  ? { ...m, content: assistantContent }
+                  : m
+              ));
+            } else if (data.type === 'error') {
+              console.error('Stream error:', data.error);
+            }
+          } catch (e) {
+            // Ignore parse errors for partial chunks
+          }
+        }
+      }
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        console.log('Request aborted');
+      } else {
+        console.error('Chat error:', error);
+        // Add error message
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: "I'm sorry, I had trouble processing that. Please try again.",
+        }]);
+      }
+    } finally {
+      setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  }, [input, isLoading, messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -77,6 +154,15 @@ export default function ChatPage() {
           </Link>
           
           <div className="flex items-center gap-2">
+            {/* Memory indicator */}
+            {hasMemoryContext && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                <span className="text-xs text-orange-400 font-medium">
+                  {memoryChunksUsed} memor{memoryChunksUsed === 1 ? 'y' : 'ies'}
+                </span>
+              </div>
+            )}
             <Link href="/import" className="btn btn-ghost btn-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -109,20 +195,20 @@ export default function ChatPage() {
                   <div>
                     <div className="text-xs text-gray-500 mb-1.5 font-medium">SoulPrint</div>
                     <div className="chat-assistant">
-                      <p className="text-gray-200">{message.content}</p>
+                      <p className="text-gray-200 whitespace-pre-wrap">{message.content}</p>
                     </div>
                   </div>
                 </div>
               )}
               {message.role === 'user' && (
                 <div className="chat-user max-w-[85%] md:max-w-[75%]">
-                  <p className="text-gray-200">{message.content}</p>
+                  <p className="text-gray-200 whitespace-pre-wrap">{message.content}</p>
                 </div>
               )}
             </div>
           ))}
           
-          {isLoading && (
+          {isLoading && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex justify-start animate-in">
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0 mt-1">
