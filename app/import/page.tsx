@@ -174,10 +174,10 @@ export default function ImportPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#09090B] px-6 py-12">
+    <main className="min-h-screen bg-[#09090B] px-5 sm:px-8 py-12 sm:py-16">
       <div className="glow-ambient top-[-100px] left-1/2 -translate-x-1/2" />
 
-      <nav className="max-w-5xl mx-auto mb-16 flex items-center justify-between">
+      <nav className="max-w-5xl mx-auto mb-12 sm:mb-16 flex items-center justify-between">
         <Link href="/" className="logo">
           <img src="/logo.svg" alt="SoulPrint" className="logo-icon" />
           <span className="text-white">SoulPrint</span>
@@ -185,19 +185,19 @@ export default function ImportPage() {
       </nav>
 
       <div className="max-w-5xl mx-auto">
-        <div className="text-center mb-16 animate-in">
-          <p className="text-micro text-orange-500 mb-3">Import your data</p>
-          <h1 className="text-headline text-white mb-4">
+        <div className="text-center mb-12 sm:mb-16 animate-in">
+          <p className="text-micro text-orange-500 mb-4">Import your data</p>
+          <h1 className="text-headline text-white mb-5">
             Connect your <span className="text-gradient">memory</span>
           </h1>
-          <p className="text-body max-w-xl mx-auto">
+          <p className="text-body max-w-xl mx-auto leading-relaxed">
             Your data stays on your device. We analyze it locally and only save the results.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-3 gap-5 sm:gap-6 mb-10">
           {steps.map((step, i) => (
-            <div key={i} className="card card-hover p-6 animate-in relative group" style={{ animationDelay: `${0.1 + i * 0.1}s` }}>
+            <div key={i} className="card card-hover p-6 sm:p-7 animate-in relative group" style={{ animationDelay: `${0.1 + i * 0.1}s` }}>
               <span className="absolute top-6 right-6 text-4xl font-bold text-white/[0.04]">{step.step}</span>
               <div className="w-12 h-12 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center mb-4 group-hover:bg-orange-500/15 transition-colors">
                 {step.icon}

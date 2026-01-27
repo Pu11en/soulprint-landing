@@ -33,13 +33,13 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-8 py-12">
+    <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-6 sm:px-8 py-16">
       {/* Ambient glow */}
       <div className="glow-ambient top-0 left-1/2 -translate-x-1/2" />
 
-      <div className="w-full max-w-[400px] relative">
+      <div className="w-full max-w-[420px] relative">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-10">
           <Link href="/" className="logo inline-flex justify-center">
             <img src="/logo.svg" alt="SoulPrint" className="logo-icon" />
             <span className="text-white">SoulPrint</span>
@@ -47,9 +47,9 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="card-elevated p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-title text-white mb-2">Welcome back</h1>
+        <div className="card-elevated p-8 sm:p-10">
+          <div className="text-center mb-10">
+            <h1 className="text-title text-white mb-3">Welcome back</h1>
             <p className="text-caption">Sign in to continue to your memories</p>
           </div>
 
@@ -64,7 +64,7 @@ export default function LoginPage() {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={isLoading}
-            className="btn btn-secondary w-full mb-6"
+            className="btn btn-secondary w-full mb-8"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -75,10 +75,10 @@ export default function LoginPage() {
             Continue with Google
           </button>
 
-          <div className="divider-text mb-6">or</div>
+          <div className="divider-text mb-8">or</div>
 
           {/* Email Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="email" className="input-label">Email</label>
               <input

@@ -40,7 +40,7 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-8 py-12">
+      <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-6 sm:px-8 py-16">
         <div className="card-elevated p-8 max-w-md w-full text-center">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 glow-orange">
             <img src="/logo.svg" alt="SoulPrint" className="w-12 h-12" />
@@ -53,13 +53,13 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-8 py-12">
+    <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-6 sm:px-8 py-16">
       {/* Ambient glow */}
       <div className="glow-ambient top-0 left-1/2 -translate-x-1/2" />
 
-      <div className="w-full max-w-[400px] relative">
+      <div className="w-full max-w-[420px] relative">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-10">
           <Link href="/" className="logo inline-flex justify-center">
             <img src="/logo.svg" alt="SoulPrint" className="logo-icon" />
             <span className="text-white">SoulPrint</span>
@@ -67,8 +67,8 @@ export default function SignupPage() {
         </div>
 
         {/* Card */}
-        <div className="card-elevated p-8">
-          <div className="text-center mb-8">
+        <div className="card-elevated p-8 sm:p-10">
+          <div className="text-center mb-10">
             <h1 className="text-title text-white mb-2">Create your account</h1>
             <p className="text-caption">Start building your AI memory</p>
           </div>
@@ -95,10 +95,10 @@ export default function SignupPage() {
             Continue with Google
           </button>
 
-          <div className="divider-text mb-6">or</div>
+          <div className="divider-text mb-8">or</div>
 
           {/* Email Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="name" className="input-label">Name</label>
               <input
