@@ -104,6 +104,16 @@ export default function ImportPage() {
     setStatus('uploading');
     setProgress(5);
 
+    // Keep screen on during upload
+    let wakeLock: WakeLockSentinel | null = null;
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) {
+      console.log('Wake lock not available:', e);
+    }
+
     try {
       // Step 1: Get signed upload URL from our API
       const urlRes = await fetch('/api/import/get-upload-url', {
@@ -168,6 +178,11 @@ export default function ImportPage() {
       console.error('Upload error:', err);
       setErrorMessage(err instanceof Error ? err.message : 'Upload failed');
       setStatus('error');
+    } finally {
+      // Release wake lock
+      if (wakeLock) {
+        wakeLock.release().catch(() => {});
+      }
     }
   };
 
