@@ -166,9 +166,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="bg-[#0e0e0e] text-white min-h-screen">
+    <div className="bg-[#0e0e0e] text-white h-[100dvh] flex flex-col overflow-hidden">
       {/* Fixed Header - Telegram style */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#1c1c1d]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="flex-shrink-0 bg-[#1c1c1d]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center px-4 h-16">
           <Link href="/" className="p-2 -ml-2 text-orange-500">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -200,14 +200,8 @@ export default function ChatPage() {
         )}
       </header>
 
-      {/* Scrollable content - messages anchored to bottom */}
-      <main 
-        className="flex flex-col min-h-screen px-4" 
-        style={{ 
-          paddingTop: 'calc(env(safe-area-inset-top) + 70px)', 
-          paddingBottom: 'calc(env(safe-area-inset-bottom) + 70px)' 
-        }}
-      >
+      {/* Scrollable messages area */}
+      <main className="flex-1 overflow-y-auto px-4 flex flex-col">
         <div className="flex-1" />
         <div className="space-y-3 max-w-2xl mx-auto w-full py-4">
           {messages.map((msg) => (
@@ -236,9 +230,9 @@ export default function ChatPage() {
         </div>
       </main>
 
-      {/* Fixed Input - Telegram style */}
+      {/* Input - stays at bottom */}
       <footer 
-        className="fixed bottom-0 left-0 right-0 z-50 bg-[#1c1c1d] border-t border-white/5 px-4 py-3" 
+        className="flex-shrink-0 bg-[#1c1c1d] border-t border-white/5 px-4 py-3" 
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
       >
         <form onSubmit={handleSubmit} className="flex items-center gap-3 max-w-2xl mx-auto">
