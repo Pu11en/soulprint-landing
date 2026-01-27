@@ -207,13 +207,6 @@ export default function UploadPage() {
             >
               Upload & Continue
             </button>
-            
-            <button
-              onClick={() => router.push("/chat")}
-              className="w-full h-12 text-gray-500 text-sm"
-            >
-              Skip for now
-            </button>
           </div>
         </div>
       )}

@@ -32,13 +32,18 @@ export default async function ChatPage() {
         .eq("id", user.id)
         .single()
 
-    // Check if user has imported data
+    // Check if user has imported data - REQUIRED to access chat
     const { count: importCount } = await supabase
         .from("imported_chats")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id)
 
     const hasImportedData = (importCount || 0) > 0
+
+    // Redirect to onboarding if no imported data
+    if (!hasImportedData) {
+        redirect("/onboarding/export")
+    }
 
     return (
         <ChatWrapper 

@@ -129,13 +129,6 @@ export default function ExportInstructionsPage() {
           I have my ZIP file
           <ChevronRight className="w-4 h-4" />
         </button>
-        
-        <button
-          onClick={() => router.push("/chat")}
-          className="w-full h-12 text-gray-500 text-sm"
-        >
-          Skip for now
-        </button>
       </div>
     </main>
   );
