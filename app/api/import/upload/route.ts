@@ -1,5 +1,6 @@
 /**
  * Trigger import processing after file uploaded to Supabase Storage
+ * Doesn't download the file - just passes the path to processor
  */
 
 import { NextResponse } from 'next/server';
@@ -7,7 +8,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
-export const maxDuration = 300;
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -39,21 +39,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid storage path' }, { status: 403 });
     }
 
-    console.log(`[Import] Processing file at ${storagePath} for user ${user.id}`);
+    console.log(`[Import] Triggering process for ${storagePath}`);
     
     const adminSupabase = getSupabaseAdmin();
-
-    // Verify file exists
-    const { data: fileData, error: downloadError } = await adminSupabase.storage
-      .from('uploads')
-      .download(storagePath);
-
-    if (downloadError || !fileData) {
-      console.error('[Import] File not found:', downloadError);
-      return NextResponse.json({ error: 'File not found in storage' }, { status: 404 });
-    }
-
-    console.log(`[Import] File verified: ${(fileData.size / 1024 / 1024).toFixed(1)}MB`);
 
     // Create import job
     const { data: importJob, error: jobError } = await adminSupabase
@@ -72,11 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to create import job' }, { status: 500 });
     }
 
-    // Convert to base64 for processing
-    const arrayBuffer = await fileData.arrayBuffer();
-    const zipBase64 = Buffer.from(arrayBuffer).toString('base64');
-
-    // Trigger processing
+    // Trigger processing with just the path (fire and forget)
     const processUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/import/process`;
     
     fetch(processUrl, {
@@ -88,15 +72,9 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         importJobId: importJob.id,
         userId: user.id,
-        zipBase64,
+        storagePath, // Just the path, not the file contents
       }),
     }).catch(e => console.error('[Import] Process trigger error:', e));
-
-    // Clean up storage file (fire and forget)
-    adminSupabase.storage
-      .from('uploads')
-      .remove([storagePath])
-      .catch(e => console.error('[Import] Cleanup error:', e));
 
     return NextResponse.json({ 
       success: true,
