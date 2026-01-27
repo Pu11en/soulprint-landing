@@ -25,14 +25,14 @@ export async function GET(request: Request) {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     
     // If no ID, get the first unread
-    let targetId = messageId;
+    let targetId: string | null = messageId;
     if (!targetId) {
       const messages = await gmail.users.messages.list({
         userId: 'me',
         q: 'is:unread',
         maxResults: 1,
       });
-      targetId = messages.data.messages?.[0]?.id;
+      targetId = messages.data.messages?.[0]?.id ?? null;
     }
     
     if (!targetId) {
