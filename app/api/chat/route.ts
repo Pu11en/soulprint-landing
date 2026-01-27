@@ -41,6 +41,50 @@ interface RLMResponse {
   latency_ms: number;
 }
 
+/**
+ * Simple keyword search on conversation_chunks as fallback when RLM is unavailable
+ */
+async function searchConversationChunks(
+  userId: string,
+  query: string,
+  limit: number = 5
+): Promise<{ chunks: Array<{ title: string; content: string }>; count: number }> {
+  try {
+    const adminSupabase = getSupabaseAdmin();
+    
+    // Extract keywords (simple approach: split on spaces, filter short words)
+    const keywords = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(w => w.length > 3)
+      .slice(0, 5);
+    
+    if (keywords.length === 0) {
+      return { chunks: [], count: 0 };
+    }
+    
+    // Search using ILIKE for each keyword (basic but works)
+    const { data, error } = await adminSupabase
+      .from('conversation_chunks')
+      .select('title, content')
+      .eq('user_id', userId)
+      .or(keywords.map(k => `content.ilike.%${k}%`).join(','))
+      .order('is_recent', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (error) {
+      console.log('[Chat] Chunk search error:', error.message);
+      return { chunks: [], count: 0 };
+    }
+    
+    return { chunks: data || [], count: data?.length || 0 };
+  } catch (error) {
+    console.log('[Chat] Chunk search failed:', error);
+    return { chunks: [], count: 0 };
+  }
+}
+
 async function tryRLMService(
   userId: string,
   message: string,
@@ -161,6 +205,25 @@ export async function POST(request: NextRequest) {
     // Fallback to Bedrock streaming
     console.log('[Chat] Falling back to Bedrock...');
 
+    // Search conversation chunks for memory context
+    let memoryContext = '';
+    let memoryChunksUsed = 0;
+    if (hasSoulprint) {
+      try {
+        console.log('[Chat] Searching conversation chunks...');
+        const { chunks, count } = await searchConversationChunks(user.id, message, 5);
+        memoryChunksUsed = count;
+        if (chunks.length > 0) {
+          memoryContext = chunks
+            .map((c, i) => `[Memory ${i + 1}: ${c.title}]\n${c.content.slice(0, 1500)}`)
+            .join('\n\n---\n\n');
+          console.log('[Chat] Found', count, 'relevant memories');
+        }
+      } catch (error) {
+        console.log('[Chat] Memory search failed:', error);
+      }
+    }
+
     // Check if we should do a web search
     let webSearchContext = '';
     if (process.env.TAVILY_API_KEY && shouldSearchWeb(message)) {
@@ -175,7 +238,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null, webSearchContext);
+    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null, webSearchContext, memoryContext);
 
     const messages = [
       ...history.map((msg) => ({
@@ -208,10 +271,10 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         const metadata = JSON.stringify({
           type: 'metadata',
-          hasMemoryContext: false,
+          hasMemoryContext: memoryChunksUsed > 0,
           hasSoulprint,
           method: 'bedrock',
-          memoryChunksUsed: 0,
+          memoryChunksUsed,
         }) + '\n';
         controller.enqueue(new TextEncoder().encode(metadata));
 
@@ -261,7 +324,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function buildSystemPrompt(soulprintText: string | null, webSearchContext?: string): string {
+function buildSystemPrompt(soulprintText: string | null, webSearchContext?: string, memoryContext?: string): string {
   const now = new Date();
   const currentDate = now.toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -299,6 +362,15 @@ USER PROFILE (SoulPrint):
 ${soulprintText}
 
 Use this context to inform your responses naturally. Don't explicitly say "according to your profile" unless it's natural to do so.`;
+  }
+
+  if (memoryContext) {
+    prompt += `
+
+RELEVANT MEMORIES FROM PAST CONVERSATIONS:
+${memoryContext}
+
+Use these memories to provide personalized, contextual responses. Reference them naturally when relevant.`;
   }
 
   if (webSearchContext) {
