@@ -1,19 +1,19 @@
 /**
- * Import Process Endpoint
- * Downloads from R2 and processes - handles any file size
+ * Quick Import - Phase 1
+ * Generates instant soulprint (~30 seconds) so user can start chatting immediately
+ * Triggers background embedding job for full memory
  */
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
-import { chunkConversations } from '@/lib/import/chunker';
-import { embedChunks, storeChunks } from '@/lib/import/embedder';
 import type { ParsedConversation, ParsedMessage, ChatGPTConversation, ChatGPTMessage } from '@/lib/import/parser';
+import { generateQuickSoulprint, soulprintToContext } from '@/lib/import/soulprint';
 
 export const runtime = 'nodejs';
-export const maxDuration = 300;
+export const maxDuration = 60; // 60 seconds should be plenty for quick soulprint
 
-interface ProcessRequest {
+interface QuickImportRequest {
   importJobId: string;
   userId: string;
   storagePath: string;
@@ -28,11 +28,12 @@ function getSupabaseAdmin() {
 }
 
 async function downloadAndParseConversations(storagePath: string): Promise<ParsedConversation[]> {
-  console.log('[Process] Downloading from Supabase Storage...');
+  console.log('[Quick] Downloading from Supabase Storage...');
   
   const supabase = getSupabaseAdmin();
   
   // storagePath is like "imports/user-id/timestamp-filename.zip"
+  // We need to extract bucket and path
   const pathParts = storagePath.split('/');
   const bucket = pathParts[0]; // "imports"
   const filePath = pathParts.slice(1).join('/'); // "user-id/timestamp-filename.zip"
@@ -42,7 +43,7 @@ async function downloadAndParseConversations(storagePath: string): Promise<Parse
     .download(filePath);
   
   if (error) {
-    console.error('[Process] Download error:', error);
+    console.error('[Quick] Download error:', error);
     throw new Error(`Download failed: ${error.message}`);
   }
   
@@ -51,38 +52,21 @@ async function downloadAndParseConversations(storagePath: string): Promise<Parse
   }
   
   const arrayBuffer = await data.arrayBuffer();
-  console.log(`[Process] Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
+  console.log(`[Quick] Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
   
-  // Load ZIP
-  console.log('[Process] Loading ZIP...');
+  console.log('[Quick] Loading ZIP...');
   const zip = await JSZip.loadAsync(arrayBuffer);
-  console.log('[Process] ZIP loaded, extracting conversations.json...');
   
-  // Extract only conversations.json
   const conversationsFile = zip.file('conversations.json');
   if (!conversationsFile) {
     throw new Error('conversations.json not found in ZIP');
   }
   
   const conversationsJson = await conversationsFile.async('string');
-  console.log(`[Process] conversations.json: ${(conversationsJson.length / 1024 / 1024).toFixed(1)}MB`);
-  console.log('[Process] Parsing JSON...');
+  console.log(`[Quick] Parsing ${(conversationsJson.length / 1024 / 1024).toFixed(1)}MB JSON...`);
   
   const raw: ChatGPTConversation[] = JSON.parse(conversationsJson);
   return raw.map(parseConversation).filter(c => c.messages.length > 0);
-}
-
-async function deleteFromStorage(storagePath: string) {
-  try {
-    const supabase = getSupabaseAdmin();
-    const pathParts = storagePath.split('/');
-    const bucket = pathParts[0];
-    const filePath = pathParts.slice(1).join('/');
-    
-    await supabase.storage.from(bucket).remove([filePath]);
-  } catch (e) {
-    console.error('Storage cleanup error:', e);
-  }
 }
 
 function parseConversation(raw: ChatGPTConversation): ParsedConversation {
@@ -169,84 +153,103 @@ export async function POST(request: Request) {
   
   const supabase = getSupabaseAdmin();
   let importJobId: string | undefined;
-  let storagePath: string | undefined;
   
   try {
-    const body: ProcessRequest = await request.json();
+    const body: QuickImportRequest = await request.json();
     importJobId = body.importJobId;
-    storagePath = body.storagePath;
-    const { userId } = body;
+    const { userId, storagePath } = body;
     
     if (!importJobId || !userId || !storagePath) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
+    console.log(`[Quick ${importJobId}] Starting quick soulprint generation...`);
+    
+    // Update job status
     await supabase
       .from('import_jobs')
       .update({ status: 'processing' })
       .eq('id', importJobId);
     
-    // Download and parse from R2
-    console.log(`[Import ${importJobId}] Downloading from R2...`);
+    // Download and parse
     const conversations = await downloadAndParseConversations(storagePath);
-    console.log(`[Import ${importJobId}] Found ${conversations.length} conversations`);
-    
-    // Clean up R2
-    deleteFromStorage(storagePath);
+    console.log(`[Quick ${importJobId}] Found ${conversations.length} conversations`);
     
     if (conversations.length === 0) {
-      await supabase.from('import_jobs').update({
-        status: 'completed',
-        total_chunks: 0,
-        processed_chunks: 0,
-        completed_at: new Date().toISOString(),
-      }).eq('id', importJobId);
-      
-      return NextResponse.json({ success: true, conversations: 0, chunks: 0 });
+      return NextResponse.json({ 
+        error: 'No conversations found in export' 
+      }, { status: 400 });
     }
     
-    // Chunk
-    console.log(`[Import ${importJobId}] Chunking...`);
-    const chunks = chunkConversations(conversations);
-    console.log(`[Import ${importJobId}] Created ${chunks.length} chunks`);
+    // Generate quick soulprint
+    console.log(`[Quick ${importJobId}] Generating soulprint...`);
+    const soulprint = await generateQuickSoulprint(conversations);
+    const soulprintText = soulprintToContext(soulprint);
     
-    await supabase.from('import_jobs').update({ total_chunks: chunks.length }).eq('id', importJobId);
-    
-    // Embed
-    console.log(`[Import ${importJobId}] Embedding...`);
-    const embeddedChunks = await embedChunks(chunks, (p, t) => {
-      if (p % 100 === 0) console.log(`[Import ${importJobId}] Embedded ${p}/${t}`);
+    console.log(`[Quick ${importJobId}] Soulprint generated:`, {
+      conversations: soulprint.totalConversations,
+      messages: soulprint.totalMessages,
+      interests: soulprint.interests,
+      facts: soulprint.facts.length,
     });
     
-    // Store
-    console.log(`[Import ${importJobId}] Storing...`);
-    await storeChunks(userId, importJobId, embeddedChunks, async (s, t) => {
-      if (s % 100 === 0 || s === t) {
-        console.log(`[Import ${importJobId}] Stored ${s}/${t}`);
-        await supabase.from('import_jobs').update({ processed_chunks: s }).eq('id', importJobId);
-      }
+    // Upsert user profile with soulprint
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .upsert({
+        user_id: userId,
+        soulprint: soulprint,
+        soulprint_text: soulprintText,
+        import_status: 'quick_ready',
+        total_conversations: soulprint.totalConversations,
+        total_messages: soulprint.totalMessages,
+        soulprint_generated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id',
+      });
+    
+    if (profileError) {
+      console.error(`[Quick ${importJobId}] Profile upsert error:`, profileError);
+      // Don't fail - soulprint is nice to have
+    }
+    
+    console.log(`[Quick ${importJobId}] Quick soulprint complete! Triggering background embeddings...`);
+    
+    // Trigger background embedding job (fire and forget)
+    const processUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/import/process`;
+    
+    fetch(processUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        importJobId,
+        userId,
+        storagePath,
+      }),
+    }).then(() => {
+      console.log(`[Quick ${importJobId}] Background embedding job triggered`);
+    }).catch(err => {
+      console.error(`[Quick ${importJobId}] Failed to trigger background job:`, err);
     });
     
-    await supabase.from('import_jobs').update({
-      status: 'completed',
-      processed_chunks: chunks.length,
-      completed_at: new Date().toISOString(),
-    }).eq('id', importJobId);
-    
-    // Update user profile to mark embeddings complete
-    await supabase.from('user_profiles').update({
-      import_status: 'complete',
-      processed_chunks: chunks.length,
-      total_chunks: chunks.length,
-      embeddings_completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq('user_id', userId);
-    
-    console.log(`[Import ${importJobId}] Complete!`);
-    return NextResponse.json({ success: true, conversations: conversations.length, chunks: chunks.length });
+    return NextResponse.json({ 
+      success: true,
+      soulprint: {
+        conversations: soulprint.totalConversations,
+        messages: soulprint.totalMessages,
+        interests: soulprint.interests,
+        traits: soulprint.personality.traits,
+        factsExtracted: soulprint.facts.length,
+      },
+      message: 'Quick soulprint ready! You can start chatting while we process the rest.',
+    });
     
   } catch (error) {
-    console.error('Import error:', error);
+    console.error('[Quick] Error:', error);
     
     if (importJobId) {
       await supabase.from('import_jobs').update({
@@ -255,25 +258,9 @@ export async function POST(request: Request) {
       }).eq('id', importJobId);
     }
     
-    if (storagePath) {
-      deleteFromStorage(storagePath);
-    }
-    
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Processing failed' },
+      { error: error instanceof Error ? error.message : 'Quick import failed' },
       { status: 500 }
     );
   }
-}
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const jobId = searchParams.get('jobId');
-  if (!jobId) return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
-  
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.from('import_jobs').select('*').eq('id', jobId).single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
-  
-  return NextResponse.json(data);
 }

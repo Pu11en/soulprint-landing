@@ -1,23 +1,21 @@
 /**
- * Generate signed upload URL for direct R2 Storage upload
+ * Generate signed upload URL for direct Supabase Storage upload
  * Handles files of any size (no limit)
  */
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-const R2 = new S3Client({
-  region: 'auto',
-  endpoint: process.env.R2_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-});
+function getSupabaseAdmin() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
 
 export async function POST(request: Request) {
   try {
@@ -39,20 +37,24 @@ export async function POST(request: Request) {
     // Create unique path for this upload
     const timestamp = Date.now();
     const safeName = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const path = `imports/${user.id}/${timestamp}-${safeName}`;
+    const path = `${user.id}/${timestamp}-${safeName}`;
 
-    // Create signed upload URL (valid for 30 minutes)
-    const command = new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: path,
-      ContentType: 'application/zip',
-    });
+    // Use admin client to create signed upload URL
+    const adminSupabase = getSupabaseAdmin();
+    
+    const { data, error } = await adminSupabase.storage
+      .from('imports')
+      .createSignedUploadUrl(path);
 
-    const uploadUrl = await getSignedUrl(R2, command, { expiresIn: 1800 });
+    if (error) {
+      console.error('[Upload URL] Supabase error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     return NextResponse.json({
-      uploadUrl,
-      path,
+      uploadUrl: data.signedUrl,
+      path: `imports/${path}`, // Full path for later reference
+      token: data.token,
     });
 
   } catch (error) {

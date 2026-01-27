@@ -74,20 +74,80 @@ export default function ChatPage() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input.trim();
     setInput('');
     setIsLoading(true);
 
-    // TODO: Replace with real API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const aiMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: "I understand! Based on our previous conversations, I can provide more contextual responses. This is a demo response — once you connect your import, I'll have full context of your history.",
-      memoriesUsed: 5,
-    };
+    try {
+      // Build history for context
+      const history = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-10)
+        .map(m => ({ role: m.role, content: m.content }));
 
-    setMessages(prev => [...prev, aiMessage]);
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentInput, history }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Chat request failed');
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      let aiContent = '';
+      let memoriesUsed = 0;
+      const aiMessageId = (Date.now() + 1).toString();
+
+      // Add placeholder message
+      setMessages(prev => [...prev, {
+        id: aiMessageId,
+        role: 'assistant',
+        content: '',
+        memoriesUsed: 0,
+      }]);
+
+      const decoder = new TextDecoder();
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(Boolean);
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            if (data.type === 'metadata') {
+              memoriesUsed = data.memoryChunksUsed || 0;
+            } else if (data.type === 'text') {
+              aiContent += data.text;
+              setMessages(prev => prev.map(m => 
+                m.id === aiMessageId 
+                  ? { ...m, content: aiContent, memoriesUsed }
+                  : m
+              ));
+            }
+          } catch {
+            // Ignore parse errors for incomplete chunks
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, something went wrong. Please try again.',
+        memoriesUsed: 0,
+      }]);
+    }
+
     setIsLoading(false);
   };
 

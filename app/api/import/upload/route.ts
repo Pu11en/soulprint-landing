@@ -1,6 +1,8 @@
 /**
  * Trigger import processing after file uploaded to Supabase Storage
- * Doesn't download the file - just passes the path to processor
+ * Two-phase processing:
+ * 1. Quick soulprint (~30s) - user can start chatting immediately
+ * 2. Background embeddings (minutes-hours) - full memory builds over time
  */
 
 import { NextResponse } from 'next/server';
@@ -34,12 +36,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Storage path required' }, { status: 400 });
     }
 
-    // Verify the path belongs to this user
-    if (!storagePath.includes(user.id)) {
+    // Verify the path belongs to this user (must start with uploads/{user_id}/)
+    const expectedPrefix = `uploads/${user.id}/`;
+    if (!storagePath.startsWith(expectedPrefix)) {
       return NextResponse.json({ error: 'Invalid storage path' }, { status: 403 });
     }
 
-    console.log(`[Import] Triggering process for ${storagePath}`);
+    console.log(`[Import] Starting two-phase import for ${storagePath}`);
     
     const adminSupabase = getSupabaseAdmin();
 
@@ -62,10 +65,11 @@ export async function POST(request: Request) {
       }, { status: 500 });
     }
 
-    // Trigger processing and wait for result
-    const processUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/import/process`;
+    // Phase 1: Quick soulprint (blocks until complete)
+    // This generates an instant personality snapshot so user can chat immediately
+    const quickUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/import/quick`;
     
-    const processRes = await fetch(processUrl, {
+    const quickRes = await fetch(quickUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -78,20 +82,25 @@ export async function POST(request: Request) {
       }),
     });
 
-    if (!processRes.ok) {
-      const errorData = await processRes.json().catch(() => ({}));
+    if (!quickRes.ok) {
+      const errorData = await quickRes.json().catch(() => ({}));
       return NextResponse.json({ 
-        error: `Processing failed: ${errorData.error || processRes.status}` 
+        error: `Quick import failed: ${errorData.error || quickRes.status}` 
       }, { status: 500 });
     }
 
-    const result = await processRes.json();
+    const quickResult = await quickRes.json();
+    
+    // Phase 2 (background embeddings) is triggered automatically by /api/import/quick
+    // User doesn't need to wait for this
+    
     return NextResponse.json({ 
       success: true,
       jobId: importJob.id,
-      conversations: result.conversations,
-      chunks: result.chunks,
-      message: 'Import complete! Your memory is ready.'
+      phase: 'quick_ready',
+      soulprint: quickResult.soulprint,
+      message: 'Your SoulPrint is ready! Start chatting while we learn more from your history.',
+      backgroundProcessing: true,
     });
 
   } catch (error) {

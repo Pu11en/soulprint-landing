@@ -11,47 +11,42 @@ export async function GET() {
     if (authError || !user) {
       return NextResponse.json({ 
         status: 'none',
-        totalChunks: 0,
-        importJobs: [],
+        hasSoulprint: false,
+        stats: null,
       });
     }
 
-    // Count total memory chunks
-    const { count: totalChunks, error: memoryError } = await supabase
-      .from('memories')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id);
-
-    if (memoryError) {
-      console.error('Error checking memories:', memoryError);
-    }
-
-    // Get recent import jobs
-    const { data: importJobs, error: jobsError } = await supabase
-      .from('import_jobs')
-      .select('id, status, created_at, total_chunks, processed_chunks, error')
+    // Check user_profiles for soulprint
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('import_status, total_conversations, total_messages, soulprint_generated_at')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
+      .single();
 
-    if (jobsError) {
-      console.error('Error fetching import jobs:', jobsError);
+    if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = not found
+      console.error('Error checking profile:', profileError);
     }
 
-    const status = (totalChunks && totalChunks > 0) ? 'ready' : 
-                   (importJobs?.some(j => j.status === 'processing') ? 'processing' : 'none');
+    const hasSoulprint = profile?.import_status === 'complete' || profile?.import_status === 'quick_ready';
+    
+    const status = hasSoulprint ? 'ready' : 
+                   profile?.import_status === 'processing' ? 'processing' : 'none';
 
     return NextResponse.json({ 
       status,
-      totalChunks: totalChunks || 0,
-      importJobs: importJobs || [],
+      hasSoulprint,
+      stats: profile ? {
+        totalConversations: profile.total_conversations,
+        totalMessages: profile.total_messages,
+        generatedAt: profile.soulprint_generated_at,
+      } : null,
     });
   } catch (error) {
     console.error('Memory status error:', error);
     return NextResponse.json({ 
       status: 'error',
-      totalChunks: 0,
-      importJobs: [],
+      hasSoulprint: false,
+      stats: null,
     });
   }
 }

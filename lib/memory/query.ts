@@ -89,21 +89,29 @@ export async function searchMemory(
 
 /**
  * Get memory context formatted for chat
+ * Gracefully handles missing embeddings/functions
  */
 export async function getMemoryContext(
   userId: string,
   query: string,
   maxChunks: number = 5
 ): Promise<{ chunks: MemoryChunk[]; contextText: string }> {
-  const chunks = await searchMemory(userId, query, maxChunks);
-  
-  if (chunks.length === 0) {
+  try {
+    const chunks = await searchMemory(userId, query, maxChunks);
+    
+    if (chunks.length === 0) {
+      return { chunks: [], contextText: '' };
+    }
+
+    const contextText = chunks
+      .map((chunk, i) => `[Memory ${i + 1}] ${chunk.content}`)
+      .join('\n\n');
+
+    return { chunks, contextText };
+  } catch (error) {
+    // Gracefully handle missing embeddings/functions
+    // This happens when using client-side processing without vector embeddings
+    console.log('[Memory] Vector search unavailable, using soulprint only');
     return { chunks: [], contextText: '' };
   }
-
-  const contextText = chunks
-    .map((chunk, i) => `[Memory ${i + 1}] ${chunk.content}`)
-    .join('\n\n');
-
-  return { chunks, contextText };
 }

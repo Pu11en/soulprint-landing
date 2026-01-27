@@ -4,9 +4,9 @@ import {
   InvokeModelWithResponseStreamCommand,
 } from '@aws-sdk/client-bedrock-runtime';
 import { createClient } from '@/lib/supabase/server';
-import { getMemoryContext } from '@/lib/memory/query';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
-// Initialize Bedrock client
+// Initialize Bedrock client (fallback)
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.AWS_REGION || 'us-east-1',
   credentials: {
@@ -15,9 +15,66 @@ const bedrockClient = new BedrockRuntimeClient({
   },
 });
 
+function getSupabaseAdmin() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+interface UserProfile {
+  soulprint_text: string | null;
+  import_status: 'none' | 'quick_ready' | 'processing' | 'complete';
+}
+
+interface RLMResponse {
+  response: string;
+  chunks_used: number;
+  method: string;
+  latency_ms: number;
+}
+
+async function tryRLMService(
+  userId: string,
+  message: string,
+  soulprintText: string | null,
+  history: ChatMessage[]
+): Promise<RLMResponse | null> {
+  const rlmUrl = process.env.RLM_SERVICE_URL;
+  if (!rlmUrl) return null;
+
+  try {
+    console.log('[Chat] Trying RLM service...');
+    const response = await fetch(`${rlmUrl}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        message,
+        soulprint_text: soulprintText,
+        history,
+      }),
+      signal: AbortSignal.timeout(60000), // 60s timeout
+    });
+
+    if (!response.ok) {
+      console.log('[Chat] RLM service error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('[Chat] RLM success:', data.method, data.latency_ms + 'ms');
+    return data;
+  } catch (error) {
+    console.log('[Chat] RLM service unavailable:', error);
+    return null;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -47,14 +104,64 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Query memory for relevant context
-    const { chunks, contextText } = await getMemoryContext(user.id, message, 3);
-    const hasMemoryContext = chunks.length > 0;
+    // Get user profile for soulprint context
+    const adminSupabase = getSupabaseAdmin();
+    const { data: profile, error: profileError } = await adminSupabase
+      .from('user_profiles')
+      .select('soulprint_text, import_status')
+      .eq('user_id', user.id)
+      .single();
+    
+    console.log('[Chat] User:', user.id);
+    console.log('[Chat] Profile error:', profileError?.message || 'none');
+    console.log('[Chat] Has soulprint:', !!profile?.soulprint_text);
+    
+    const userProfile = profile as UserProfile | null;
+    const hasSoulprint = !!userProfile?.soulprint_text;
 
-    // Build system prompt with memory context
-    const systemPrompt = buildSystemPrompt(contextText, hasMemoryContext);
+    // Try RLM service first
+    const rlmResponse = await tryRLMService(
+      user.id,
+      message,
+      userProfile?.soulprint_text || null,
+      history
+    );
 
-    // Build conversation messages
+    if (rlmResponse) {
+      // RLM worked - return non-streaming response
+      const stream = new ReadableStream({
+        start(controller) {
+          const metadata = JSON.stringify({
+            type: 'metadata',
+            hasMemoryContext: rlmResponse.chunks_used > 0,
+            hasSoulprint,
+            method: rlmResponse.method,
+            memoryChunksUsed: rlmResponse.chunks_used,
+          }) + '\n';
+          controller.enqueue(new TextEncoder().encode(metadata));
+
+          const text = JSON.stringify({ type: 'text', text: rlmResponse.response }) + '\n';
+          controller.enqueue(new TextEncoder().encode(text));
+
+          const done = JSON.stringify({ type: 'done' }) + '\n';
+          controller.enqueue(new TextEncoder().encode(done));
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+      });
+    }
+
+    // Fallback to Bedrock streaming
+    console.log('[Chat] Falling back to Bedrock...');
+
+    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null);
+
     const messages = [
       ...history.map((msg) => ({
         role: msg.role,
@@ -66,7 +173,6 @@ export async function POST(request: NextRequest) {
       },
     ];
 
-    // Create streaming response
     const command = new InvokeModelWithResponseStreamCommand({
       modelId: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
       contentType: 'application/json',
@@ -79,16 +185,18 @@ export async function POST(request: NextRequest) {
       }),
     });
 
+    console.log('[Chat] Calling Bedrock...');
     const response = await bedrockClient.send(command);
+    console.log('[Chat] Bedrock response received');
 
-    // Create a readable stream for the response
     const stream = new ReadableStream({
       async start(controller) {
-        // Send metadata first (memory context indicator)
         const metadata = JSON.stringify({
           type: 'metadata',
-          hasMemoryContext,
-          memoryChunksUsed: chunks.length,
+          hasMemoryContext: false,
+          hasSoulprint,
+          method: 'bedrock',
+          memoryChunksUsed: 0,
         }) + '\n';
         controller.enqueue(new TextEncoder().encode(metadata));
 
@@ -116,7 +224,6 @@ export async function POST(request: NextRequest) {
           controller.enqueue(new TextEncoder().encode(errorData));
         }
 
-        // Signal completion
         const done = JSON.stringify({ type: 'done' }) + '\n';
         controller.enqueue(new TextEncoder().encode(done));
         controller.close();
@@ -139,7 +246,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function buildSystemPrompt(contextText: string, hasContext: boolean): string {
+function buildSystemPrompt(soulprintText: string | null): string {
   const basePrompt = `You are SoulPrint, an AI assistant with memory. You help users by providing personalized, contextual responses based on their conversation history and memories.
 
 Be helpful, conversational, and natural. Remember that you have access to the user's memories and past conversations - use this context to give more relevant and personalized responses.
@@ -151,13 +258,13 @@ Guidelines:
 - If you don't have relevant context, just be helpful in the moment
 - Never make up memories or context you don't have`;
 
-  if (hasContext && contextText) {
-    return `${basePrompt}
+  if (soulprintText) {
+    return basePrompt + `
 
-RELEVANT MEMORIES FROM USER'S HISTORY:
-${contextText}
+USER PROFILE (SoulPrint):
+${soulprintText}
 
-Use these memories to inform your response, but don't explicitly say "according to your memories" unless it's natural to do so. Weave the context into your response naturally.`;
+Use this context to inform your responses naturally. Don't explicitly say "according to your profile" unless it's natural to do so.`;
   }
 
   return basePrompt;
