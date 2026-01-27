@@ -25,6 +25,7 @@ export default function ChatPage() {
   const [aiAvatar, setAiAvatar] = useState<string | null>(null);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [isNamingMode, setIsNamingMode] = useState(false);
+  const [isAvatarPromptMode, setIsAvatarPromptMode] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameInput, setRenameInput] = useState('');
   
@@ -173,8 +174,8 @@ export default function ChatPage() {
     }
   };
 
-  // Function to generate avatar
-  const generateAvatar = async (customPrompt?: string) => {
+  // Function to generate avatar - returns true on success, false on failure
+  const generateAvatar = async (customPrompt?: string): Promise<boolean> => {
     setIsGeneratingAvatar(true);
     try {
       const res = await fetch('/api/profile/ai-avatar', {
@@ -185,11 +186,14 @@ export default function ChatPage() {
       if (res.ok) {
         const data = await res.json();
         setAiAvatar(data.avatarUrl);
+        setIsGeneratingAvatar(false);
+        return true;
       }
     } catch {
       console.error('Failed to generate avatar');
     }
     setIsGeneratingAvatar(false);
+    return false;
   };
 
   useEffect(() => {
@@ -218,15 +222,13 @@ export default function ChatPage() {
           }
         }
 
-        // Load avatar
+        // Load avatar (if exists)
         if (avatarRes.ok) {
           const avatarData = await avatarRes.json();
           if (avatarData.avatarUrl) {
             setAiAvatar(avatarData.avatarUrl);
-          } else {
-            // No avatar - generate one automatically
-            generateAvatar();
           }
+          // Don't auto-generate - user must say yes when prompted
         }
 
         // Load chat history
@@ -291,21 +293,19 @@ export default function ChatPage() {
           const data = await res.json();
           setAiName(data.aiName);
           setIsNamingMode(false);
+          setIsAvatarPromptMode(true);
           
-          // Add confirmation message
+          // Ask about creating avatar
           setMessages(prev => [...prev, { 
             id: (Date.now() + 1).toString(), 
             role: 'assistant', 
-            content: `${data.aiName}. I like it! 💫\n\nI'm ready when you are. I've got your memories loaded — ask me anything, or just tell me what's on your mind.`
+            content: `${data.aiName}. I like it! 💫\n\nWant me to create my own look?`
           }]);
-          
-          // Generate avatar for the new AI
-          generateAvatar();
           
           // Save the intro messages to history
           saveMessage('assistant', "Hey! I'm your new AI — built from your memories and conversations. Before we get started, I need a name. What would you like to call me?");
           saveMessage('user', userContent);
-          saveMessage('assistant', `${data.aiName}. I like it! 💫\n\nI'm ready when you are. I've got your memories loaded — ask me anything, or just tell me what's on your mind.`);
+          saveMessage('assistant', `${data.aiName}. I like it! 💫\n\nWant me to create my own look?`);
         } else {
           setMessages(prev => [...prev, { 
             id: (Date.now() + 1).toString(), 
@@ -320,6 +320,56 @@ export default function ChatPage() {
           content: "Something went wrong. Try giving me a name again?"
         }]);
       }
+      setIsLoading(false);
+      return;
+    }
+
+    // Handle avatar prompt mode
+    if (isAvatarPromptMode) {
+      const answer = userContent.toLowerCase();
+      const isYes = answer.includes('yes') || answer.includes('yeah') || answer.includes('sure') || answer.includes('ok') || answer.includes('yep') || answer.includes('yea') || answer.includes('go ahead') || answer === 'y';
+      
+      setIsAvatarPromptMode(false);
+      
+      if (isYes) {
+        // Generate avatar
+        setMessages(prev => [...prev, { 
+          id: (Date.now() + 1).toString(), 
+          role: 'assistant', 
+          content: `Give me a moment... ✨`
+        }]);
+        saveMessage('user', userContent);
+        saveMessage('assistant', `Give me a moment... ✨`);
+        
+        const success = await generateAvatar();
+        
+        if (success) {
+          setMessages(prev => [...prev, { 
+            id: (Date.now() + 2).toString(), 
+            role: 'assistant', 
+            content: `There we go! That's me now. 😊\n\nI'm ready when you are. I've got your memories loaded — ask me anything, or just tell me what's on your mind.`
+          }]);
+          saveMessage('assistant', `There we go! That's me now. 😊\n\nI'm ready when you are. I've got your memories loaded — ask me anything, or just tell me what's on your mind.`);
+        } else {
+          setMessages(prev => [...prev, { 
+            id: (Date.now() + 2).toString(), 
+            role: 'assistant', 
+            content: `Hmm, something went wrong with my look. Say "try again" if you want me to give it another shot, or we can just skip it for now.`
+          }]);
+          saveMessage('assistant', `Hmm, something went wrong with my look. Say "try again" if you want me to give it another shot, or we can just skip it for now.`);
+          setIsAvatarPromptMode(true); // Stay in mode to handle retry
+        }
+      } else {
+        // Skip avatar
+        setMessages(prev => [...prev, { 
+          id: (Date.now() + 1).toString(), 
+          role: 'assistant', 
+          content: `No problem! I'm ready when you are. I've got your memories loaded — ask me anything, or just tell me what's on your mind.`
+        }]);
+        saveMessage('user', userContent);
+        saveMessage('assistant', `No problem! I'm ready when you are. I've got your memories loaded — ask me anything, or just tell me what's on your mind.`);
+      }
+      
       setIsLoading(false);
       return;
     }
