@@ -57,7 +57,9 @@ export async function POST(request: Request) {
 
     if (jobError || !importJob) {
       console.error('[Import] Failed to create job:', jobError);
-      return NextResponse.json({ error: 'Failed to create import job' }, { status: 500 });
+      return NextResponse.json({ 
+        error: `Failed to create import job: ${jobError?.message || jobError?.code || 'Unknown error'}` 
+      }, { status: 500 });
     }
 
     // Trigger processing with just the path (fire and forget)
