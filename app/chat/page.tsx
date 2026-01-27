@@ -25,9 +25,35 @@ export default function ChatPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
   };
+
+  // Handle iOS keyboard - keep input visible
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.visualViewport && containerRef.current) {
+        const viewport = window.visualViewport;
+        containerRef.current.style.height = `${viewport.height}px`;
+        scrollToBottom();
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      window.visualViewport.addEventListener('scroll', handleResize);
+      handleResize();
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+        window.visualViewport.removeEventListener('scroll', handleResize);
+      }
+    };
+  }, []);
 
   const startListening = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,7 +192,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="bg-[#0e0e0e] text-white h-[100dvh] flex flex-col overflow-hidden">
+    <div ref={containerRef} className="bg-[#0e0e0e] text-white h-[100dvh] flex flex-col overflow-hidden">
       {/* Fixed Header - Telegram style */}
       <header className="flex-shrink-0 bg-[#1c1c1d]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center px-4 h-16">
@@ -238,7 +264,7 @@ export default function ChatPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onFocus={scrollToBottom}
+              onFocus={() => setTimeout(scrollToBottom, 300)}
               placeholder={isListening ? "Listening..." : "Message"}
               className="flex-1 h-11 bg-transparent text-[16px] outline-none placeholder:text-white/30"
               autoComplete="off"
