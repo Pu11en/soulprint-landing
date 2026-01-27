@@ -148,10 +148,10 @@ export default function UploadPage() {
             </p>
           )}
           <button
-            onClick={() => router.push("/chat")}
+            onClick={() => router.push("/onboarding/name")}
             className="w-full max-w-xs h-12 bg-[#EA580C] hover:bg-[#d14d0a] text-white font-medium rounded-xl transition-all active:scale-[0.98]"
           >
-            Continue to Chat
+            Continue
           </button>
         </div>
       )}
