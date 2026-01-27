@@ -9,7 +9,7 @@ import JSZip from "jszip";
 type ImportStatus = "idle" | "extracting" | "uploading" | "processing" | "complete" | "error";
 type ImportMethod = "upload" | "email";
 
-const IMPORT_EMAIL = "drew@arcaforge.com";
+const IMPORT_EMAIL = "drew@archeforge.com";
 
 export default function ImportPage() {
   const router = useRouter();
