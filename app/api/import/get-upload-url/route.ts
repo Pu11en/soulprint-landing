@@ -1,21 +1,23 @@
 /**
- * Generate signed upload URL for direct Supabase Storage upload
- * Bypasses Vercel's body size limits
+ * Generate signed upload URL for direct R2 Storage upload
+ * Handles files of any size (no limit)
  */
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export const runtime = 'nodejs';
 
-function getSupabaseAdmin() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-}
+const R2 = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+});
 
 export async function POST(request: Request) {
   try {
@@ -34,55 +36,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Filename required' }, { status: 400 });
     }
 
-    const adminSupabase = getSupabaseAdmin();
-    
     // Create unique path for this upload
     const timestamp = Date.now();
     const safeName = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
     const path = `imports/${user.id}/${timestamp}-${safeName}`;
 
-    // Create signed upload URL (valid for 10 minutes)
-    const { data, error } = await adminSupabase.storage
-      .from('uploads')
-      .createSignedUploadUrl(path);
+    // Create signed upload URL (valid for 30 minutes)
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: path,
+      ContentType: 'application/zip',
+    });
 
-    if (error) {
-      console.error('[Upload URL] Error creating signed URL:', error);
-      
-      // If bucket doesn't exist, try to create it
-      if (error.message?.includes('not found') || error.message?.includes('Bucket')) {
-        const { error: bucketError } = await adminSupabase.storage.createBucket('uploads', {
-          public: false,
-          fileSizeLimit: 500 * 1024 * 1024, // 500MB
-        });
-        
-        if (bucketError && !bucketError.message?.includes('already exists')) {
-          console.error('[Upload URL] Failed to create bucket:', bucketError);
-          return NextResponse.json({ error: 'Storage not configured' }, { status: 500 });
-        }
-        
-        // Retry creating signed URL
-        const retry = await adminSupabase.storage
-          .from('uploads')
-          .createSignedUploadUrl(path);
-          
-        if (retry.error) {
-          return NextResponse.json({ error: 'Failed to create upload URL' }, { status: 500 });
-        }
-        
-        return NextResponse.json({
-          uploadUrl: retry.data.signedUrl,
-          token: retry.data.token,
-          path,
-        });
-      }
-      
-      return NextResponse.json({ error: 'Failed to create upload URL' }, { status: 500 });
-    }
+    const uploadUrl = await getSignedUrl(R2, command, { expiresIn: 1800 });
 
     return NextResponse.json({
-      uploadUrl: data.signedUrl,
-      token: data.token,
+      uploadUrl,
       path,
     });
 

@@ -1,10 +1,12 @@
 /**
  * Import Process Endpoint
- * Downloads ZIP and extracts only conversations.json
+ * Downloads from R2 and processes - handles any file size
  */
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import JSZip from 'jszip';
 import { chunkConversations } from '@/lib/import/chunker';
 import { embedChunks, storeChunks } from '@/lib/import/embedder';
@@ -19,6 +21,15 @@ interface ProcessRequest {
   storagePath: string;
 }
 
+const R2 = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+});
+
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,11 +38,15 @@ function getSupabaseAdmin() {
   );
 }
 
-/**
- * Download and parse only conversations.json from ZIP
- */
-async function downloadAndParseConversations(signedUrl: string): Promise<ParsedConversation[]> {
-  // Download the ZIP
+async function downloadAndParseConversations(storagePath: string): Promise<ParsedConversation[]> {
+  // Get signed URL for download
+  const command = new GetObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: storagePath,
+  });
+  const signedUrl = await getSignedUrl(R2, command, { expiresIn: 600 });
+  
+  // Download
   const response = await fetch(signedUrl);
   if (!response.ok) {
     throw new Error(`Download failed: ${response.status}`);
@@ -40,7 +55,7 @@ async function downloadAndParseConversations(signedUrl: string): Promise<ParsedC
   const arrayBuffer = await response.arrayBuffer();
   console.log(`Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
   
-  // Load ZIP (JSZip handles this efficiently)
+  // Load ZIP
   const zip = await JSZip.loadAsync(arrayBuffer);
   
   // Extract only conversations.json
@@ -52,9 +67,20 @@ async function downloadAndParseConversations(signedUrl: string): Promise<ParsedC
   const conversationsJson = await conversationsFile.async('string');
   console.log(`conversations.json: ${(conversationsJson.length / 1024 / 1024).toFixed(1)}MB`);
   
-  // Parse
   const raw: ChatGPTConversation[] = JSON.parse(conversationsJson);
   return raw.map(parseConversation).filter(c => c.messages.length > 0);
+}
+
+async function deleteFromR2(storagePath: string) {
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: storagePath,
+    });
+    await R2.send(command);
+  } catch (e) {
+    console.error('R2 cleanup error:', e);
+  }
 }
 
 function parseConversation(raw: ChatGPTConversation): ParsedConversation {
@@ -158,23 +184,13 @@ export async function POST(request: Request) {
       .update({ status: 'processing' })
       .eq('id', importJobId);
     
-    // Get signed URL
-    console.log(`[Import ${importJobId}] Getting signed URL...`);
-    const { data: urlData, error: urlError } = await supabase.storage
-      .from('uploads')
-      .createSignedUrl(storagePath, 600);
-
-    if (urlError || !urlData?.signedUrl) {
-      throw new Error(`Failed to get URL: ${urlError?.message}`);
-    }
-
-    // Download and parse
-    console.log(`[Import ${importJobId}] Downloading and parsing...`);
-    const conversations = await downloadAndParseConversations(urlData.signedUrl);
+    // Download and parse from R2
+    console.log(`[Import ${importJobId}] Downloading from R2...`);
+    const conversations = await downloadAndParseConversations(storagePath);
     console.log(`[Import ${importJobId}] Found ${conversations.length} conversations`);
     
-    // Clean up storage
-    supabase.storage.from('uploads').remove([storagePath]).catch(() => {});
+    // Clean up R2
+    deleteFromR2(storagePath);
     
     if (conversations.length === 0) {
       await supabase.from('import_jobs').update({
@@ -229,7 +245,7 @@ export async function POST(request: Request) {
     }
     
     if (storagePath) {
-      supabase.storage.from('uploads').remove([storagePath]).catch(() => {});
+      deleteFromR2(storagePath);
     }
     
     return NextResponse.json(
