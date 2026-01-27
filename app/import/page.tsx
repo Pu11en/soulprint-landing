@@ -3,10 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Upload, CheckCircle, AlertCircle, ChevronRight } from "lucide-react";
+import { Loader2, Upload, CheckCircle, AlertCircle, ChevronRight, Mail } from "lucide-react";
 import JSZip from "jszip";
 
 type ImportStatus = "idle" | "extracting" | "uploading" | "processing" | "complete" | "error";
+type ImportMethod = "upload" | "email";
+
+const IMPORT_EMAIL = "drew@arcaforge.com";
 
 export default function ImportPage() {
   const router = useRouter();
@@ -16,6 +19,8 @@ export default function ImportPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState("");
   const [stats, setStats] = useState<{ conversations: number; messages: number } | null>(null);
+  const [importMethod, setImportMethod] = useState<ImportMethod>("upload");
+  const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -31,8 +36,14 @@ export default function ImportPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.name.endsWith(".zip")) {
-        setError("Please select a ZIP file");
+      if (!file.name.endsWith(".zip") && !file.name.endsWith(".json")) {
+        setError("Please select a ZIP or JSON file");
+        return;
+      }
+      // Check file size - warn if over 50MB
+      if (file.size > 50 * 1024 * 1024) {
+        setError("File too large for browser upload. Please use the email method instead.");
+        setImportMethod("email");
         return;
       }
       setSelectedFile(file);
@@ -41,6 +52,11 @@ export default function ImportPage() {
   };
 
   const extractConversationsFromZip = async (file: File): Promise<string> => {
+    // If it's a JSON file, read it directly
+    if (file.name.endsWith(".json")) {
+      return await file.text();
+    }
+    
     const zip = new JSZip();
     const contents = await zip.loadAsync(file);
     const conversationsFile = contents.file("conversations.json");
@@ -110,7 +126,7 @@ export default function ImportPage() {
             "Open chat.openai.com",
             "Go to Settings → Data Controls",
             "Click Export Data",
-            "Download ZIP from email"
+            "Wait for email from OpenAI"
           ].map((step, i) => (
             <div key={i} className="flex items-start gap-3">
               <span className="w-5 h-5 rounded-full bg-[#EA580C]/20 text-[#EA580C] text-xs font-medium flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -121,6 +137,34 @@ export default function ImportPage() {
           ))}
         </div>
       </div>
+
+      {/* Method selector */}
+      {status === "idle" && (
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setImportMethod("upload")}
+            className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+              importMethod === "upload"
+                ? "bg-[#EA580C] text-white"
+                : "bg-[#141414] text-gray-400"
+            }`}
+          >
+            <Upload className="w-4 h-4 inline mr-2" />
+            Direct Upload
+          </button>
+          <button
+            onClick={() => setImportMethod("email")}
+            className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+              importMethod === "email"
+                ? "bg-[#EA580C] text-white"
+                : "bg-[#141414] text-gray-400"
+            }`}
+          >
+            <Mail className="w-4 h-4 inline mr-2" />
+            Forward Email
+          </button>
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -149,13 +193,13 @@ export default function ImportPage() {
         </div>
       )}
 
-      {/* File picker */}
-      {(status === "idle" || status === "error") && (
+      {/* Upload method */}
+      {importMethod === "upload" && (status === "idle" || status === "error") && (
         <div className="flex-1 flex flex-col">
           <input
             ref={fileInputRef}
             type="file"
-            accept=".zip"
+            accept=".zip,.json"
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -163,7 +207,7 @@ export default function ImportPage() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 min-h-[200px] border-2 border-dashed border-[#222] rounded-2xl flex flex-col items-center justify-center gap-4 active:border-[#EA580C]/50 active:bg-[#EA580C]/5 transition-all"
+            className="flex-1 min-h-[160px] border-2 border-dashed border-[#222] rounded-2xl flex flex-col items-center justify-center gap-4 active:border-[#EA580C]/50 active:bg-[#EA580C]/5 transition-all"
           >
             {selectedFile ? (
               <>
@@ -184,8 +228,8 @@ export default function ImportPage() {
                   <Upload className="w-6 h-6 text-[#EA580C]" />
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-medium text-white">Select ZIP file</p>
-                  <p className="text-xs text-gray-500 mt-1">Tap to browse</p>
+                  <p className="text-sm font-medium text-white">Select ZIP or JSON file</p>
+                  <p className="text-xs text-gray-500 mt-1">Works best for files under 50MB</p>
                 </div>
               </>
             )}
@@ -208,6 +252,60 @@ export default function ImportPage() {
             >
               Skip for now
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Email method */}
+      {importMethod === "email" && status === "idle" && (
+        <div className="flex-1 flex flex-col">
+          <div className="bg-[#141414] rounded-2xl p-5 mb-6">
+            <h3 className="text-sm font-medium text-white mb-3">For large exports (over 50MB)</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Forward the export email from OpenAI directly to us. Make sure to forward from the same email you signed up with.
+            </p>
+            
+            <div className="bg-[#0a0a0a] rounded-xl p-4 border border-[#222]">
+              <p className="text-xs text-gray-500 mb-1">Forward to:</p>
+              <p className="text-lg font-mono text-[#EA580C] select-all">{IMPORT_EMAIL}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3 mt-auto">
+            {!emailSent ? (
+              <button
+                onClick={() => setEmailSent(true)}
+                className="w-full h-12 bg-[#EA580C] hover:bg-[#d14d0a] text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              >
+                I&apos;ve forwarded the email
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
+                <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                <p className="text-sm text-green-400 font-medium">Got it!</p>
+                <p className="text-xs text-gray-500 mt-1">We&apos;ll process your data and notify you when ready.</p>
+              </div>
+            )}
+            
+            {emailSent && (
+              <button
+                onClick={() => router.push("/chat")}
+                className="w-full h-12 bg-[#EA580C] hover:bg-[#d14d0a] text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              >
+                Continue to Chat
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+
+            {!emailSent && (
+              <button
+                onClick={() => router.push("/chat")}
+                className="w-full h-12 text-gray-500 text-sm"
+              >
+                Skip for now
+              </button>
+            )}
           </div>
         </div>
       )}

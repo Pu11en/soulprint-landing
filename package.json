@@ -44,6 +44,7 @@
     "figma-mcp-server": "^2.0.1",
     "figma-to-code": "^1.0.8",
     "framer-motion": "^11.11.17",
+    "googleapis": "^170.1.0",
     "hark": "^1.2.3",
     "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
