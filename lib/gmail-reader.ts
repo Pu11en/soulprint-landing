@@ -1,6 +1,7 @@
 /**
  * Gmail Reader for ChatGPT Export Import
- * Reads forwarded emails with ZIP attachments and extracts conversations.json
+ * Reads forwarded emails containing OpenAI export download links
+ * and fetches the ZIP to extract conversations.json
  */
 
 import { google } from 'googleapis';
@@ -17,39 +18,41 @@ oauth2Client.setCredentials({
 
 const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-export interface EmailWithAttachment {
+export interface EmailWithExportLink {
   messageId: string;
   from: string;
   subject: string;
   date: Date;
-  attachmentId: string;
-  attachmentFilename: string;
+  downloadUrl: string;
+  forwarderEmail: string;
 }
 
 export interface ExtractedConversations {
-  email: EmailWithAttachment;
+  email: EmailWithExportLink;
   conversationsJson: string;
   senderEmail: string;
 }
 
 /**
- * Find recent emails with ZIP attachments (likely ChatGPT exports)
+ * Find recent emails containing ChatGPT export download links
  */
-export async function findEmailsWithZipAttachments(
-  maxResults: number = 10,
+export async function findEmailsWithExportLinks(
+  maxResults: number = 20,
   afterDate?: Date
-): Promise<EmailWithAttachment[]> {
-  const emails: EmailWithAttachment[] = [];
+): Promise<EmailWithExportLink[]> {
+  const emails: EmailWithExportLink[] = [];
 
-  // Build search query - look for emails with attachments
-  let query = 'has:attachment filename:zip';
+  // Search for emails mentioning OpenAI data export
+  // This catches both direct emails from OpenAI and forwarded ones
+  let query = '(from:openai OR subject:"data export" OR subject:"export" OR "chat.openai.com" OR "Your data export")';
   if (afterDate) {
     const dateStr = afterDate.toISOString().split('T')[0].replace(/-/g, '/');
     query += ` after:${dateStr}`;
   }
 
+  console.log('📧 [Gmail] Searching with query:', query);
+
   try {
-    // List messages matching query
     const listResponse = await gmail.users.messages.list({
       userId: 'me',
       q: query,
@@ -57,11 +60,12 @@ export async function findEmailsWithZipAttachments(
     });
 
     const messages = listResponse.data.messages || [];
+    console.log(`📧 [Gmail] Found ${messages.length} potential emails`);
 
     for (const msg of messages) {
       if (!msg.id) continue;
 
-      // Get full message details
+      // Get full message with body
       const fullMessage = await gmail.users.messages.get({
         userId: 'me',
         id: msg.id,
@@ -73,77 +77,125 @@ export async function findEmailsWithZipAttachments(
       const subject = headers.find(h => h.name?.toLowerCase() === 'subject')?.value || '';
       const dateHeader = headers.find(h => h.name?.toLowerCase() === 'date')?.value;
 
-      // Find ZIP attachments
-      const parts = fullMessage.data.payload?.parts || [];
-      for (const part of parts) {
-        if (part.filename?.endsWith('.zip') && part.body?.attachmentId) {
-          emails.push({
-            messageId: msg.id,
-            from,
-            subject,
-            date: dateHeader ? new Date(dateHeader) : new Date(),
-            attachmentId: part.body.attachmentId,
-            attachmentFilename: part.filename,
-          });
-        }
-      }
-
-      // Also check nested parts (for multipart messages)
-      for (const part of parts) {
-        if (part.parts) {
-          for (const nestedPart of part.parts) {
-            if (nestedPart.filename?.endsWith('.zip') && nestedPart.body?.attachmentId) {
-              emails.push({
-                messageId: msg.id,
-                from,
-                subject,
-                date: dateHeader ? new Date(dateHeader) : new Date(),
-                attachmentId: nestedPart.body.attachmentId,
-                attachmentFilename: nestedPart.filename,
-              });
-            }
-          }
-        }
+      // Extract email body
+      const body = extractEmailBody(fullMessage.data.payload);
+      
+      // Look for OpenAI download links in the body
+      const downloadUrl = extractOpenAIDownloadLink(body);
+      
+      if (downloadUrl) {
+        console.log(`📧 [Gmail] Found download link in: ${subject}`);
+        
+        // Get the forwarder's email (the person who forwarded it to us)
+        const forwarderEmail = extractEmailAddress(from);
+        
+        emails.push({
+          messageId: msg.id,
+          from,
+          subject,
+          date: dateHeader ? new Date(dateHeader) : new Date(),
+          downloadUrl,
+          forwarderEmail,
+        });
       }
     }
 
+    console.log(`📧 [Gmail] Found ${emails.length} emails with export links`);
     return emails;
   } catch (error) {
-    console.error('Error fetching emails:', error);
+    console.error('📧 [Gmail] Error fetching emails:', error);
     throw error;
   }
+}
+
+/**
+ * Extract email body from message payload
+ */
+function extractEmailBody(payload: any): string {
+  let body = '';
+
+  if (payload.body?.data) {
+    body += Buffer.from(payload.body.data, 'base64').toString('utf-8');
+  }
+
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      if (part.mimeType === 'text/plain' && part.body?.data) {
+        body += Buffer.from(part.body.data, 'base64').toString('utf-8');
+      } else if (part.mimeType === 'text/html' && part.body?.data) {
+        body += Buffer.from(part.body.data, 'base64').toString('utf-8');
+      } else if (part.parts) {
+        // Recursive for nested multipart
+        body += extractEmailBody(part);
+      }
+    }
+  }
+
+  return body;
+}
+
+/**
+ * Extract OpenAI data export download link from email body
+ */
+function extractOpenAIDownloadLink(body: string): string | null {
+  // OpenAI export links look like:
+  // https://chat.openai.com/export/download/...
+  // or might be in an anchor tag
+  
+  const patterns = [
+    // Direct URL pattern
+    /https:\/\/chat\.openai\.com\/[^\s"'<>]+download[^\s"'<>]*/gi,
+    // General OpenAI export pattern  
+    /https:\/\/[^"'\s<>]*openai[^"'\s<>]*export[^"'\s<>]*/gi,
+    // Href pattern in HTML
+    /href=["']?(https:\/\/[^"'\s<>]*openai[^"'\s<>]*download[^"'\s<>]*)["']?/gi,
+    // Any openai.com URL with export or download
+    /https:\/\/[^"'\s<>]*\.openai\.com[^"'\s<>]*(?:export|download)[^"'\s<>]*/gi,
+  ];
+
+  for (const pattern of patterns) {
+    const matches = body.match(pattern);
+    if (matches && matches.length > 0) {
+      // Clean up the URL
+      let url = matches[0];
+      // Remove href=" prefix if present
+      url = url.replace(/^href=["']?/, '');
+      // Remove trailing quotes or brackets
+      url = url.replace(/["'>\]]+$/, '');
+      return url;
+    }
+  }
+
+  return null;
 }
 
 /**
  * Extract sender's email address from "From" header
  */
 function extractEmailAddress(from: string): string {
-  // Handle formats like "Name <email@example.com>" or just "email@example.com"
   const match = from.match(/<([^>]+)>/) || from.match(/([^\s<>]+@[^\s<>]+)/);
   return match ? match[1].toLowerCase() : from.toLowerCase();
 }
 
 /**
- * Download attachment and extract conversations.json from ZIP
+ * Download ZIP from OpenAI link and extract conversations.json
  */
 export async function extractConversationsFromEmail(
-  email: EmailWithAttachment
+  email: EmailWithExportLink
 ): Promise<ExtractedConversations | null> {
   try {
-    // Download the attachment
-    const attachment = await gmail.users.messages.attachments.get({
-      userId: 'me',
-      messageId: email.messageId,
-      id: email.attachmentId,
-    });
-
-    if (!attachment.data.data) {
-      console.error('No attachment data found');
+    console.log(`📧 [Gmail] Fetching ZIP from: ${email.downloadUrl}`);
+    
+    // Fetch the ZIP file from OpenAI
+    const response = await fetch(email.downloadUrl);
+    
+    if (!response.ok) {
+      console.error(`📧 [Gmail] Failed to fetch ZIP: ${response.status} ${response.statusText}`);
       return null;
     }
 
-    // Decode base64 attachment (Gmail uses URL-safe base64)
-    const zipBuffer = Buffer.from(attachment.data.data, 'base64');
+    const zipBuffer = await response.arrayBuffer();
+    console.log(`📧 [Gmail] Downloaded ${zipBuffer.byteLength} bytes`);
 
     // Extract conversations.json from ZIP
     const zip = new JSZip();
@@ -151,20 +203,23 @@ export async function extractConversationsFromEmail(
     
     const conversationsFile = contents.file('conversations.json');
     if (!conversationsFile) {
-      console.error('conversations.json not found in ZIP');
+      console.error('📧 [Gmail] conversations.json not found in ZIP');
+      // List files in ZIP for debugging
+      const files = Object.keys(contents.files);
+      console.log('📧 [Gmail] Files in ZIP:', files);
       return null;
     }
 
     const conversationsJson = await conversationsFile.async('text');
-    const senderEmail = extractEmailAddress(email.from);
+    console.log(`📧 [Gmail] Extracted conversations.json (${conversationsJson.length} chars)`);
 
     return {
       email,
       conversationsJson,
-      senderEmail,
+      senderEmail: email.forwarderEmail,
     };
   } catch (error) {
-    console.error('Error extracting conversations from email:', error);
+    console.error('📧 [Gmail] Error extracting conversations:', error);
     throw error;
   }
 }
@@ -174,7 +229,6 @@ export async function extractConversationsFromEmail(
  */
 export async function markEmailAsProcessed(messageId: string): Promise<void> {
   try {
-    // First, try to get or create a "SoulPrint-Processed" label
     let labelId: string | null = null;
 
     const labelsResponse = await gmail.users.labels.list({ userId: 'me' });
@@ -185,7 +239,6 @@ export async function markEmailAsProcessed(messageId: string): Promise<void> {
     if (existingLabel?.id) {
       labelId = existingLabel.id;
     } else {
-      // Create the label
       const createResponse = await gmail.users.labels.create({
         userId: 'me',
         requestBody: {
@@ -207,8 +260,7 @@ export async function markEmailAsProcessed(messageId: string): Promise<void> {
       });
     }
   } catch (error) {
-    console.error('Error marking email as processed:', error);
-    // Non-fatal - don't throw
+    console.error('📧 [Gmail] Error marking email as processed:', error);
   }
 }
 
@@ -235,3 +287,6 @@ export async function isEmailProcessed(messageId: string): Promise<boolean> {
     return false;
   }
 }
+
+// Legacy export for backwards compatibility
+export const findEmailsWithZipAttachments = findEmailsWithExportLinks;

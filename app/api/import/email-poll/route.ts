@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import {
-  findEmailsWithZipAttachments,
+  findEmailsWithExportLinks,
   extractConversationsFromEmail,
   markEmailAsProcessed,
   isEmailProcessed,
@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    console.log('📧 [Email Import] Searching for emails with ZIP attachments...');
-    const emails = await findEmailsWithZipAttachments(20, sevenDaysAgo);
-    console.log(`📧 [Email Import] Found ${emails.length} emails with ZIP attachments`);
+    console.log('📧 [Email Import] Searching for emails with export links...');
+    const emails = await findEmailsWithExportLinks(20, sevenDaysAgo);
+    console.log(`📧 [Email Import] Found ${emails.length} emails with export links`);
 
     for (const email of emails) {
       try {
