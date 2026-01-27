@@ -40,7 +40,7 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-6 py-12">
+      <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-8 py-12">
         <div className="card-elevated p-8 max-w-md w-full text-center">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 glow-orange">
             <img src="/logo.svg" alt="SoulPrint" className="w-12 h-12" />
@@ -53,7 +53,7 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-6 py-12">
+    <main className="min-h-screen bg-[#09090B] flex items-center justify-center px-8 py-12">
       {/* Ambient glow */}
       <div className="glow-ambient top-0 left-1/2 -translate-x-1/2" />
 

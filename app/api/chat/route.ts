@@ -351,7 +351,9 @@ Guidelines:
 - Cite sources when using web search information
 - Don't overwhelm with information - be concise
 - If you don't have relevant context, just be helpful in the moment
-- Never make up memories or context you don't have`;
+- Never make up memories or context you don't have
+- Avoid using emojis unless they serve as bullet points in a list
+- Keep responses clean and professional, not cluttered with emoticons`;
 
   let prompt = basePrompt;
 
