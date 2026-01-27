@@ -27,33 +27,45 @@ export default function ChatPage() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    // Scroll the messages container, not the whole page
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     }
   };
 
-  // Handle iOS keyboard - resize container to visual viewport
+  // Handle iOS keyboard - lock footer position
   useEffect(() => {
-    const handleResize = () => {
-      if (window.visualViewport && containerRef.current) {
-        const viewport = window.visualViewport;
+    const handleViewport = () => {
+      if (!window.visualViewport) return;
+      
+      const viewport = window.visualViewport;
+      
+      // Resize container to visual viewport
+      if (containerRef.current) {
         containerRef.current.style.height = `${viewport.height}px`;
-        // Small delay to let layout settle, then scroll
-        setTimeout(scrollToBottom, 50);
       }
+      
+      // Lock footer to bottom of visual viewport
+      if (footerRef.current) {
+        const bottomOffset = window.innerHeight - viewport.height - viewport.offsetTop;
+        footerRef.current.style.transform = `translateY(-${bottomOffset}px)`;
+      }
+      
+      setTimeout(scrollToBottom, 50);
     };
 
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-      handleResize();
+      window.visualViewport.addEventListener('resize', handleViewport);
+      window.visualViewport.addEventListener('scroll', handleViewport);
+      handleViewport();
     }
 
     return () => {
       if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleResize);
+        window.visualViewport.removeEventListener('resize', handleViewport);
+        window.visualViewport.removeEventListener('scroll', handleViewport);
       }
     };
   }, []);
@@ -257,6 +269,7 @@ export default function ChatPage() {
 
       {/* Input - stays at bottom */}
       <footer 
+        ref={footerRef}
         className="flex-shrink-0 bg-[#1c1c1d] border-t border-white/5 px-4 py-3" 
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
       >
