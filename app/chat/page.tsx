@@ -57,50 +57,22 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   };
 
-  // iOS keyboard handling - prevent page scroll, keep footer at bottom
+  // iOS keyboard handling
   useEffect(() => {
-    const handleViewport = () => {
+    // Use visualViewport for keyboard detection
+    const updateKeyboard = () => {
       if (window.visualViewport) {
-        const vv = window.visualViewport;
-        // Calculate keyboard height - account for viewport offset too
-        const keyboardH = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-        setKeyboardHeight(keyboardH);
-        
-        // Prevent iOS from scrolling the page
-        window.scrollTo(0, 0);
-        document.body.scrollTop = 0;
-        document.documentElement.scrollTop = 0;
+        const keyboardH = window.innerHeight - window.visualViewport.height;
+        setKeyboardHeight(Math.max(0, keyboardH));
       }
     };
 
-    // Initial check
-    handleViewport();
-
-    // Prevent any scrolling on the body
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    document.body.style.top = '0';
-    document.body.style.left = '0';
-
-    window.visualViewport?.addEventListener('resize', handleViewport);
-    window.visualViewport?.addEventListener('scroll', handleViewport);
-    
-    // Also listen for focus events on input
-    const handleFocus = () => setTimeout(handleViewport, 100);
-    inputRef.current?.addEventListener('focus', handleFocus);
+    window.visualViewport?.addEventListener('resize', updateKeyboard);
+    window.visualViewport?.addEventListener('scroll', updateKeyboard);
     
     return () => {
-      window.visualViewport?.removeEventListener('resize', handleViewport);
-      window.visualViewport?.removeEventListener('scroll', handleViewport);
-      inputRef.current?.removeEventListener('focus', handleFocus);
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
+      window.visualViewport?.removeEventListener('resize', updateKeyboard);
+      window.visualViewport?.removeEventListener('scroll', updateKeyboard);
     };
   }, []);
 
@@ -358,16 +330,17 @@ export default function ChatPage() {
   }
 
   // Calculate heights
-  const headerHeight = 64;
-  const footerHeight = 70;
   const safeAreaTop = 'env(safe-area-inset-top, 0px)';
   const safeAreaBottom = 'env(safe-area-inset-bottom, 0px)';
 
   return (
-    <div className="bg-[#0e0e0e] text-white fixed inset-0 overflow-hidden">
-      {/* Header - fixed */}
+    <div 
+      className="bg-[#0e0e0e] text-white flex flex-col"
+      style={{ height: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight}px)` : '100dvh' }}
+    >
+      {/* Header */}
       <header 
-        className="fixed top-0 left-0 right-0 bg-[#1c1c1d] z-20 border-b border-white/5"
+        className="flex-shrink-0 bg-[#1c1c1d] z-20 border-b border-white/5"
         style={{ paddingTop: safeAreaTop }}
       >
         <div className="flex items-center px-5 lg:px-8 h-16 max-w-5xl mx-auto">
@@ -413,8 +386,7 @@ export default function ChatPage() {
       {/* PWA Install Prompt - subtle bottom toast */}
       {showPwaPrompt && (
         <div 
-          className="fixed left-4 right-4 z-50 bg-[#262628] border border-white/10 rounded-2xl px-4 py-3 shadow-xl animate-in"
-          style={{ bottom: `calc(${safeAreaBottom} + ${footerHeight + 16}px + ${keyboardHeight}px)` }}
+          className="fixed left-4 right-4 z-50 bg-[#262628] border border-white/10 rounded-2xl px-4 py-3 shadow-xl animate-in bottom-24"
           onClick={() => {
             setShowPwaPrompt(false);
             localStorage.setItem('pwa-prompt-dismissed', 'true');
@@ -430,14 +402,8 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Messages - scrollable area between fixed header and footer */}
-      <main 
-        className="fixed left-0 right-0 overflow-y-auto overscroll-none px-5 lg:px-8"
-        style={{ 
-          top: `calc(${safeAreaTop} + ${headerHeight}px + ${showSettings ? 48 : 0}px)`,
-          bottom: `calc(${safeAreaBottom} + ${footerHeight}px + ${keyboardHeight}px)`
-        }}
-      >
+      {/* Messages - scrollable area */}
+      <main className="flex-1 overflow-y-auto overscroll-none px-5 lg:px-8">
         <div className="flex flex-col justify-end min-h-full">
           <div className="space-y-4 lg:space-y-6 max-w-3xl mx-auto w-full py-5 lg:py-8">
             {messages.map((msg) => (
@@ -467,13 +433,10 @@ export default function ChatPage() {
         </div>
       </main>
 
-      {/* Footer - input bar - FIXED, never moves */}
+      {/* Footer - input bar */}
       <footer 
-        className="fixed left-0 right-0 bottom-0 bg-[#1c1c1d] border-t border-white/5 px-5 lg:px-8 py-3 lg:py-4 z-20"
-        style={{ 
-          transform: `translateY(-${keyboardHeight}px)`,
-          paddingBottom: keyboardHeight > 0 ? 12 : `calc(${safeAreaBottom} + 12px)`
-        }}
+        className="flex-shrink-0 bg-[#1c1c1d] border-t border-white/5 px-5 lg:px-8 py-3 lg:py-4"
+        style={{ paddingBottom: `calc(${safeAreaBottom} + 12px)` }}
       >
         <form onSubmit={handleSubmit} className="flex items-center gap-2 lg:gap-3 max-w-3xl mx-auto">
           {/* Clear button - show when listening or has text */}
