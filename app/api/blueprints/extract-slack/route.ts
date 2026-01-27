@@ -10,9 +10,14 @@ const supabaseAdmin = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy init to avoid build-time errors
+let _openai: OpenAI | null = null;
+function getOpenAI() {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 
@@ -150,7 +155,7 @@ export async function POST(request: NextRequest) {
       `[${i + 1}] @${userMap[m.user] || m.user}: ${m.text}`
     ).join('\n\n');
 
-    const aiResponse = await openai.chat.completions.create({
+    const aiResponse = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
