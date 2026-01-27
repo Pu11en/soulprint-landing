@@ -47,8 +47,48 @@ const steps: Step[] = [
 
 type ImportStatus = 'idle' | 'uploading' | 'processing' | 'success' | 'error';
 
+function DownloadGuide() {
+  return (
+    <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-5 mt-4">
+      <h4 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+        <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Download Tips
+      </h4>
+      <div className="space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p className="text-xs text-gray-400">Keep your phone <span className="text-white">screen on</span> while downloading</p>
+        </div>
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+          <p className="text-xs text-gray-400">If paused, tap <span className="text-white">refresh ↻</span> to resume</p>
+        </div>
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-xs text-gray-400">Large exports may take <span className="text-white">5-10 minutes</span></p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ImportPage() {
   const [status, setStatus] = useState<ImportStatus>('idle');
+  const [showGuide, setShowGuide] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
@@ -177,7 +217,7 @@ export default function ImportPage() {
         </div>
 
         {/* Steps */}
-        <div className="grid md:grid-cols-3 gap-6 mb-16">
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           {steps.map((step, i) => (
             <div 
               key={i} 
@@ -209,6 +249,20 @@ export default function ImportPage() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* Help Guide Toggle */}
+        <div className="max-w-lg mx-auto mb-8">
+          <button
+            onClick={() => setShowGuide(!showGuide)}
+            className="text-sm text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-2 mx-auto"
+          >
+            <svg className={`w-4 h-4 transition-transform ${showGuide ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            {showGuide ? 'Hide' : 'Need help downloading?'}
+          </button>
+          {showGuide && <DownloadGuide />}
         </div>
 
         {/* Upload Area */}
