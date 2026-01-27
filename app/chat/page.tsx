@@ -166,58 +166,69 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="bg-black text-white min-h-screen">
-      {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#1a1a1a] border-b border-white/10" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="flex items-center justify-between px-3 h-11">
-          <Link href="/" className="p-1 text-blue-500">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    <div className="bg-[#0e0e0e] text-white min-h-screen">
+      {/* Fixed Header - Telegram style */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#1c1c1d]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="flex items-center px-4 h-14">
+          <Link href="/" className="p-2 -ml-2 text-orange-500">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
             </svg>
           </Link>
-          <div className="flex items-center gap-1.5">
-            <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-xs">🧠</div>
-            <span className="font-medium text-sm">SoulPrint</span>
+          <div className="flex-1 flex items-center gap-3 ml-2">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-lg shadow-lg">
+              🧠
+            </div>
+            <div className="flex flex-col">
+              <span className="font-semibold text-[17px] leading-tight">SoulPrint</span>
+              <span className="text-[13px] text-orange-500/80 leading-tight">
+                {isLoading ? 'typing...' : 'your memory'}
+              </span>
+            </div>
           </div>
-          <button onClick={() => setShowSettings(!showSettings)} className="p-1 text-blue-500">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+          <button onClick={() => setShowSettings(!showSettings)} className="p-2 -mr-2 text-orange-500">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01" />
             </svg>
           </button>
         </div>
         {showSettings && (
-          <div className="px-3 pb-2 flex gap-2">
-            <Link href="/import" className="flex-1 h-8 bg-white/10 rounded text-xs flex items-center justify-center">Re-import</Link>
-            <button onClick={handleSignOut} className="flex-1 h-8 bg-white/10 rounded text-red-500 text-xs">Sign Out</button>
+          <div className="px-4 pb-3 flex gap-2 border-t border-white/5 pt-2">
+            <Link href="/import" className="flex-1 h-9 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Re-import</Link>
+            <button onClick={handleSignOut} className="flex-1 h-9 bg-white/10 rounded-lg text-red-500 text-sm font-medium">Sign Out</button>
           </div>
         )}
       </header>
 
-      {/* Scrollable content - messages anchored to bottom like iMessage */}
+      {/* Scrollable content - messages anchored to bottom */}
       <main 
-        className="flex flex-col min-h-screen px-3" 
+        className="flex flex-col min-h-screen px-2" 
         style={{ 
-          paddingTop: 'calc(env(safe-area-inset-top) + 52px)', 
-          paddingBottom: 'calc(env(safe-area-inset-bottom) + 56px)' 
+          paddingTop: 'calc(env(safe-area-inset-top) + 60px)', 
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + 60px)' 
         }}
       >
-        <div className="flex-1" /> {/* Spacer pushes messages down */}
-        <div className="space-y-2 max-w-xl mx-auto w-full">
+        <div className="flex-1" />
+        <div className="space-y-1 max-w-2xl mx-auto w-full py-2">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] px-3 py-1.5 text-sm leading-snug ${
-                msg.role === 'user' ? 'bg-blue-500 rounded-2xl rounded-br-sm' : 'bg-zinc-800 rounded-2xl rounded-bl-sm'
-              }`}>
+              <div 
+                className={`max-w-[85%] px-3.5 py-2 text-[15px] leading-relaxed shadow-sm ${
+                  msg.role === 'user' 
+                    ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-[20px] rounded-br-[4px]' 
+                    : 'bg-[#262628] text-white/90 rounded-[20px] rounded-bl-[4px]'
+                }`}
+              >
                 {msg.content}
               </div>
             </div>
           ))}
-          {isLoading && (
+          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
             <div className="flex justify-start">
-              <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-3 py-2 flex gap-1">
-                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" />
-                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+              <div className="bg-[#262628] rounded-[20px] rounded-bl-[4px] px-4 py-3 flex gap-1.5">
+                <span className="w-2 h-2 bg-orange-500/60 rounded-full animate-bounce" />
+                <span className="w-2 h-2 bg-orange-500/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                <span className="w-2 h-2 bg-orange-500/60 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
               </div>
             </div>
           )}
@@ -225,32 +236,46 @@ export default function ChatPage() {
         </div>
       </main>
 
-      {/* Fixed Input */}
-      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-[#1a1a1a] border-t border-white/10 px-3 py-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}>
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-xl mx-auto">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onFocus={scrollToBottom}
-            placeholder={isListening ? "Listening..." : "Message"}
-            className={`flex-1 h-9 bg-zinc-800 rounded-full px-3 text-sm outline-none placeholder:text-zinc-500 ${isListening ? 'ring-2 ring-orange-500' : ''}`}
-            style={{ fontSize: '16px' }}
-            autoComplete="off"
-            enterKeyHint="send"
-          />
+      {/* Fixed Input - Telegram style */}
+      <footer 
+        className="fixed bottom-0 left-0 right-0 z-50 bg-[#1c1c1d] border-t border-white/5 px-2 py-2" 
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
+      >
+        <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-2xl mx-auto">
+          <div className={`flex-1 flex items-center bg-[#2c2c2e] rounded-full px-4 transition-all ${isListening ? 'ring-2 ring-orange-500/50' : ''}`}>
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onFocus={scrollToBottom}
+              placeholder={isListening ? "Listening..." : "Message"}
+              className="flex-1 h-11 bg-transparent text-[16px] outline-none placeholder:text-white/30"
+              autoComplete="off"
+              enterKeyHint="send"
+            />
+          </div>
           {input.trim() ? (
-            <button type="submit" disabled={isLoading} className="w-9 h-9 rounded-full bg-orange-500 disabled:opacity-40 flex items-center justify-center">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            <button 
+              type="submit" 
+              disabled={isLoading} 
+              className="w-11 h-11 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 disabled:opacity-40 flex items-center justify-center shadow-lg shadow-orange-500/20 active:scale-95 transition-transform"
+            >
+              <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+              </svg>
             </button>
           ) : (
             <button 
               type="button" 
               onClick={isListening ? stopListening : startListening}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${isListening ? 'bg-red-500 animate-pulse' : 'bg-zinc-700'}`}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 ${
+                isListening 
+                  ? 'bg-red-500 shadow-lg shadow-red-500/30 animate-pulse' 
+                  : 'bg-[#2c2c2e] text-white/60'
+              }`}
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 1.93c-3.94-.49-7-3.85-7-7.93h2c0 3.31 2.69 6 6 6s6-2.69 6-6h2c0 4.08-3.06 7.44-7 7.93V19h4v2H8v-2h4v-3.07z"/>
               </svg>
             </button>
