@@ -409,10 +409,10 @@ export default function ChatPage() {
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div 
-                  className={`max-w-[88%] sm:max-w-[80%] lg:max-w-[75%] px-4 sm:px-5 py-3 sm:py-4 text-[15px] sm:text-[16px] leading-relaxed tracking-[-0.01em] whitespace-pre-wrap text-center ${
+                  className={`max-w-[88%] sm:max-w-[80%] lg:max-w-[75%] px-4 sm:px-5 py-3 sm:py-4 text-[15px] sm:text-[16px] leading-relaxed tracking-[-0.01em] whitespace-pre-wrap ${
                     msg.role === 'user' 
-                      ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-2xl rounded-br-md' 
-                      : 'bg-[#1e1e1e] text-white/90 rounded-2xl rounded-bl-md border border-white/[0.06]'
+                      ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-2xl rounded-br-md text-left' 
+                      : 'bg-[#1e1e1e] text-white/90 rounded-2xl rounded-bl-md border border-white/[0.06] text-center'
                   }`}
                 >
                   {msg.content}
