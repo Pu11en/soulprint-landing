@@ -53,47 +53,71 @@ export default function ImportPage() {
     }
 
     setStatus('uploading');
-    setProgress(10);
+    setProgress(5);
 
     try {
-      // Use FormData for streaming upload (doesn't crash on large files)
-      const formData = new FormData();
-      formData.append('file', file);
+      // Step 1: Get signed upload URL from our API
+      const urlRes = await fetch('/api/import/get-upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name }),
+      });
 
+      if (!urlRes.ok) {
+        const data = await urlRes.json();
+        throw new Error(data.error || 'Failed to get upload URL');
+      }
+
+      const { uploadUrl, path } = await urlRes.json();
+      setProgress(10);
+
+      // Step 2: Upload directly to Supabase Storage (bypasses Vercel limit)
       const xhr = new XMLHttpRequest();
       
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          setProgress(10 + (e.loaded / e.total) * 70);
-        }
-      };
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          setProgress(100);
-          setStatus('success');
-        } else {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            setErrorMessage(data.error || 'Upload failed');
-          } catch {
-            setErrorMessage('Upload failed');
+      await new Promise<void>((resolve, reject) => {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            // 10-80% is upload progress
+            setProgress(10 + (e.loaded / e.total) * 70);
           }
-          setStatus('error');
-        }
-      };
+        };
 
-      xhr.onerror = () => {
-        setErrorMessage('Network error - please try again');
-        setStatus('error');
-      };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed: ${xhr.status}`));
+          }
+        };
 
-      xhr.open('POST', '/api/import/upload');
-      xhr.send(formData);
-      
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+
+        xhr.open('PUT', uploadUrl);
+        xhr.setRequestHeader('Content-Type', 'application/zip');
+        xhr.send(file);
+      });
+
+      setProgress(85);
       setStatus('processing');
+
+      // Step 3: Tell our API to process the uploaded file
+      const processRes = await fetch('/api/import/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storagePath: path }),
+      });
+
+      if (!processRes.ok) {
+        const data = await processRes.json();
+        throw new Error(data.error || 'Processing failed');
+      }
+
+      setProgress(100);
+      setStatus('success');
+
     } catch (err) {
-      setErrorMessage('Failed to upload file');
+      console.error('Upload error:', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Upload failed');
       setStatus('error');
     }
   };

@@ -1,6 +1,5 @@
 /**
- * Direct ZIP upload endpoint for ChatGPT exports
- * Uses FormData for streaming large files
+ * Trigger import processing after file uploaded to Supabase Storage
  */
 
 import { NextResponse } from 'next/server';
@@ -8,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
-export const maxDuration = 300; // 5 minutes for large files
+export const maxDuration = 300;
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -28,21 +27,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // Parse multipart form data
-    const formData = await request.formData();
-    const file = formData.get('file') as File | null;
+    const body = await request.json();
+    const { storagePath } = body;
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    if (!storagePath) {
+      return NextResponse.json({ error: 'Storage path required' }, { status: 400 });
     }
 
-    if (!file.name.endsWith('.zip')) {
-      return NextResponse.json({ error: 'Please upload a ZIP file' }, { status: 400 });
+    // Verify the path belongs to this user
+    if (!storagePath.includes(user.id)) {
+      return NextResponse.json({ error: 'Invalid storage path' }, { status: 403 });
     }
 
-    console.log(`[Import Upload] Processing ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) for user ${user.id}`);
+    console.log(`[Import] Processing file at ${storagePath} for user ${user.id}`);
     
     const adminSupabase = getSupabaseAdmin();
+
+    // Verify file exists
+    const { data: fileData, error: downloadError } = await adminSupabase.storage
+      .from('uploads')
+      .download(storagePath);
+
+    if (downloadError || !fileData) {
+      console.error('[Import] File not found:', downloadError);
+      return NextResponse.json({ error: 'File not found in storage' }, { status: 404 });
+    }
+
+    console.log(`[Import] File verified: ${(fileData.size / 1024 / 1024).toFixed(1)}MB`);
 
     // Create import job
     const { data: importJob, error: jobError } = await adminSupabase
@@ -57,19 +68,15 @@ export async function POST(request: Request) {
       .single();
 
     if (jobError || !importJob) {
-      console.error('[Import Upload] Failed to create job:', jobError);
-      return NextResponse.json({ 
-        error: 'Failed to create import job' 
-      }, { status: 500 });
+      console.error('[Import] Failed to create job:', jobError);
+      return NextResponse.json({ error: 'Failed to create import job' }, { status: 500 });
     }
 
-    console.log(`[Import Upload] Created job ${importJob.id}`);
-
-    // Read file as buffer and convert to base64 for processing
-    const arrayBuffer = await file.arrayBuffer();
+    // Convert to base64 for processing
+    const arrayBuffer = await fileData.arrayBuffer();
     const zipBase64 = Buffer.from(arrayBuffer).toString('base64');
 
-    // Trigger processing (fire and forget for faster response)
+    // Trigger processing
     const processUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/import/process`;
     
     fetch(processUrl, {
@@ -83,7 +90,13 @@ export async function POST(request: Request) {
         userId: user.id,
         zipBase64,
       }),
-    }).catch(e => console.error('[Import Upload] Process trigger error:', e));
+    }).catch(e => console.error('[Import] Process trigger error:', e));
+
+    // Clean up storage file (fire and forget)
+    adminSupabase.storage
+      .from('uploads')
+      .remove([storagePath])
+      .catch(e => console.error('[Import] Cleanup error:', e));
 
     return NextResponse.json({ 
       success: true,
@@ -92,7 +105,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('[Import Upload] Error:', error);
+    console.error('[Import] Error:', error);
     return NextResponse.json({ 
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
