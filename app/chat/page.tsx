@@ -10,21 +10,50 @@ type Message = {
   memoriesUsed?: number;
 };
 
-const initialMessages: Message[] = [
-  {
+type MemoryStatus = 'loading' | 'none' | 'pending' | 'ready';
+
+const getInitialMessage = (status: MemoryStatus): Message => {
+  if (status === 'ready') {
+    return {
+      id: '1',
+      role: 'assistant',
+      content: "Hey! I've got your memory loaded — I know your context, preferences, and history. What would you like to talk about?",
+      memoriesUsed: 0,
+    };
+  }
+  return {
     id: '1',
     role: 'assistant',
-    content: "Hey! I'm your AI with memory. I can recall your past conversations and context to give you more personalized help. What would you like to talk about?",
+    content: "Hey! I'm your AI with memory. Once your ChatGPT export arrives, I'll know everything about you. For now, let's chat — I'm still helpful, just not personalized yet.",
     memoriesUsed: 0,
-  },
-];
+  };
+};
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [memoryStatus, setMemoryStatus] = useState<MemoryStatus>('loading');
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Check memory status on mount
+  useEffect(() => {
+    const checkMemoryStatus = async () => {
+      try {
+        const res = await fetch('/api/memory/status');
+        const data = await res.json();
+        setMemoryStatus(data.status || 'none');
+        setMessages([getInitialMessage(data.status || 'none')]);
+      } catch {
+        // Default to 'none' if API fails
+        setMemoryStatus('none');
+        setMessages([getInitialMessage('none')]);
+      }
+    };
+    checkMemoryStatus();
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -148,6 +177,33 @@ export default function ChatPage() {
             </div>
           </div>
         </header>
+
+        {/* Memory Status Banner */}
+        {showBanner && memoryStatus !== 'ready' && memoryStatus !== 'loading' && (
+          <div className="flex-shrink-0 bg-orange-500/10 border-b border-orange-500/20">
+            <div className="max-w-3xl lg:max-w-4xl mx-auto px-4 lg:px-8 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm text-orange-200 font-medium">Waiting for your memory</p>
+                  <p className="text-xs text-orange-200/60">ChatGPT exports can take a few hours. We&apos;ll notify you when it&apos;s ready.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowBanner(false)}
+                className="text-orange-200/60 hover:text-orange-200 transition-colors p-1"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
