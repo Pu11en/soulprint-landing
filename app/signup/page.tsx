@@ -279,6 +279,16 @@ function SignUpContent() {
                             Log in
                         </Link>
                     </p>
+
+                    {/* Learn More Link */}
+                    <a 
+                        href="https://shoulprint-hero.vercel.app" 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-center text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                    >
+                        Learn more about SoulPrint →
+                    </a>
                 </div>
             </div>
         </div>
