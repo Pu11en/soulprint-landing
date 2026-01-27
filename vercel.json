@@ -2,7 +2,11 @@
   "crons": [
     {
       "path": "/api/import/email-poll",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/generate-embeddings",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
