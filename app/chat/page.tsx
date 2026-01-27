@@ -33,7 +33,16 @@ export default function ChatPage() {
     const dismissed = localStorage.getItem('pwa-prompt-dismissed');
     
     if (isIos && !isStandalone && !dismissed) {
-      setTimeout(() => setShowPwaPrompt(true), 2000);
+      // Show after 3 seconds, auto-hide after 8 seconds
+      const showTimer = setTimeout(() => setShowPwaPrompt(true), 3000);
+      const hideTimer = setTimeout(() => {
+        setShowPwaPrompt(false);
+        localStorage.setItem('pwa-prompt-dismissed', 'true');
+      }, 11000);
+      return () => {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+      };
     }
   }, []);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -252,28 +261,22 @@ export default function ChatPage() {
         )}
       </header>
 
-      {/* PWA Install Prompt */}
+      {/* PWA Install Prompt - subtle bottom toast */}
       {showPwaPrompt && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-orange-600 to-orange-500 px-5 py-3" style={{ paddingTop: `calc(${safeAreaTop} + 12px)` }}>
-          <div className="flex items-center justify-between max-w-2xl mx-auto w-full">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">📲</span>
-              <div>
-                <p className="font-medium text-white text-sm">Install SoulPrint</p>
-                <p className="text-white/80 text-xs">Tap Share → Add to Home Screen</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => {
-                setShowPwaPrompt(false);
-                localStorage.setItem('pwa-prompt-dismissed', 'true');
-              }}
-              className="text-white/80 p-1"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+        <div 
+          className="fixed left-4 right-4 z-50 bg-[#262628] border border-white/10 rounded-2xl px-4 py-3 shadow-xl animate-in"
+          style={{ bottom: `calc(${safeAreaBottom} + ${footerHeight + 16}px + ${keyboardHeight}px)` }}
+          onClick={() => {
+            setShowPwaPrompt(false);
+            localStorage.setItem('pwa-prompt-dismissed', 'true');
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xl">📲</span>
+            <p className="text-white/90 text-sm flex-1">
+              <span className="font-medium">Install app:</span> Tap <span className="text-orange-400">Share</span> → <span className="text-orange-400">Add to Home Screen</span>
+            </p>
+            <span className="text-white/40 text-xs">tap to close</span>
           </div>
         </div>
       )}
@@ -282,7 +285,7 @@ export default function ChatPage() {
       <main 
         className="fixed left-0 right-0 overflow-y-auto overscroll-none px-5"
         style={{ 
-          top: `calc(${safeAreaTop} + ${headerHeight}px + ${showSettings ? 48 : 0}px + ${showPwaPrompt ? 60 : 0}px)`,
+          top: `calc(${safeAreaTop} + ${headerHeight}px + ${showSettings ? 48 : 0}px)`,
           bottom: `calc(${safeAreaBottom} + ${footerHeight}px + ${keyboardHeight}px)`
         }}
       >
