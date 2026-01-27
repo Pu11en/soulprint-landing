@@ -35,14 +35,22 @@ export interface ExtractedConversations {
 
 /**
  * Find recent emails containing ChatGPT export download links
+ * This includes:
+ * 1. Replies to our import instructions emails
+ * 2. Direct forwards mentioning OpenAI exports
  */
 export async function findEmailsWithExportLinks(
   maxResults: number = 20,
   afterDate?: Date
 ): Promise<EmailWithExportLink[]> {
   const emails: EmailWithExportLink[] = [];
+  const seenMessageIds = new Set<string>();
 
-  // Search for emails mentioning OpenAI data export
+  // Strategy 1: Find replies to our sent emails (most reliable)
+  // Users reply to our import instructions with their OpenAI export
+  await findRepliesWithExportLinks(emails, seenMessageIds, maxResults, afterDate);
+
+  // Strategy 2: Search for emails mentioning OpenAI data export (fallback)
   // This catches both direct emails from OpenAI and forwarded ones
   let query = '(from:openai OR subject:"data export" OR subject:"export" OR "chat.openai.com" OR "Your data export")';
   if (afterDate) {
@@ -60,10 +68,10 @@ export async function findEmailsWithExportLinks(
     });
 
     const messages = listResponse.data.messages || [];
-    console.log(`📧 [Gmail] Found ${messages.length} potential emails`);
+    console.log(`📧 [Gmail] Found ${messages.length} potential emails from keyword search`);
 
     for (const msg of messages) {
-      if (!msg.id) continue;
+      if (!msg.id || seenMessageIds.has(msg.id)) continue;
 
       // Get full message with body
       const fullMessage = await gmail.users.messages.get({
@@ -97,14 +105,90 @@ export async function findEmailsWithExportLinks(
           downloadUrl,
           forwarderEmail,
         });
+        seenMessageIds.add(msg.id);
       }
     }
 
-    console.log(`📧 [Gmail] Found ${emails.length} emails with export links`);
+    console.log(`📧 [Gmail] Found ${emails.length} total emails with export links`);
     return emails;
   } catch (error) {
     console.error('📧 [Gmail] Error fetching emails:', error);
     throw error;
+  }
+}
+
+/**
+ * Find replies to our import instructions emails that contain export links
+ */
+async function findRepliesWithExportLinks(
+  emails: EmailWithExportLink[],
+  seenMessageIds: Set<string>,
+  maxResults: number,
+  afterDate?: Date
+): Promise<void> {
+  // Search for replies to our emails (subject starts with Re: and contains import/soulprint)
+  let query = 'subject:(Re: import OR Re: soulprint OR Re: chatgpt) in:inbox';
+  if (afterDate) {
+    const dateStr = afterDate.toISOString().split('T')[0].replace(/-/g, '/');
+    query += ` after:${dateStr}`;
+  }
+
+  console.log('📧 [Gmail] Searching for replies with query:', query);
+
+  try {
+    const listResponse = await gmail.users.messages.list({
+      userId: 'me',
+      q: query,
+      maxResults,
+    });
+
+    const messages = listResponse.data.messages || [];
+    console.log(`📧 [Gmail] Found ${messages.length} potential reply emails`);
+
+    for (const msg of messages) {
+      if (!msg.id || seenMessageIds.has(msg.id)) continue;
+
+      const fullMessage = await gmail.users.messages.get({
+        userId: 'me',
+        id: msg.id,
+        format: 'full',
+      });
+
+      const headers = fullMessage.data.payload?.headers || [];
+      const from = headers.find(h => h.name?.toLowerCase() === 'from')?.value || '';
+      const subject = headers.find(h => h.name?.toLowerCase() === 'subject')?.value || '';
+      const dateHeader = headers.find(h => h.name?.toLowerCase() === 'date')?.value;
+      const inReplyTo = headers.find(h => h.name?.toLowerCase() === 'in-reply-to')?.value;
+
+      // Skip if it's from us (not a reply from user)
+      const fromEmail = extractEmailAddress(from);
+      if (fromEmail === process.env.GMAIL_USER?.toLowerCase()) {
+        continue;
+      }
+
+      // Extract email body
+      const body = extractEmailBody(fullMessage.data.payload);
+      
+      // Look for OpenAI download links in the body
+      const downloadUrl = extractOpenAIDownloadLink(body);
+      
+      if (downloadUrl) {
+        console.log(`📧 [Gmail] Found download link in reply: ${subject} (in-reply-to: ${inReplyTo})`);
+        
+        emails.push({
+          messageId: msg.id,
+          from,
+          subject,
+          date: dateHeader ? new Date(dateHeader) : new Date(),
+          downloadUrl,
+          forwarderEmail: fromEmail,
+        });
+        seenMessageIds.add(msg.id);
+      }
+    }
+  } catch (error) {
+    console.error('📧 [Gmail] Error fetching reply emails:', error);
+    // Don't throw - continue with other strategies
   }
 }
 
