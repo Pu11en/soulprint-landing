@@ -225,12 +225,13 @@ export default function ChatPage() {
         }
 
         // Load avatar (if exists)
+        let hasAvatar = false;
         if (avatarRes.ok) {
           const avatarData = await avatarRes.json();
           if (avatarData.avatarUrl) {
             setAiAvatar(avatarData.avatarUrl);
+            hasAvatar = true;
           }
-          // Don't auto-generate - user must say yes when prompted
         }
 
         // Load chat history
@@ -239,6 +240,16 @@ export default function ChatPage() {
           const data = await res.json();
           if (data.messages?.length > 0) {
             setMessages(data.messages);
+            
+            // Existing user without avatar - prompt them (one-time)
+            if (!hasAvatar && nameData?.aiName) {
+              setIsAvatarPromptMode(true);
+              setMessages(prev => [...prev, { 
+                id: 'avatar-prompt', 
+                role: 'assistant', 
+                content: `Hey! I noticed I don't have a look yet. Want me to create one?`
+              }]);
+            }
           } else {
             const name = aiName || 'your AI';
             setMessages([{ id: 'welcome', role: 'assistant', content: `Hey! I'm ${name}. I've got your memories loaded. What's on your mind?` }]);
