@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { generateClientSoulprint, type ClientSoulprint, type ConversationChunk } from '@/lib/import/client-soulprint';
 
 interface Step {
@@ -49,13 +50,43 @@ const steps: Step[] = [
 type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
 
 export default function ImportPage() {
+  const router = useRouter();
   const [status, setStatus] = useState<ImportStatus>('idle');
+  const [checkingExisting, setCheckingExisting] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [progressStage, setProgressStage] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [soulprint, setSoulprint] = useState<ClientSoulprint | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if user already has a soulprint
+  useEffect(() => {
+    const checkExisting = async () => {
+      try {
+        const res = await fetch('/api/memory/status');
+        const data = await res.json();
+        if (data.status === 'ready' || data.hasSoulprint) {
+          // User already has a soulprint, redirect to chat
+          router.push('/chat');
+          return;
+        }
+      } catch {
+        // Continue showing import page on error
+      }
+      setCheckingExisting(false);
+    };
+    checkExisting();
+  }, [router]);
+
+  // Show loading while checking
+  if (checkingExisting) {
+    return (
+      <main className="min-h-screen bg-[#09090B] flex items-center justify-center">
+        <div className="text-gray-400">Loading...</div>
+      </main>
+    );
+  }
 
   const handleFile = async (file: File) => {
     if (!file.name.endsWith('.zip')) {
