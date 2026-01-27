@@ -166,7 +166,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#0A0A0B] flex flex-col">
+    <div className="fixed inset-0 bg-[#0A0A0B] flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {/* FIXED HEADER */}
       <header className="flex-shrink-0 h-14 bg-[#0A0A0B] border-b border-white/10 flex items-center justify-between px-4 z-20">
         <div className="flex items-center gap-3">
