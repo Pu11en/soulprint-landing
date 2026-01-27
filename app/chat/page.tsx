@@ -274,7 +274,7 @@ export default function ChatPage() {
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div 
-                  className={`max-w-[85%] px-5 py-3.5 text-[15px] leading-[1.6] shadow-sm ${
+                  className={`max-w-[85%] px-5 py-3.5 text-[15px] leading-[1.7] tracking-[0.01em] shadow-sm ${
                     msg.role === 'user' 
                       ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-[20px] rounded-br-[4px]' 
                       : 'bg-[#262628] text-white/95 rounded-[20px] rounded-bl-[4px]'
