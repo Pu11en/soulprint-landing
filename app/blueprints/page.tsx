@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Lightbulb, 
   FileText, 
@@ -11,7 +12,8 @@ import {
   Clock,
   Tag,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  ChevronRight
 } from "lucide-react";
 
 interface Blueprint {
@@ -47,6 +49,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function BlueprintsPage() {
+  const router = useRouter();
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
@@ -159,7 +162,8 @@ export default function BlueprintsPage() {
               return (
                 <div
                   key={bp.id}
-                  className="bg-[#141414] border border-[#222] rounded-xl p-5 hover:border-[#333] transition-all"
+                  onClick={() => router.push(`/blueprints/${bp.id}`)}
+                  className="bg-[#141414] border border-[#222] rounded-xl p-5 hover:border-[#EA580C]/50 transition-all cursor-pointer group"
                 >
                   <div className="flex items-start gap-4">
                     {/* Rank */}
