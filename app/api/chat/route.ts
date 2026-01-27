@@ -5,6 +5,7 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { searchWeb, shouldSearchWeb, formatSearchContext } from '@/lib/search/tavily';
 
 // Initialize Bedrock client (fallback)
 const bedrockClient = new BedrockRuntimeClient({
@@ -160,7 +161,21 @@ export async function POST(request: NextRequest) {
     // Fallback to Bedrock streaming
     console.log('[Chat] Falling back to Bedrock...');
 
-    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null);
+    // Check if we should do a web search
+    let webSearchContext = '';
+    if (process.env.TAVILY_API_KEY && shouldSearchWeb(message)) {
+      try {
+        console.log('[Chat] Running web search for:', message.slice(0, 50));
+        const searchResponse = await searchWeb(message, { maxResults: 3 });
+        webSearchContext = formatSearchContext(searchResponse);
+        console.log('[Chat] Web search returned', searchResponse.results.length, 'results');
+      } catch (error) {
+        console.log('[Chat] Web search failed:', error);
+        // Continue without web search
+      }
+    }
+
+    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null, webSearchContext);
 
     const messages = [
       ...history.map((msg) => ({
@@ -246,20 +261,39 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function buildSystemPrompt(soulprintText: string | null): string {
-  const basePrompt = `You are SoulPrint, an AI assistant with memory. You help users by providing personalized, contextual responses based on their conversation history and memories.
+function buildSystemPrompt(soulprintText: string | null, webSearchContext?: string): string {
+  const now = new Date();
+  const currentDate = now.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  const currentTime = now.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    timeZoneName: 'short'
+  });
+
+  const basePrompt = `You are SoulPrint, an AI assistant with memory and web search capabilities. You help users by providing personalized, contextual responses based on their conversation history, memories, and real-time web information when relevant.
+
+Current Date & Time: ${currentDate}, ${currentTime}
 
 Be helpful, conversational, and natural. Remember that you have access to the user's memories and past conversations - use this context to give more relevant and personalized responses.
 
 Guidelines:
 - Be warm and personable
 - Reference relevant memories naturally when appropriate
+- When web search results are provided, use them to give accurate, up-to-date information
+- Cite sources when using web search information
 - Don't overwhelm with information - be concise
 - If you don't have relevant context, just be helpful in the moment
 - Never make up memories or context you don't have`;
 
+  let prompt = basePrompt;
+
   if (soulprintText) {
-    return basePrompt + `
+    prompt += `
 
 USER PROFILE (SoulPrint):
 ${soulprintText}
@@ -267,5 +301,13 @@ ${soulprintText}
 Use this context to inform your responses naturally. Don't explicitly say "according to your profile" unless it's natural to do so.`;
   }
 
-  return basePrompt;
+  if (webSearchContext) {
+    prompt += `
+
+${webSearchContext}
+
+Use this web search information to provide accurate, current answers. Cite sources when appropriate.`;
+  }
+
+  return prompt;
 }

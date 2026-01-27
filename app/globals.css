@@ -50,6 +50,7 @@ body {
   line-height: 1.6;
 }
 
+/* Chat page: prevent iOS keyboard from breaking layout */
 /* Typography */
 .text-display {
   font-size: clamp(2.5rem, 8vw, 4.5rem);

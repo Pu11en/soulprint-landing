@@ -2,59 +2,94 @@
 
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 type Message = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  memoriesUsed?: number;
 };
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', role: 'assistant', content: "Hey! I've got your memories loaded. What's on your mind?" }
-  ]);
+  const router = useRouter();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const scrollToBottom = () => {
+    bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+  };
 
-  // Check auth
   useEffect(() => {
-    fetch('/api/memory/status').then(r => r.json()).then(data => {
-      if (data.status === 'ready') {
-        setMessages([{ id: '1', role: 'assistant', content: "Hey! I've got your memories loaded. What's on your mind?" }]);
-      } else {
-        setMessages([{ id: '1', role: 'assistant', content: "Hey! Import your ChatGPT history so I can remember everything about you." }]);
+    const loadMessages = async () => {
+      try {
+        const res = await fetch('/api/chat/messages?limit=100');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.messages?.length > 0) {
+            setMessages(data.messages);
+          } else {
+            setMessages([{ id: 'welcome', role: 'assistant', content: "Hey! I've got your memories loaded. What's on your mind?" }]);
+          }
+        }
+      } catch {
+        setMessages([{ id: 'welcome', role: 'assistant', content: "Hey! I've got your memories loaded. What's on your mind?" }]);
       }
-    }).catch(() => {});
+      setLoadingHistory(false);
+    };
+    loadMessages();
   }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email || null));
+  }, []);
+
+  useEffect(() => {
+    if (!loadingHistory) scrollToBottom();
+  }, [messages, loadingHistory]);
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/');
+  };
+
+  const saveMessage = async (role: string, content: string) => {
+    try {
+      await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, content }),
+      });
+    } catch {}
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input.trim() };
-    setMessages(prev => [...prev, userMsg]);
-    const currentInput = input.trim();
+    const userContent = input.trim();
+    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: userContent }]);
     setInput('');
     setIsLoading(true);
+    saveMessage('user', userContent);
+    scrollToBottom();
 
     try {
       const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: currentInput, history }),
+        body: JSON.stringify({ message: userContent, history }),
       });
 
       if (!res.ok) throw new Error();
-
       const reader = res.body?.getReader();
       if (!reader) throw new Error();
 
@@ -72,91 +107,101 @@ export default function ChatPage() {
             if (data.type === 'text') {
               content += data.text;
               setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content } : m));
+              scrollToBottom();
             }
           } catch {}
         }
       }
+      if (content) saveMessage('assistant', content);
     } catch {
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: 'Something went wrong. Try again.' }]);
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: 'Something went wrong.' }]);
     }
     setIsLoading(false);
   };
 
-  return (
-    <div className="h-[100dvh] flex flex-col bg-[#000000]">
-      {/* iMessage Header */}
-      <div className="flex-shrink-0 bg-[#1c1c1e] border-b border-[#38383a] px-4 py-3 flex items-center justify-between" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
-        <Link href="/" className="text-[#0a84ff] text-[17px]">
-          ‹
-        </Link>
-        <div className="flex flex-col items-center">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-1">
-            <span className="text-white text-lg">🧠</span>
-          </div>
-          <span className="text-white text-[13px] font-semibold">SoulPrint</span>
-        </div>
-        <Link href="/import" className="text-[#0a84ff] text-[24px]">
-          ⋯
-        </Link>
-      </div>
+  if (loadingHistory) {
+    return <div className="min-h-screen bg-black flex items-center justify-center text-white/50">Loading...</div>;
+  }
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        <div className="max-w-lg mx-auto space-y-2">
+  return (
+    <div className="bg-black text-white min-h-screen">
+      {/* Fixed Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#1a1a1a] border-b border-white/10" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="flex items-center justify-between px-3 h-11">
+          <Link href="/" className="p-1 text-blue-500">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-xs">🧠</div>
+            <span className="font-medium text-sm">SoulPrint</span>
+          </div>
+          <button onClick={() => setShowSettings(!showSettings)} className="p-1 text-blue-500">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+            </svg>
+          </button>
+        </div>
+        {showSettings && (
+          <div className="px-3 pb-2 flex gap-2">
+            <Link href="/import" className="flex-1 h-8 bg-white/10 rounded text-xs flex items-center justify-center">Re-import</Link>
+            <button onClick={handleSignOut} className="flex-1 h-8 bg-white/10 rounded text-red-500 text-xs">Sign Out</button>
+          </div>
+        )}
+      </header>
+
+      {/* Scrollable content - messages anchored to bottom like iMessage */}
+      <main 
+        className="flex flex-col min-h-screen px-3" 
+        style={{ 
+          paddingTop: 'calc(env(safe-area-inset-top) + 52px)', 
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + 56px)' 
+        }}
+      >
+        <div className="flex-1" /> {/* Spacer pushes messages down */}
+        <div className="space-y-2 max-w-xl mx-auto w-full">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[75%] px-4 py-2 ${
-                  msg.role === 'user'
-                    ? 'bg-[#0a84ff] text-white rounded-[20px] rounded-br-[4px]'
-                    : 'bg-[#3a3a3c] text-white rounded-[20px] rounded-bl-[4px]'
-                }`}
-              >
-                <p className="text-[16px] leading-[22px] whitespace-pre-wrap">{msg.content}</p>
+              <div className={`max-w-[85%] px-3 py-1.5 text-sm leading-snug ${
+                msg.role === 'user' ? 'bg-blue-500 rounded-2xl rounded-br-sm' : 'bg-zinc-800 rounded-2xl rounded-bl-sm'
+              }`}>
+                {msg.content}
               </div>
             </div>
           ))}
-          
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-[#3a3a3c] rounded-[20px] rounded-bl-[4px] px-4 py-3">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
+              <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-3 py-2 flex gap-1">
+                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" />
+                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
               </div>
             </div>
           )}
-          
-          <div ref={messagesEndRef} />
+          <div ref={bottomRef} className="h-1" />
         </div>
-      </div>
+      </main>
 
-      {/* iMessage Input */}
-      <div className="flex-shrink-0 bg-[#1c1c1e] border-t border-[#38383a] px-3 py-2" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
-        <form onSubmit={handleSubmit} className="flex items-end gap-2">
-          <div className="flex-1 bg-[#3a3a3c] rounded-full px-4 py-2 flex items-center">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="iMessage"
-              className="flex-1 bg-transparent text-white text-[16px] outline-none placeholder:text-gray-500"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="w-9 h-9 rounded-full bg-[#0a84ff] disabled:bg-[#3a3a3c] flex items-center justify-center flex-shrink-0"
-          >
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
+      {/* Fixed Input */}
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-[#1a1a1a] border-t border-white/10 px-3 py-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}>
+        <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-xl mx-auto">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onFocus={scrollToBottom}
+            placeholder="Message"
+            className="flex-1 h-9 bg-zinc-800 rounded-full px-3 text-sm outline-none placeholder:text-zinc-500"
+            style={{ fontSize: '16px' }}
+            autoComplete="off"
+            enterKeyHint="send"
+          />
+          <button type="submit" disabled={!input.trim() || isLoading} className="w-9 h-9 rounded-full bg-orange-500 disabled:opacity-40 flex items-center justify-center">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </form>
-      </div>
+      </footer>
     </div>
   );
 }

@@ -37,7 +37,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="antialiased min-h-screen bg-[#0A0A0B] overflow-hidden">
+      <body className="antialiased bg-[#0A0A0B]">
         {children}
       </body>
     </html>

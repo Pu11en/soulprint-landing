@@ -109,7 +109,7 @@ export default function LandingPage() {
                 <div className="space-y-4 lg:space-y-6">
                   {/* AI message */}
                   <div className="flex items-start gap-3 lg:gap-4">
-                    <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-[#1a1a1c] border border-orange-500/30 flex items-center justify-center flex-shrink-0">
                       <img src="/logo.svg" alt="" className="w-5 h-5 lg:w-6 lg:h-6" />
                     </div>
                     <div className="flex-1">
@@ -129,7 +129,7 @@ export default function LandingPage() {
                   
                   {/* AI message */}
                   <div className="flex items-start gap-3 lg:gap-4">
-                    <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-[#1a1a1c] border border-orange-500/30 flex items-center justify-center flex-shrink-0">
                       <img src="/logo.svg" alt="" className="w-6 h-6" />
                     </div>
                     <div className="flex-1">
