@@ -22,6 +22,8 @@ export default function ChatPage() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showPwaPrompt, setShowPwaPrompt] = useState(false);
   const [aiName, setAiName] = useState<string | null>(null);
+  const [aiAvatar, setAiAvatar] = useState<string | null>(null);
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [isNamingMode, setIsNamingMode] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameInput, setRenameInput] = useState('');
@@ -171,11 +173,34 @@ export default function ChatPage() {
     }
   };
 
+  // Function to generate avatar
+  const generateAvatar = async (customPrompt?: string) => {
+    setIsGeneratingAvatar(true);
+    try {
+      const res = await fetch('/api/profile/ai-avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: customPrompt }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiAvatar(data.avatarUrl);
+      }
+    } catch {
+      console.error('Failed to generate avatar');
+    }
+    setIsGeneratingAvatar(false);
+  };
+
   useEffect(() => {
     const loadChatState = async () => {
       try {
-        // Check if AI has a name
-        const nameRes = await fetch('/api/profile/ai-name');
+        // Check if AI has a name and avatar
+        const [nameRes, avatarRes] = await Promise.all([
+          fetch('/api/profile/ai-name'),
+          fetch('/api/profile/ai-avatar'),
+        ]);
+        
         if (nameRes.ok) {
           const nameData = await nameRes.json();
           if (nameData.aiName) {
@@ -190,6 +215,17 @@ export default function ChatPage() {
             }]);
             setLoadingHistory(false);
             return;
+          }
+        }
+
+        // Load avatar
+        if (avatarRes.ok) {
+          const avatarData = await avatarRes.json();
+          if (avatarData.avatarUrl) {
+            setAiAvatar(avatarData.avatarUrl);
+          } else {
+            // No avatar - generate one automatically
+            generateAvatar();
           }
         }
 
@@ -262,6 +298,9 @@ export default function ChatPage() {
             role: 'assistant', 
             content: `${data.aiName}. I like it! 💫\n\nI'm ready when you are. I've got your memories loaded — ask me anything, or just tell me what's on your mind.`
           }]);
+          
+          // Generate avatar for the new AI
+          generateAvatar();
           
           // Save the intro messages to history
           saveMessage('assistant', "Hey! I'm your new AI — built from your memories and conversations. Before we get started, I need a name. What would you like to call me?");
@@ -345,8 +384,14 @@ export default function ChatPage() {
       >
         <div className="flex items-center px-4 sm:px-6 lg:px-8 h-[72px] max-w-5xl mx-auto">
           <div className="flex-1 flex items-center gap-4">
-            <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xl lg:text-2xl shadow-lg shadow-orange-500/20">
-              🧠
+            <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xl lg:text-2xl shadow-lg shadow-orange-500/20 overflow-hidden">
+              {aiAvatar ? (
+                <img src={aiAvatar} alt={aiName || 'AI'} className="w-full h-full object-cover" />
+              ) : isGeneratingAvatar ? (
+                <div className="animate-pulse">✨</div>
+              ) : (
+                '🧠'
+              )}
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="font-semibold text-[18px] lg:text-xl tracking-[-0.02em]">{aiName || 'SoulPrint'}</span>
