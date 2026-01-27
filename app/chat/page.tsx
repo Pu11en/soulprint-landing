@@ -36,8 +36,38 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showBanner, setShowBanner] = useState(true);
+  const [viewportHeight, setViewportHeight] = useState('100dvh');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Handle mobile keyboard resize
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleResize = () => {
+      if (window.visualViewport) {
+        setViewportHeight(`${window.visualViewport.height}px`);
+        // Scroll to bottom when keyboard opens
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      window.visualViewport.addEventListener('scroll', handleResize);
+      handleResize();
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+        window.visualViewport.removeEventListener('scroll', handleResize);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const checkMemoryStatus = async () => {
@@ -163,7 +193,11 @@ export default function ChatPage() {
   };
 
   return (
-    <main className="h-screen bg-[#0A0A0B] flex overflow-hidden">
+    <main 
+      ref={containerRef}
+      className="bg-[#0A0A0B] flex overflow-hidden"
+      style={{ height: viewportHeight }}
+    >
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex lg:flex-col w-[280px] xl:w-[320px] border-r border-white/[0.08] bg-[#0A0A0B]">
         {/* Logo */}
@@ -385,7 +419,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="flex-shrink-0 border-t border-white/[0.08] bg-[#0A0A0B] p-6">
+        <div className="flex-shrink-0 border-t border-white/[0.08] bg-[#0A0A0B] p-4 lg:p-6 safe-area-inset-bottom">
           <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
             <div className="relative bg-white/[0.03] border border-white/[0.08] rounded-2xl focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all duration-200">
               <textarea
