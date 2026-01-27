@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { AchievementToastProvider } from "@/components/AchievementToast";
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -44,7 +45,9 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className={`${inter.className} antialiased bg-[#0A0A0B]`}>
-        {children}
+        <AchievementToastProvider>
+          {children}
+        </AchievementToastProvider>
       </body>
     </html>
   );
