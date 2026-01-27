@@ -227,18 +227,18 @@ export default function ChatPage() {
           </button>
         </div>
         {showSettings && (
-          <div className="px-4 pb-3 flex gap-2 border-t border-white/5 pt-2">
-            <Link href="/" className="flex-1 h-9 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Home</Link>
-            <Link href="/import" className="flex-1 h-9 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Re-import</Link>
-            <button onClick={handleSignOut} className="flex-1 h-9 bg-white/10 rounded-lg text-red-500 text-sm font-medium">Sign Out</button>
+          <div className="px-5 pb-3 flex gap-3 border-t border-white/5 pt-3">
+            <Link href="/" className="flex-1 h-10 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Home</Link>
+            <Link href="/import" className="flex-1 h-10 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Re-import</Link>
+            <button onClick={handleSignOut} className="flex-1 h-10 bg-white/10 rounded-lg text-red-500 text-sm font-medium">Sign Out</button>
           </div>
         )}
       </header>
 
       {/* PWA Install Prompt */}
       {showPwaPrompt && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-orange-600 to-orange-500 px-4 py-3" style={{ paddingTop: `calc(${safeAreaTop} + 12px)` }}>
-          <div className="flex items-center justify-between max-w-2xl mx-auto">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-orange-600 to-orange-500 px-5 py-3" style={{ paddingTop: `calc(${safeAreaTop} + 12px)` }}>
+          <div className="flex items-center justify-between max-w-2xl mx-auto w-full">
             <div className="flex items-center gap-3">
               <span className="text-2xl">📲</span>
               <div>
@@ -307,7 +307,7 @@ export default function ChatPage() {
         }}
       >
         <form onSubmit={handleSubmit} className="flex items-center gap-3 max-w-2xl mx-auto">
-          <div className={`flex-1 flex items-center bg-[#2c2c2e] rounded-full px-4 ${isListening ? 'ring-2 ring-orange-500/50' : ''}`}>
+          <div className={`flex-1 flex items-center bg-[#2c2c2e] rounded-full px-5 ${isListening ? 'ring-2 ring-orange-500/50' : ''}`}>
             <input
               ref={inputRef}
               type="text"
