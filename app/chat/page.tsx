@@ -23,6 +23,8 @@ export default function ChatPage() {
   const [showPwaPrompt, setShowPwaPrompt] = useState(false);
   const [aiName, setAiName] = useState<string | null>(null);
   const [isNamingMode, setIsNamingMode] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameInput, setRenameInput] = useState('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -174,6 +176,27 @@ export default function ChatPage() {
   const clearVoiceInput = () => {
     stopListening();
     setInput('');
+  };
+
+  const handleRename = async () => {
+    if (!renameInput.trim()) return;
+    
+    try {
+      const res = await fetch('/api/profile/ai-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renameInput.trim() }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setAiName(data.aiName);
+        setShowRenameModal(false);
+        setRenameInput('');
+      }
+    } catch {
+      // Handle error silently
+    }
   };
 
   useEffect(() => {
@@ -361,6 +384,7 @@ export default function ChatPage() {
           </div>
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-4">
+            <button onClick={() => { setRenameInput(aiName || ''); setShowRenameModal(true); }} className="text-sm text-white/60 hover:text-white transition-colors">Rename AI</button>
             <Link href="/" className="text-sm text-white/60 hover:text-white transition-colors">Home</Link>
             <Link href="/import" className="text-sm text-white/60 hover:text-white transition-colors">Re-import</Link>
             <button onClick={handleSignOut} className="text-sm text-red-400 hover:text-red-300 transition-colors">Sign Out</button>
@@ -373,10 +397,15 @@ export default function ChatPage() {
           </button>
         </div>
         {showSettings && (
-          <div className="md:hidden px-5 pb-3 flex gap-3 border-t border-white/5 pt-3">
-            <Link href="/" className="flex-1 h-10 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Home</Link>
-            <Link href="/import" className="flex-1 h-10 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Re-import</Link>
-            <button onClick={handleSignOut} className="flex-1 h-10 bg-white/10 rounded-lg text-red-500 text-sm font-medium">Sign Out</button>
+          <div className="md:hidden px-5 pb-3 border-t border-white/5 pt-3 space-y-2">
+            <div className="flex gap-2">
+              <button onClick={() => { setRenameInput(aiName || ''); setShowRenameModal(true); setShowSettings(false); }} className="flex-1 h-10 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Rename AI</button>
+              <Link href="/" className="flex-1 h-10 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Home</Link>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/import" className="flex-1 h-10 bg-white/10 rounded-lg text-sm flex items-center justify-center font-medium">Re-import</Link>
+              <button onClick={handleSignOut} className="flex-1 h-10 bg-white/10 rounded-lg text-red-500 text-sm font-medium">Sign Out</button>
+            </div>
           </div>
         )}
       </header>
@@ -514,6 +543,39 @@ export default function ChatPage() {
           )}
         </form>
       </footer>
+
+      {/* Rename Modal */}
+      {showRenameModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6" onClick={() => setShowRenameModal(false)}>
+          <div className="bg-[#1c1c1d] rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white mb-4">Rename your AI</h3>
+            <input
+              type="text"
+              value={renameInput}
+              onChange={e => setRenameInput(e.target.value)}
+              placeholder="Enter a new name"
+              className="w-full h-12 bg-[#2c2c2e] rounded-xl px-4 text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-orange-500/50 mb-4"
+              autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') handleRename(); }}
+            />
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowRenameModal(false)}
+                className="flex-1 h-11 bg-white/10 rounded-xl text-white/70 font-medium"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleRename}
+                disabled={!renameInput.trim()}
+                className="flex-1 h-11 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl text-white font-medium disabled:opacity-40"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
