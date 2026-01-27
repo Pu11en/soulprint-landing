@@ -41,11 +41,11 @@ export default function LandingPage() {
       <div className="glow-ambient top-[-200px] left-1/2 -translate-x-1/2" />
       
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#09090B]/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 h-16 lg:h-20 flex items-center justify-between">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#09090B]/80 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 lg:h-20 flex items-center justify-between">
           <Link href="/" className="logo">
-            <img src="/logo.svg" alt="SoulPrint" className="logo-icon w-7 h-7 lg:w-8 lg:h-8" />
-            <span className="text-white text-lg lg:text-xl">SoulPrint</span>
+            <img src="/logo.svg" alt="SoulPrint" className="logo-icon w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8" />
+            <span className="text-white text-base sm:text-lg lg:text-xl">SoulPrint</span>
           </Link>
           <div className="flex items-center gap-2 lg:gap-4">
             <Link href="/login" className="btn btn-ghost btn-sm lg:px-6">
@@ -59,23 +59,23 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 lg:pt-44 pb-24 lg:pb-32 px-6 lg:px-8">
+      <section className="relative pt-28 sm:pt-32 lg:pt-44 pb-20 sm:pb-24 lg:pb-32 px-4 sm:px-6 lg:px-8" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 7rem)' }}>
         <div className="max-w-5xl lg:max-w-6xl mx-auto text-center">
           {/* Badge */}
-          <div className="animate-in inline-flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-full bg-white/[0.03] border border-white/[0.06] mb-8 lg:mb-10">
+          <div className="animate-in inline-flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-full bg-white/[0.03] border border-white/[0.06] mb-6 sm:mb-8 lg:mb-10">
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
             <span className="text-micro text-gray-400">Now in Beta</span>
           </div>
           
           {/* Headline */}
-          <h1 className="animate-in stagger-1 text-display text-white mb-6 lg:mb-8">
+          <h1 className="animate-in stagger-1 text-display text-white mb-4 sm:mb-6 lg:mb-8">
             AI that actually
             <br />
             <span className="text-gradient">remembers you</span>
           </h1>
           
           {/* Subheadline */}
-          <p className="animate-in stagger-2 text-xl lg:text-2xl text-gray-400 max-w-2xl lg:max-w-3xl mx-auto mb-10 lg:mb-12 leading-relaxed">
+          <p className="animate-in stagger-2 text-lg sm:text-xl lg:text-2xl text-gray-400 max-w-xl sm:max-w-2xl lg:max-w-3xl mx-auto mb-8 sm:mb-10 lg:mb-12 leading-relaxed px-2">
             Import your ChatGPT conversations. Build persistent memory.
             <br className="hidden sm:block" />
             Never explain yourself twice again.
