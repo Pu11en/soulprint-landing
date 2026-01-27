@@ -290,16 +290,25 @@ body {
 }
 
 .chat-user {
+  max-width: 85%;
+  padding: 0.875rem 1rem;
   background: var(--surface-tertiary);
   border: 1px solid var(--border-subtle);
-  margin-left: auto;
+  border-radius: 16px;
   border-bottom-right-radius: 4px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
 }
 
 .chat-assistant {
+  max-width: 85%;
+  padding: 0.875rem 1rem;
   background: linear-gradient(135deg, rgba(249, 115, 22, 0.08) 0%, rgba(249, 115, 22, 0.03) 100%);
   border: 1px solid rgba(249, 115, 22, 0.15);
+  border-radius: 16px;
   border-bottom-left-radius: 4px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
 }
 
 /* Typing indicator */

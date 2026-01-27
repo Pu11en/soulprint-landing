@@ -106,7 +106,7 @@ export default function LandingPage() {
               {/* Desktop: Side by side layout */}
               <div className="lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center">
                 {/* Left: Chat preview */}
-                <div className="space-y-4 lg:space-y-6">
+                <div className="space-y-5 lg:space-y-6">
                   {/* AI message */}
                   <div className="flex items-start gap-3 lg:gap-4">
                     <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-[#1a1a1c] border border-orange-500/30 flex items-center justify-center flex-shrink-0">
