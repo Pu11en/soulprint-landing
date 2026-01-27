@@ -10,232 +10,120 @@ type Message = {
   memoriesUsed?: number;
 };
 
-type MemoryStatus = 'loading' | 'none' | 'pending' | 'ready';
-
-const getInitialMessage = (status: MemoryStatus): Message => {
-  if (status === 'ready') {
-    return {
-      id: '1',
-      role: 'assistant',
-      content: "Hey! I've loaded your memory — I know your context, preferences, and history. What would you like to talk about?",
-    };
-  }
-  return {
-    id: '1',
-    role: 'assistant',
-    content: "Hey! I'm your AI with memory. Import your ChatGPT export and I'll know everything about you.",
-  };
-};
-
 export default function ChatPage() {
-  const [memoryStatus, setMemoryStatus] = useState<MemoryStatus>('loading');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    { id: '1', role: 'assistant', content: "Hey! I've got your memories loaded. What's on your mind?" }
+  ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [bottomOffset, setBottomOffset] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Check memory status
-  useEffect(() => {
-    const checkMemoryStatus = async () => {
-      try {
-        const res = await fetch('/api/memory/status');
-        const data = await res.json();
-        setMemoryStatus(data.status || 'none');
-        setMessages([getInitialMessage(data.status || 'none')]);
-      } catch {
-        setMemoryStatus('none');
-        setMessages([getInitialMessage('none')]);
-      }
-    };
-    checkMemoryStatus();
-  }, []);
-
-  // Handle iOS keyboard
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-
-    const viewport = window.visualViewport;
-    
-    const handleResize = () => {
-      const keyboardHeight = window.innerHeight - viewport.height;
-      setBottomOffset(keyboardHeight);
-      
-      // Scroll to bottom of messages
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-      }, 10);
-    };
-
-    viewport.addEventListener('resize', handleResize);
-    viewport.addEventListener('scroll', handleResize);
-    
-    return () => {
-      viewport.removeEventListener('resize', handleResize);
-      viewport.removeEventListener('scroll', handleResize);
-    };
-  }, []);
-
-  // Scroll to bottom when new messages
+  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Check auth
+  useEffect(() => {
+    fetch('/api/memory/status').then(r => r.json()).then(data => {
+      if (data.status === 'ready') {
+        setMessages([{ id: '1', role: 'assistant', content: "Hey! I've got your memories loaded. What's on your mind?" }]);
+      } else {
+        setMessages([{ id: '1', role: 'assistant', content: "Hey! Import your ChatGPT history so I can remember everything about you." }]);
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input.trim() };
+    setMessages(prev => [...prev, userMsg]);
     const currentInput = input.trim();
     setInput('');
-    
-    // Reset textarea height
-    if (inputRef.current) {
-      inputRef.current.style.height = 'auto';
-    }
-    
     setIsLoading(true);
 
     try {
-      const history = messages
-        .filter(m => m.role === 'user' || m.role === 'assistant')
-        .slice(-10)
-        .map(m => ({ role: m.role, content: m.content }));
-
-      const response = await fetch('/api/chat', {
+      const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: currentInput, history }),
       });
 
-      if (!response.ok) throw new Error('Failed');
+      if (!res.ok) throw new Error();
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No body');
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error();
 
-      let aiContent = '';
-      let memoriesUsed = 0;
-      const aiMessageId = (Date.now() + 1).toString();
-
-      setMessages(prev => [...prev, { id: aiMessageId, role: 'assistant', content: '' }]);
+      let content = '';
+      const aiId = (Date.now() + 1).toString();
+      setMessages(prev => [...prev, { id: aiId, role: 'assistant', content: '' }]);
 
       const decoder = new TextDecoder();
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        const chunk = decoder.decode(value);
-        for (const line of chunk.split('\n').filter(Boolean)) {
+        for (const line of decoder.decode(value).split('\n').filter(Boolean)) {
           try {
             const data = JSON.parse(line);
-            if (data.type === 'metadata') {
-              memoriesUsed = data.memoryChunksUsed || 0;
-            } else if (data.type === 'text') {
-              aiContent += data.text;
-              setMessages(prev => prev.map(m =>
-                m.id === aiMessageId ? { ...m, content: aiContent, memoriesUsed } : m
-              ));
+            if (data.type === 'text') {
+              content += data.text;
+              setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content } : m));
             }
           } catch {}
         }
       }
     } catch {
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Sorry, something went wrong.',
-      }]);
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: 'Something went wrong. Try again.' }]);
     }
-
     setIsLoading(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-[#0A0A0B] flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {/* FIXED HEADER */}
-      <header className="flex-shrink-0 h-14 bg-[#0A0A0B] border-b border-white/10 flex items-center justify-between px-4 z-20">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-            <img src="/logo.svg" alt="" className="w-4 h-4" />
+    <div className="h-[100dvh] flex flex-col bg-[#000000]">
+      {/* iMessage Header */}
+      <div className="flex-shrink-0 bg-[#1c1c1e] border-b border-[#38383a] px-4 py-3 flex items-center justify-between" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
+        <Link href="/" className="text-[#0a84ff] text-[17px]">
+          ‹
+        </Link>
+        <div className="flex flex-col items-center">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-1">
+            <span className="text-white text-lg">🧠</span>
           </div>
-          <span className="text-white font-semibold">SoulPrint</span>
-          {memoryStatus === 'ready' && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">Memory Active</span>
-          )}
+          <span className="text-white text-[13px] font-semibold">SoulPrint</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href="/import" className="p-2 text-gray-400 hover:text-white">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-          </Link>
-          <Link href="/api/auth/signout" className="p-2 text-gray-400 hover:text-white">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-            </svg>
-          </Link>
-        </div>
-      </header>
+        <Link href="/import" className="text-[#0a84ff] text-[24px]">
+          ⋯
+        </Link>
+      </div>
 
-      {/* SCROLLABLE MESSAGES */}
-      <div 
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain"
-        style={{ paddingBottom: bottomOffset > 0 ? bottomOffset : undefined }}
-      >
-        <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {message.role === 'assistant' ? (
-                <div className="flex gap-3 max-w-[85%]">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
-                    <img src="/logo.svg" alt="" className="w-4 h-4" />
-                  </div>
-                  <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm px-4 py-2.5">
-                    <p className="text-[15px] text-gray-200 whitespace-pre-wrap">{message.content}</p>
-                    {message.memoriesUsed && message.memoriesUsed > 0 && (
-                      <p className="text-[11px] text-orange-400 mt-1">{message.memoriesUsed} memories used</p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="max-w-[85%]">
-                  <div className="bg-orange-500 rounded-2xl rounded-tr-sm px-4 py-2.5">
-                    <p className="text-[15px] text-white whitespace-pre-wrap">{message.content}</p>
-                  </div>
-                </div>
-              )}
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div className="max-w-lg mx-auto space-y-2">
+          {messages.map((msg) => (
+            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[75%] px-4 py-2 ${
+                  msg.role === 'user'
+                    ? 'bg-[#0a84ff] text-white rounded-[20px] rounded-br-[4px]'
+                    : 'bg-[#3a3a3c] text-white rounded-[20px] rounded-bl-[4px]'
+                }`}
+              >
+                <p className="text-[16px] leading-[22px] whitespace-pre-wrap">{msg.content}</p>
+              </div>
             </div>
           ))}
           
           {isLoading && (
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
-                <img src="/logo.svg" alt="" className="w-4 h-4" />
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm px-4 py-3">
+            <div className="flex justify-start">
+              <div className="bg-[#3a3a3c] rounded-[20px] rounded-bl-[4px] px-4 py-3">
                 <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             </div>
@@ -245,33 +133,26 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* FIXED INPUT */}
-      <div 
-        className="flex-shrink-0 bg-[#0A0A0B] border-t border-white/10 p-3"
-        style={{ paddingBottom: Math.max(12, bottomOffset) }}
-      >
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto flex gap-2">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder="Message..."
-            rows={1}
-            className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-[15px] placeholder:text-gray-500 resize-none outline-none focus:border-orange-500/50"
-            style={{ minHeight: '48px', maxHeight: '120px' }}
-          />
+      {/* iMessage Input */}
+      <div className="flex-shrink-0 bg-[#1c1c1e] border-t border-[#38383a] px-3 py-2" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
+        <form onSubmit={handleSubmit} className="flex items-end gap-2">
+          <div className="flex-1 bg-[#3a3a3c] rounded-full px-4 py-2 flex items-center">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="iMessage"
+              className="flex-1 bg-transparent text-white text-[16px] outline-none placeholder:text-gray-500"
+            />
+          </div>
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="w-12 h-12 rounded-full bg-orange-500 hover:bg-orange-400 disabled:bg-white/10 disabled:opacity-50 flex items-center justify-center transition-colors flex-shrink-0"
+            className="w-9 h-9 rounded-full bg-[#0a84ff] disabled:bg-[#3a3a3c] flex items-center justify-center flex-shrink-0"
           >
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
             </svg>
           </button>
         </form>
