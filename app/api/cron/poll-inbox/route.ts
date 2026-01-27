@@ -1,24 +1,21 @@
 /**
  * Gmail Inbox Poller
- * Polls waitlist@archeforge.com for ChatGPT export ZIPs
+ * Polls waitlist@archeforge.com for ChatGPT exports
+ * Handles both: ZIP attachments AND forwarded emails with download links
  */
 
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
 
-// Cron endpoint - should be protected by Vercel cron or similar
 export const runtime = 'nodejs';
-export const maxDuration = 60; // 1 minute max
+export const maxDuration = 60;
 
-/**
- * Get authenticated Gmail client using OAuth2
- */
 async function getGmailClient() {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GMAIL_CLIENT_ID,
     process.env.GMAIL_CLIENT_SECRET,
-    'https://developers.google.com/oauthplayground' // Redirect URI used for refresh token
+    'https://developers.google.com/oauthplayground'
   );
   
   oauth2Client.setCredentials({
@@ -28,24 +25,15 @@ async function getGmailClient() {
   return google.gmail({ version: 'v1', auth: oauth2Client });
 }
 
-/**
- * Get Supabase admin client
- */
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
+    { auth: { autoRefreshToken: false, persistSession: false } }
   );
 }
 
 export async function GET(request: Request) {
-  // Verify cron secret if configured
   const authHeader = request.headers.get('authorization');
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -55,10 +43,10 @@ export async function GET(request: Request) {
     const gmail = await getGmailClient();
     const supabase = getSupabaseAdmin();
     
-    // Search for unread emails with ZIP attachments
+    // Search for unread emails - both with attachments AND potential forwarded ChatGPT emails
     const response = await gmail.users.messages.list({
       userId: 'me',
-      q: 'is:unread has:attachment filename:zip',
+      q: 'is:unread (has:attachment filename:zip OR subject:chatgpt OR subject:export OR from:openai)',
       maxResults: 10,
     });
     
@@ -78,10 +66,7 @@ export async function GET(request: Request) {
       }
     }
     
-    return NextResponse.json({
-      processed: results.length,
-      results,
-    });
+    return NextResponse.json({ processed: results.length, results });
   } catch (error) {
     console.error('Inbox poll error:', error);
     return NextResponse.json(
@@ -91,23 +76,18 @@ export async function GET(request: Request) {
   }
 }
 
-/**
- * Process a single email message
- */
 async function processEmail(
   gmail: ReturnType<typeof google.gmail>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   messageId: string
 ): Promise<{ email: string; status: string; error?: string }> {
-  // Get full message details
   const message = await gmail.users.messages.get({
     userId: 'me',
     id: messageId,
     format: 'full',
   });
   
-  // Extract sender email
   const headers = message.data.payload?.headers || [];
   const fromHeader = headers.find(h => h.name?.toLowerCase() === 'from');
   const senderEmail = extractEmail(fromHeader?.value || '');
@@ -116,25 +96,22 @@ async function processEmail(
     return { email: 'unknown', status: 'skipped', error: 'Could not extract sender email' };
   }
   
-  // Look up user by email
-  const { data: userData, error: userError } = await supabase
+  // Look up user
+  const { data: userData } = await supabase
     .from('profiles')
     .select('id')
     .eq('email', senderEmail)
     .single();
   
-  // If no profiles table, try auth.users via admin API
   let userId: string | null = userData?.id || null;
   
   if (!userId) {
-    // Try to find user in auth.users
     const { data: authData } = await supabase.auth.admin.listUsers();
     const authUser = authData?.users?.find((u: { email?: string }) => u.email === senderEmail);
     userId = authUser?.id || null;
   }
   
   if (!userId) {
-    // Mark as read but don't process - user not registered
     await gmail.users.messages.modify({
       userId: 'me',
       id: messageId,
@@ -143,35 +120,54 @@ async function processEmail(
     return { email: senderEmail, status: 'skipped', error: 'User not found in system' };
   }
   
-  // Find ZIP attachment
+  let zipBuffer: Buffer | null = null;
+  
+  // Method 1: Try to find ZIP attachment
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parts = (message.data.payload?.parts || []) as any[];
   const zipPart = findZipAttachment(parts);
   
-  if (!zipPart || !zipPart.body?.attachmentId) {
+  if (zipPart?.body?.attachmentId) {
+    const attachment = await gmail.users.messages.attachments.get({
+      userId: 'me',
+      messageId,
+      id: zipPart.body.attachmentId,
+    });
+    
+    if (attachment.data.data) {
+      zipBuffer = Buffer.from(attachment.data.data, 'base64');
+    }
+  }
+  
+  // Method 2: If no attachment, look for ChatGPT download link in email body
+  if (!zipBuffer) {
+    const emailBody = getEmailBody(message.data.payload);
+    const downloadUrl = extractChatGPTDownloadLink(emailBody);
+    
+    if (downloadUrl) {
+      console.log(`[Import] Found ChatGPT download link, fetching...`);
+      try {
+        const response = await fetch(downloadUrl);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          zipBuffer = Buffer.from(arrayBuffer);
+        }
+      } catch (e) {
+        console.error(`[Import] Failed to download from ChatGPT link:`, e);
+      }
+    }
+  }
+  
+  if (!zipBuffer) {
     await gmail.users.messages.modify({
       userId: 'me',
       id: messageId,
       requestBody: { removeLabelIds: ['UNREAD'] },
     });
-    return { email: senderEmail, status: 'skipped', error: 'No ZIP attachment found' };
+    return { email: senderEmail, status: 'skipped', error: 'No ZIP attachment or download link found' };
   }
   
-  // Download the attachment
-  const attachment = await gmail.users.messages.attachments.get({
-    userId: 'me',
-    messageId,
-    id: zipPart.body.attachmentId,
-  });
-  
-  if (!attachment.data.data) {
-    return { email: senderEmail, status: 'error', error: 'Could not download attachment' };
-  }
-  
-  // Decode base64 attachment
-  const zipBuffer = Buffer.from(attachment.data.data, 'base64');
-  
-  // Create import job record
+  // Create import job
   const { data: importJob, error: jobError } = await supabase
     .from('import_jobs')
     .insert({
@@ -187,7 +183,7 @@ async function processEmail(
     return { email: senderEmail, status: 'error', error: `Failed to create import job: ${jobError?.message}` };
   }
   
-  // Call the process endpoint to handle the import
+  // Process the import
   const processUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/import/process`;
   
   try {
@@ -209,7 +205,6 @@ async function processEmail(
       throw new Error(`Process endpoint returned ${processResponse.status}: ${error}`);
     }
   } catch (error) {
-    // Update job status to failed
     await supabase
       .from('import_jobs')
       .update({
@@ -221,7 +216,6 @@ async function processEmail(
     return { email: senderEmail, status: 'error', error: error instanceof Error ? error.message : 'Processing failed' };
   }
   
-  // Mark email as read
   await gmail.users.messages.modify({
     userId: 'me',
     id: messageId,
@@ -231,17 +225,11 @@ async function processEmail(
   return { email: senderEmail, status: 'processing' };
 }
 
-/**
- * Extract email address from "Name <email>" format
- */
 function extractEmail(from: string): string | null {
   const match = from.match(/<([^>]+)>/) || from.match(/([^\s<>]+@[^\s<>]+)/);
   return match ? match[1].toLowerCase() : null;
 }
 
-/**
- * Recursively find ZIP attachment in message parts
- */
 function findZipAttachment(parts: Array<{
   mimeType?: string;
   filename?: string;
@@ -254,11 +242,69 @@ function findZipAttachment(parts: Array<{
         part.mimeType === 'application/x-zip-compressed') {
       return part;
     }
-    
-    // Check nested parts
     if (part.parts) {
       const nested = findZipAttachment(part.parts as typeof parts);
       if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract email body text from message payload
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getEmailBody(payload: any): string {
+  if (!payload) return '';
+  
+  // Direct body
+  if (payload.body?.data) {
+    return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+  }
+  
+  // Check parts
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      if (part.mimeType === 'text/plain' && part.body?.data) {
+        return Buffer.from(part.body.data, 'base64').toString('utf-8');
+      }
+      if (part.mimeType === 'text/html' && part.body?.data) {
+        return Buffer.from(part.body.data, 'base64').toString('utf-8');
+      }
+      // Recurse into nested parts
+      if (part.parts) {
+        const nested = getEmailBody(part);
+        if (nested) return nested;
+      }
+    }
+  }
+  
+  return '';
+}
+
+/**
+ * Extract ChatGPT export download link from email body
+ * ChatGPT sends emails with links like:
+ * - https://chatgpt.com/backend-api/accounts/.../export/download
+ * - https://chat.openai.com/backend-api/...
+ */
+function extractChatGPTDownloadLink(body: string): string | null {
+  // Common patterns for ChatGPT export download links
+  const patterns = [
+    /https:\/\/chatgpt\.com\/[^\s"'<>]+export[^\s"'<>]+download[^\s"'<>]*/i,
+    /https:\/\/chat\.openai\.com\/[^\s"'<>]+export[^\s"'<>]+download[^\s"'<>]*/i,
+    /https:\/\/[^\s"'<>]*openai[^\s"'<>]*\/[^\s"'<>]*export[^\s"'<>]*/i,
+    // Generic pattern for download links in ChatGPT emails
+    /https:\/\/[^\s"'<>]+\.zip[^\s"'<>]*/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = body.match(pattern);
+    if (match) {
+      // Clean up any trailing HTML entities or characters
+      let url = match[0].replace(/&amp;/g, '&');
+      url = url.replace(/['">\s].*$/, '');
+      return url;
     }
   }
   
