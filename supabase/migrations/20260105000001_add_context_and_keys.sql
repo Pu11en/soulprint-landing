@@ -1,1 +1,0 @@
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS current_soulprint_id UUID REFERENCES public.soulprints(id) ON DELETE SET NULL; ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS encrypted_key TEXT;
