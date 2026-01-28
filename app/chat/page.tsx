@@ -542,34 +542,19 @@ export default function ChatPage() {
                   </div>
                 </div>
               ) : (
-                /* AI Message - Left aligned, no bubble */
-                <div key={msg.id} className="flex gap-4 items-start max-w-[90%]">
-                  <div className="w-8 h-8 shrink-0 rounded-full border border-white/10 bg-white/5 flex items-center justify-center mt-1 overflow-hidden">
-                    {aiAvatar ? (
-                      <img src={aiAvatar} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-sm">✨</span>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <p className="text-white/40 text-[11px] font-bold tracking-widest uppercase ml-1">{aiName || 'SoulPrint'}</p>
-                    <div className="text-white text-[15px] font-normal leading-relaxed whitespace-pre-wrap break-words">
-                      {msg.content}
-                    </div>
+                /* AI Message - Left aligned, clean */
+                <div key={msg.id} className="flex flex-col gap-2 max-w-[90%]">
+                  <p className="text-white/40 text-[11px] font-bold tracking-widest uppercase">{aiName || 'SoulPrint'}</p>
+                  <div className="text-white text-[15px] font-normal leading-relaxed whitespace-pre-wrap break-words">
+                    {msg.content}
                   </div>
                 </div>
               )
             ))}
             {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
-              <div className="flex gap-4 items-start max-w-[90%] opacity-60">
-                <div className="w-8 h-8 shrink-0 rounded-full border border-white/10 bg-white/5 flex items-center justify-center mt-1 overflow-hidden">
-                  {aiAvatar ? (
-                    <img src={aiAvatar} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-sm">✨</span>
-                  )}
-                </div>
-                <div className="flex gap-1.5 py-3">
+              <div className="flex flex-col gap-2 max-w-[90%] opacity-60">
+                <p className="text-white/40 text-[11px] font-bold tracking-widest uppercase">{aiName || 'SoulPrint'}</p>
+                <div className="flex gap-1.5 py-1">
                   <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" />
                   <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                   <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
