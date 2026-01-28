@@ -469,7 +469,7 @@ export default function ChatPage() {
         className="flex-shrink-0 bg-[#0e0e0e]/95 backdrop-blur-lg z-20 border-b border-white/[0.06]"
         style={{ paddingTop: safeAreaTop }}
       >
-        <div className="flex items-center px-4 sm:px-6 lg:px-8 h-[72px] max-w-5xl mx-auto">
+        <div className="flex items-center px-5 sm:px-8 lg:px-10 h-[72px] max-w-5xl mx-auto">
           <div className="flex-1 flex items-center gap-4">
             <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xl lg:text-2xl shadow-lg shadow-orange-500/20 overflow-hidden">
               {aiAvatar ? (
@@ -539,9 +539,9 @@ export default function ChatPage() {
       )}
 
       {/* Messages - scrollable area */}
-      <main className="flex-1 overflow-y-auto overscroll-none px-4 sm:px-6 lg:px-8">
+      <main className="flex-1 overflow-y-auto overscroll-none px-5 sm:px-8 lg:px-10">
         <div className="flex flex-col justify-end min-h-full">
-          <div className="space-y-8 max-w-2xl mx-auto w-full py-6">
+          <div className="space-y-6 max-w-2xl mx-auto w-full py-6">
             {messages.map((msg) => (
               msg.role === 'user' ? (
                 /* User Message - Right aligned, orange bubble */
@@ -594,10 +594,10 @@ export default function ChatPage() {
 
       {/* Footer - input bar (Stitch design) */}
       <footer 
-        className="flex-shrink-0 backdrop-blur-xl bg-[#0e0e0e]/80 border-t border-white/10 p-4"
-        style={{ paddingBottom: `calc(${safeAreaBottom} + 16px)` }}
+        className="flex-shrink-0 backdrop-blur-xl bg-[#0e0e0e]/80 border-t border-white/10 px-5 py-4 sm:px-8"
+        style={{ paddingBottom: `calc(${safeAreaBottom} + 20px)` }}
       >
-        <form onSubmit={handleSubmit} className="flex items-center gap-3 max-w-2xl mx-auto">
+        <form onSubmit={handleSubmit} className="flex items-center gap-4 max-w-2xl mx-auto">
           {/* Input with mic button inside */}
           <div className="relative flex-1">
             <input
@@ -606,7 +606,7 @@ export default function ChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={isListening ? "Listening..." : "Whisper something..."}
-              className="w-full h-14 bg-white/5 border border-white/10 rounded-full px-6 pr-14 text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#f97415] focus:border-transparent transition-all"
+              className="w-full h-14 bg-white/5 border border-white/10 rounded-full pl-6 pr-14 text-white text-center placeholder:text-center placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#f97415] focus:border-transparent transition-all"
               autoComplete="off"
               enterKeyHint="send"
             />
