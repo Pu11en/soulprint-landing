@@ -242,16 +242,6 @@ export default function ChatPage() {
           const data = await res.json();
           if (data.messages?.length > 0) {
             setMessages(data.messages);
-            
-            // Existing user without avatar - prompt them (one-time)
-            if (!hasAvatar && loadedAiName) {
-              setIsAvatarPromptMode(true);
-              setMessages(prev => [...prev, { 
-                id: 'avatar-prompt', 
-                role: 'assistant', 
-                content: `Hey! I noticed I don't have a look yet. Want me to create one?`
-              }]);
-            }
           } else {
             const name = loadedAiName || 'your AI';
             setMessages([{ id: 'welcome', role: 'assistant', content: `Hey! I'm ${name}. I've got your memories loaded. What's on your mind?` }]);
@@ -330,19 +320,18 @@ export default function ChatPage() {
           const data = await res.json();
           setAiName(data.aiName);
           setIsNamingMode(false);
-          setIsAvatarPromptMode(true);
           
-          // Ask about creating avatar
+          // Skip avatar, go straight to ready state
           setMessages(prev => [...prev, { 
             id: (Date.now() + 1).toString(), 
             role: 'assistant', 
-            content: `${data.aiName}. I like it! 💫\n\nWant me to create my own look?`
+            content: `${data.aiName}. I like it! 💫\n\nI'm ready when you are. I've got your memories loaded — ask me anything, or just tell me what's on your mind.`
           }]);
           
           // Save the intro messages to history
           saveMessage('assistant', "Hey! I'm your new AI — built from your memories and conversations. Before we get started, I need a name. What would you like to call me?");
           saveMessage('user', userContent);
-          saveMessage('assistant', `${data.aiName}. I like it! 💫\n\nWant me to create my own look?`);
+          saveMessage('assistant', `${data.aiName}. I like it! 💫\n\nI'm ready when you are. I've got your memories loaded — ask me anything, or just tell me what's on your mind.`);
         } else {
           setMessages(prev => [...prev, { 
             id: (Date.now() + 1).toString(), 
