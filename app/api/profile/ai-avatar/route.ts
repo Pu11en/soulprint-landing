@@ -1,10 +1,17 @@
 /**
- * Generate/Get AI avatar using Gemini image generation
+ * Generate/Get AI avatar using Gemini image generation + Cloudinary storage
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'djg0pqts6',
+  api_key: process.env.CLOUDINARY_API_KEY || '136843289897238',
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -12,17 +19,6 @@ function getSupabaseAdmin() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
-}
-
-function getR2Client() {
-  return new S3Client({
-    region: 'auto',
-    endpoint: process.env.R2_ENDPOINT,
-    credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    },
-  });
 }
 
 // GET - retrieve AI avatar URL
@@ -137,23 +133,23 @@ Clean, minimal, professional. No text. Centered composition. Square format.`;
       return NextResponse.json({ error: 'No image generated' }, { status: 500 });
     }
 
-    // Convert base64 to buffer
-    const imageBuffer = Buffer.from(imageBase64, 'base64');
-    const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' : 'png';
-    const fileName = `avatars/${user.id}/${Date.now()}.${ext}`;
-
-    // Upload to R2
-    const r2 = getR2Client();
-    await r2.send(new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: fileName,
-      Body: imageBuffer,
-      ContentType: mimeType,
-    }));
-
-    // Construct public URL (assuming R2 public bucket or custom domain)
-    // For now, we'll store the key and construct URL later, or use a signed URL approach
-    const avatarUrl = `https://pub-soulprint.r2.dev/${fileName}`;
+    // Upload to Cloudinary
+    const dataUri = `data:${mimeType};base64,${imageBase64}`;
+    
+    let avatarUrl: string;
+    try {
+      const uploadResult = await cloudinary.uploader.upload(dataUri, {
+        folder: 'soulprint/avatars',
+        public_id: `${user.id}_${Date.now()}`,
+        transformation: [
+          { width: 256, height: 256, crop: 'fill', gravity: 'face' }
+        ]
+      });
+      avatarUrl = uploadResult.secure_url;
+    } catch (uploadError) {
+      console.error('Cloudinary upload error:', uploadError);
+      return NextResponse.json({ error: 'Failed to upload avatar' }, { status: 500 });
+    }
 
     // Save to user profile
     const { error: updateError } = await adminSupabase

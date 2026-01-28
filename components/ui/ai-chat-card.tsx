@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,10 +11,12 @@ export default function AIChatCard({ className }: { className?: string }) {
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = () => {
     if (!input.trim()) return;
     setMessages([...messages, { sender: "user", text: input }]);
+    inputRef.current?.focus();
     setInput("");
     setIsTyping(true);
 
@@ -70,7 +72,7 @@ export default function AIChatCard({ className }: { className?: string }) {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 px-4 py-3 overflow-y-auto space-y-3 text-sm flex flex-col relative z-10">
+        <div className="flex-1 px-4 py-3 overflow-y-auto space-y-3 text-sm flex flex-col justify-end relative z-10">
           {messages.map((msg, i) => (
             <motion.div
               key={i}
@@ -106,6 +108,7 @@ export default function AIChatCard({ className }: { className?: string }) {
         {/* Input */}
         <div className="flex items-center gap-2 p-3 border-t border-white/10 relative z-10">
           <input
+            ref={inputRef}
             className="flex-1 px-4 py-3 text-sm bg-black/50 rounded-full border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-orange-500/50"
             placeholder="Type a message..."
             value={input}

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Lightbulb, Mic, Globe, Paperclip, Send } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -29,6 +29,7 @@ const AIChatInput = ({ onSubmit, onVoiceStart, isLoading, darkMode = true }: AIC
   const [deepSearchActive, setDeepSearchActive] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Cycle placeholder text when input is inactive
   useEffect(() => {
@@ -59,12 +60,13 @@ const AIChatInput = ({ onSubmit, onVoiceStart, isLoading, darkMode = true }: AIC
 
   const handleActivate = () => setIsActive(true);
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (inputValue.trim() && onSubmit) {
+      inputRef.current?.focus();
       onSubmit(inputValue.trim());
       setInputValue("");
     }
-  };
+  }, [inputValue, onSubmit]);
 
   const containerVariants = {
     collapsed: {
@@ -142,6 +144,7 @@ const AIChatInput = ({ onSubmit, onVoiceStart, isLoading, darkMode = true }: AIC
           {/* Text Input & Placeholder */}
           <div className="relative flex-1">
             <input
+              ref={inputRef}
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}

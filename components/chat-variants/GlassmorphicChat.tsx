@@ -21,6 +21,7 @@ export default function GlassmorphicChat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,6 +42,7 @@ export default function GlassmorphicChat() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    inputRef.current?.focus();
     setInput('');
     setIsLoading(true);
 
@@ -84,8 +86,9 @@ export default function GlassmorphicChat() {
       </header>
 
       {/* Messages area */}
-      <main className="relative z-10 px-4 sm:px-6 pb-32 pt-6">
-        <div className="max-w-3xl mx-auto space-y-6">
+      <main className="flex-1 overflow-y-auto relative z-10 px-4 sm:px-6 pb-32 pt-6">
+        <div className="flex flex-col justify-end min-h-full">
+          <div className="max-w-3xl mx-auto space-y-6">
           {messages.map((msg) => (
             <div
               key={msg.id}
@@ -131,6 +134,7 @@ export default function GlassmorphicChat() {
           )}
 
           <div ref={messagesEndRef} />
+          </div>
         </div>
       </main>
 
@@ -143,6 +147,7 @@ export default function GlassmorphicChat() {
             
             <div className="relative flex items-center gap-3 p-2">
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
