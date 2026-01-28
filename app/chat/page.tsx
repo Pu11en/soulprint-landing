@@ -458,8 +458,8 @@ export default function ChatPage() {
         className="flex-shrink-0 bg-[#0e0e0e]/95 backdrop-blur-lg z-20 border-b border-white/[0.06]"
         style={{ paddingTop: safeAreaTop }}
       >
-        <div className="flex items-center px-5 sm:px-8 lg:px-10 h-[72px] max-w-5xl mx-auto">
-          <div className="flex-1 flex items-center gap-4">
+        <div className="flex items-center px-6 sm:px-8 lg:px-10 h-[72px] max-w-5xl mx-auto">
+          <div className="flex-1 flex items-center gap-5">
             <div className="w-11 h-11 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-xl lg:text-2xl shadow-lg shadow-orange-500/20 overflow-hidden">
               {aiAvatar ? (
                 <img src={aiAvatar} alt={aiName || 'AI'} className="w-full h-full object-cover" />
@@ -535,8 +535,8 @@ export default function ChatPage() {
               msg.role === 'user' ? (
                 /* User Message - Right aligned, orange bubble */
                 <div key={msg.id} className="flex flex-col items-end gap-1.5">
-                  <div className="bg-[#f97415] text-white px-5 py-4 rounded-3xl rounded-tr-sm max-w-[85%] shadow-lg shadow-orange-500/20">
-                    <p className="text-[15px] font-medium leading-normal whitespace-pre-wrap break-words">
+                  <div className="bg-[#f97415] text-white px-6 py-4 rounded-3xl rounded-tr-sm max-w-[80%] shadow-lg shadow-orange-500/20">
+                    <p className="text-[15px] font-medium leading-relaxed whitespace-pre-wrap break-words">
                       {msg.content}
                     </p>
                   </div>
