@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoulPrint Product Roadmap</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 100%);
+      min-height: 100vh;
+      color: #fff;
+      padding: 40px 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+    .badge {
+      display: inline-block;
+      background: linear-gradient(90deg, #f97415, #fb923c);
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #fff, #ccc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header p {
+      color: rgba(255,255,255,0.5);
+      font-size: 18px;
+    }
+    
+    /* Stats Row */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 60px;
+    }
+    .stat {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .stat:hover {
+      transform: translateY(-4px);
+      border-color: rgba(249,116,21,0.3);
+    }
+    .stat-value {
+      font-size: 48px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #f97415, #fb923c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-label {
+      color: rgba(255,255,255,0.5);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+    
+    /* Timeline */
+    .timeline {
+      position: relative;
+      padding-left: 60px;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 24px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, #f97415 0%, rgba(249,116,21,0.1) 100%);
+    }
+    
+    .phase {
+      position: relative;
+      margin-bottom: 50px;
+    }
+    .phase-dot {
+      position: absolute;
+      left: -48px;
+      top: 4px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #222;
+      border: 3px solid rgba(255,255,255,0.2);
+    }
+    .phase.done .phase-dot {
+      background: #22c55e;
+      border-color: #22c55e;
+      box-shadow: 0 0 20px rgba(34,197,94,0.4);
+    }
+    .phase.current .phase-dot {
+      background: #f97415;
+      border-color: #f97415;
+      box-shadow: 0 0 20px rgba(249,116,21,0.4);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(249,116,21,0.4); }
+      50% { box-shadow: 0 0 30px rgba(249,116,21,0.6); }
+    }
+    
+    .phase-content {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 30px;
+      transition: border-color 0.2s;
+    }
+    .phase.done .phase-content { border-color: rgba(34,197,94,0.2); }
+    .phase.current .phase-content { border-color: rgba(249,116,21,0.3); }
+    
+    .phase-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .phase-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      background: rgba(255,255,255,0.05);
+    }
+    .phase.done .phase-icon { background: rgba(34,197,94,0.15); }
+    .phase.current .phase-icon { background: rgba(249,116,21,0.15); }
+    
+    .phase-title {
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .phase.done .phase-title { color: #22c55e; }
+    .phase.current .phase-title { color: #f97415; }
+    
+    .phase-status {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 4px 12px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .phase.done .phase-status { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .phase.current .phase-status { background: rgba(249,116,21,0.15); color: #f97415; }
+    .phase .phase-status { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); }
+    
+    .phase-desc {
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    
+    .checklist {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 10px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
+    }
+    .check-item.done { color: rgba(255,255,255,0.9); }
+    .check-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+    .check-item.done .check-icon {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: #fff;
+    }
+    
+    /* Footer */
+    .footer {
+      margin-top: 60px;
+      text-align: center;
+      color: rgba(255,255,255,0.3);
+      font-size: 14px;
+    }
+    .footer a {
+      color: #f97415;
+      text-decoration: none;
+    }
+    
+    @media (max-width: 600px) {
+      .stats { grid-template-columns: 1fr; }
+      .checklist { grid-template-columns: 1fr; }
+      .header h1 { font-size: 36px; }
+      .stat-value { font-size: 36px; }
+    }
+    
+    @media print {
+      body { background: #fff; color: #000; }
+      .stat, .phase-content { border-color: #ddd; background: #f9f9f9; }
+      .phase-title, .stat-value { color: #f97415 !important; -webkit-text-fill-color: #f97415 !important; }
+      .phase.done .phase-title { color: #22c55e !important; -webkit-text-fill-color: #22c55e !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="badge">🚀 Product Roadmap</div>
+      <h1>SoulPrint</h1>
+      <p>From MVP to App Store</p>
+    </div>
+    
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">85%</div>
+        <div class="stat-label">Core Complete</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">~2</div>
+        <div class="stat-label">Weeks to App Store</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">∞</div>
+        <div class="stat-label">Memory Capacity</div>
+      </div>
+    </div>
+    
+    <div class="timeline">
+      <!-- Phase 1: Done -->
+      <div class="phase done">
+        <div class="phase-dot"></div>
+        <div class="phase-content">
+          <div class="phase-header">
+            <div class="phase-icon">🏗️</div>
+            <div>
+              <div class="phase-title">Phase 1: Foundation</div>
+            </div>
+            <div class="phase-status">Complete</div>
+          </div>
+          <p class="phase-desc">Core platform built and deployed. Users can import their ChatGPT history and chat with a personalized AI that remembers everything.</p>
+          <div class="checklist">
+            <div class="check-item done"><span class="check-icon">✓</span>User authentication</div>
+            <div class="check-item done"><span class="check-icon">✓</span>ChatGPT data import</div>
+            <div class="check-item done"><span class="check-icon">✓</span>Client-side processing</div>
+            <div class="check-item done"><span class="check-icon">✓</span>Infinite memory engine</div>
+            <div class="check-item done"><span class="check-icon">✓</span>AI chat interface</div>
+            <div class="check-item done"><span class="check-icon">✓</span>Mobile-optimized UI</div>
+            <div class="check-item done"><span class="check-icon">✓</span>AI naming & personalization</div>
+            <div class="check-item done"><span class="check-icon">✓</span>Production deployment</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Phase 2: Current -->
+      <div class="phase current">
+        <div class="phase-dot"></div>
+        <div class="phase-content">
+          <div class="phase-header">
+            <div class="phase-icon">📱</div>
+            <div>
+              <div class="phase-title">Phase 2: App Store</div>
+            </div>
+            <div class="phase-status">In Progress</div>
+          </div>
+          <p class="phase-desc">Package the web app for iOS and Android. Get approved and listed on both app stores.</p>
+          <div class="checklist">
+            <div class="check-item"><span class="check-icon"></span>Expo/React Native wrapper</div>
+            <div class="check-item"><span class="check-icon"></span>iOS TestFlight build</div>
+            <div class="check-item"><span class="check-icon"></span>Android build</div>
+            <div class="check-item"><span class="check-icon"></span>App icons & assets</div>
+            <div class="check-item"><span class="check-icon"></span>Privacy Policy</div>
+            <div class="check-item"><span class="check-icon"></span>Terms of Service</div>
+            <div class="check-item"><span class="check-icon"></span>App Store submission</div>
+            <div class="check-item"><span class="check-icon"></span>Push notifications</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Phase 3 -->
+      <div class="phase">
+        <div class="phase-dot"></div>
+        <div class="phase-content">
+          <div class="phase-header">
+            <div class="phase-icon">🔌</div>
+            <div>
+              <div class="phase-title">Phase 3: Multi-Source Import</div>
+            </div>
+            <div class="phase-status">Planned</div>
+          </div>
+          <p class="phase-desc">Expand beyond ChatGPT. Let users import from any messaging platform.</p>
+          <div class="checklist">
+            <div class="check-item"><span class="check-icon"></span>WhatsApp export</div>
+            <div class="check-item"><span class="check-icon"></span>Telegram export</div>
+            <div class="check-item"><span class="check-icon"></span>Google Messages</div>
+            <div class="check-item"><span class="check-icon"></span>iMessage (if possible)</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Phase 4 -->
+      <div class="phase">
+        <div class="phase-dot"></div>
+        <div class="phase-content">
+          <div class="phase-header">
+            <div class="phase-icon">⚡</div>
+            <div>
+              <div class="phase-title">Phase 4: Enhanced Features</div>
+            </div>
+            <div class="phase-status">Planned</div>
+          </div>
+          <p class="phase-desc">Advanced AI capabilities and user customization options.</p>
+          <div class="checklist">
+            <div class="check-item"><span class="check-icon"></span>Voice chat</div>
+            <div class="check-item"><span class="check-icon"></span>AI avatar generation</div>
+            <div class="check-item"><span class="check-icon"></span>Memory search/browse</div>
+            <div class="check-item"><span class="check-icon"></span>Export your SoulPrint</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Phase 5 -->
+      <div class="phase">
+        <div class="phase-dot"></div>
+        <div class="phase-content">
+          <div class="phase-header">
+            <div class="phase-icon">💎</div>
+            <div>
+              <div class="phase-title">Phase 5: Premium & API</div>
+            </div>
+            <div class="phase-status">Future</div>
+          </div>
+          <p class="phase-desc">Monetization and developer platform.</p>
+          <div class="checklist">
+            <div class="check-item"><span class="check-icon"></span>Premium subscription</div>
+            <div class="check-item"><span class="check-icon"></span>API access</div>
+            <div class="check-item"><span class="check-icon"></span>Increased memory limits</div>
+            <div class="check-item"><span class="check-icon"></span>Enterprise features</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>© 2026 ArcheForge · <a href="/whitepaper.html">Read the White Paper</a></p>
+    </div>
+  </div>
+</body>
+</html>
