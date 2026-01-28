@@ -81,10 +81,10 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Scroll when keyboard height changes or messages change
+  // Scroll when messages change (not on keyboard - causes jank)
   useEffect(() => {
-    setTimeout(scrollToBottom, 100);
-  }, [keyboardHeight, messages]);
+    scrollToBottom();
+  }, [messages]);
 
   const startListening = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -309,9 +309,12 @@ export default function ChatPage() {
     if (!input.trim() || isLoading) return;
 
     const userContent = input.trim();
+    
+    // Keep focus to prevent keyboard from closing/reopening (causes flicker)
+    inputRef.current?.focus();
+    
     setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: userContent }]);
     setInput('');
-    setTimeout(() => inputRef.current?.focus(), 0);
     setIsLoading(true);
 
     // Handle naming mode
@@ -459,8 +462,7 @@ export default function ChatPage() {
 
   return (
     <div 
-      className="bg-[#0e0e0e] text-white flex flex-col"
-      style={{ height: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight}px)` : '100dvh' }}
+      className="bg-[#0e0e0e] text-white flex flex-col h-[100dvh] overflow-hidden"
     >
       {/* Header */}
       <header 
