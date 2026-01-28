@@ -17,55 +17,83 @@ interface Step {
 const steps: Step[] = [
   {
     step: '01',
-    title: 'Request your ChatGPT export',
-    description: 'Open ChatGPT and request your data export:',
+    title: 'Request your export from ChatGPT',
+    description: 'Go to ChatGPT and request your data:',
     substeps: [
-      'Open ChatGPT (app or chatgpt.com)',
-      'Tap your profile icon (bottom left on mobile, top right on desktop)',
-      'Go to Settings → Data Controls',
-      'Tap "Export data"',
-      'Confirm with "Export"',
+      'Go to chatgpt.com (or open the ChatGPT app)',
+      'Click your profile picture → Settings',
+      'Click "Data controls"',
+      'Click "Export data" → "Confirm export"',
+      '⏳ Wait for email from OpenAI (5-30 min)',
     ],
     icon: (
       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
       </svg>
     ),
-    tip: 'You\'ll get an email within a few minutes with your download link.',
+    tip: 'Important: The email comes from OpenAI, not SoulPrint. Check spam if you don\'t see it!',
   },
   {
     step: '02',
-    title: 'Download the ZIP file',
-    description: 'When you get the email from OpenAI:',
+    title: 'Download from OpenAI\'s email',
+    description: 'Check your inbox for an email from OpenAI:',
     substeps: [
-      'Open the email from "OpenAI"',
-      'Click "Download data export"',
-      'You\'ll be redirected to ChatGPT — click "Download"',
-      'Wait for the ZIP file to finish downloading',
+      'Look for email from "noreply@tm.openai.com"',
+      'Subject: "Your ChatGPT data export is ready"',
+      'Click "Download data export" in the email',
+      'Click "Download" on the ChatGPT page',
+      'Save the ZIP file to your device',
     ],
     icon: (
       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
       </svg>
     ),
-    tip: 'Large exports (1GB+) may take a few minutes. Keep your screen on.',
+    tip: 'Can\'t find the email? Check spam/junk. Still nothing after 30 min? Try requesting again.',
   },
   {
     step: '03',
-    title: 'Upload it here',
-    description: 'Drag the ZIP file here or tap to select it:',
+    title: 'Upload the ZIP here',
+    description: 'Bring your downloaded ZIP back here:',
     substeps: [
-      'Find the downloaded ZIP file',
-      'Drag it onto the upload area below (or tap to browse)',
-      'Wait while we analyze your conversations',
-      'Your data stays on your device — nothing is uploaded',
+      'Find the ZIP file you just downloaded',
+      'Drag it onto the upload area below',
+      '(or tap below to browse your files)',
+      'We\'ll analyze it right in your browser',
     ],
     icon: (
       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
       </svg>
     ),
-    tip: 'Processing happens in your browser. Works with any file size!',
+    tip: '🔒 Your data never leaves your device. Processing happens 100% locally.',
+  },
+];
+
+const faqs = [
+  {
+    q: "I haven't received an email yet",
+    a: "The export email comes from OpenAI (noreply@tm.openai.com), not from us. It usually takes 5-30 minutes. Check your spam folder! If it's been over an hour, try requesting the export again from ChatGPT.",
+  },
+  {
+    q: "Where do I request the export?",
+    a: "Go to chatgpt.com → click your profile picture (bottom left) → Settings → Data controls → Export data. You'll need to confirm, then wait for OpenAI's email.",
+  },
+  {
+    q: "The download link expired",
+    a: "OpenAI's download links expire after 24 hours. Just go back to ChatGPT and request a new export — it only takes a minute.",
+  },
+  {
+    q: "Is my data safe?",
+    a: "Yes! Your ZIP file is processed entirely in your browser — nothing is uploaded to our servers. We only save the analyzed results (your interests, communication style, etc.), not your actual conversations.",
+  },
+  {
+    q: "How long does processing take?",
+    a: "Usually 1-3 minutes, depending on how many conversations you have. Large exports (1GB+) may take a bit longer. Keep this tab open!",
+  },
+  {
+    q: "Can I use this on mobile?",
+    a: "Yes! Works on iPhone/Android. Just make sure to download the ZIP file fully before uploading it here. If you're on iOS, you might need to use Safari and \"Download\" to Files first.",
   },
 ];
 
@@ -361,6 +389,24 @@ export default function ImportPage() {
               <button onClick={() => { setStatus('idle'); setErrorMessage(''); }} className="btn btn-secondary btn-lg">Try again</button>
             </div>
           )}
+        </div>
+
+        {/* FAQ Section */}
+        <div className="max-w-2xl mx-auto mt-16 animate-in" style={{ animationDelay: '0.5s' }}>
+          <h2 className="text-lg font-semibold text-white mb-6 text-center">Common Questions</h2>
+          <div className="space-y-3">
+            {faqs.map((faq, i) => (
+              <details key={i} className="group card p-4 cursor-pointer">
+                <summary className="flex items-center justify-between text-white font-medium list-none">
+                  {faq.q}
+                  <svg className="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <p className="text-sm text-gray-400 mt-3 leading-relaxed">{faq.a}</p>
+              </details>
+            ))}
+          </div>
         </div>
 
         <div className="text-center mt-8">
