@@ -14,7 +14,7 @@ export function MemorySection() {
                     transition={{ duration: 0.6 }}
                     className="flex flex-1 flex-col items-start justify-start gap-5"
                 >
-                    <h2 className="font-koulen text-7xl leading-[0.9] uppercase text-white">
+                    <h2 className="font-koulen text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-[0.9] uppercase text-white">
                         Your Memory,
                         <br />
                         Finally Portable.
@@ -38,7 +38,7 @@ export function MemorySection() {
                             transition={{ duration: 0.6, delay: 0.2 }}
                             className="flex flex-1 flex-col items-start justify-start gap-3"
                         >
-                            <h3 className="font-geist text-3xl font-bold leading-tight text-white">
+                            <h3 className="font-geist text-xl sm:text-2xl md:text-3xl font-bold leading-tight text-white">
                                 Independent Presence, Anywhere Intelligence Exists
                             </h3>
                             <p className="font-geist text-base leading-relaxed text-neutral-400">
@@ -52,7 +52,7 @@ export function MemorySection() {
                             transition={{ duration: 0.6, delay: 0.3 }}
                             className="flex flex-1 flex-col items-start justify-start gap-3"
                         >
-                            <h3 className="font-geist text-3xl font-bold leading-tight text-white">
+                            <h3 className="font-geist text-xl sm:text-2xl md:text-3xl font-bold leading-tight text-white">
                                 Local Identity. Zero Surveillance.
                             </h3>
                             <p className="font-geist text-base leading-relaxed text-neutral-400">
@@ -70,7 +70,7 @@ export function MemorySection() {
                             transition={{ duration: 0.6, delay: 0.4 }}
                             className="flex flex-1 flex-col items-start justify-start gap-3"
                         >
-                            <h3 className="font-geist text-3xl font-bold leading-tight text-white">
+                            <h3 className="font-geist text-xl sm:text-2xl md:text-3xl font-bold leading-tight text-white">
                                 Your Cadence. Your Tone. Your Patterns.
                             </h3>
                             <p className="font-geist text-base leading-relaxed text-neutral-400">
@@ -84,7 +84,7 @@ export function MemorySection() {
                             transition={{ duration: 0.6, delay: 0.5 }}
                             className="flex flex-1 flex-col items-start justify-start gap-3"
                         >
-                            <h3 className="font-geist text-3xl font-bold leading-tight text-white">
+                            <h3 className="font-geist text-xl sm:text-2xl md:text-3xl font-bold leading-tight text-white">
                                 Never Rebuild Yourself Again
                             </h3>
                             <p className="font-geist text-base leading-relaxed text-neutral-400">

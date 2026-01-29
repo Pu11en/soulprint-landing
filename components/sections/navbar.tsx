@@ -49,7 +49,7 @@ export function Navbar() {
 
                 {/* Right side */}
                 <div className="hidden md:flex items-center gap-3">
-                    <Link href="/enter">
+                    <Link href="https://soulprintengine.ai/signup">
                         <Button className="h-10 rounded-full bg-[#E8632B] px-6 text-white shadow-[0_0_24px_rgba(232,99,43,0.35)] hover:bg-[#E8632B]/90">
                             Enter SoulPrint
                         </Button>
@@ -86,7 +86,7 @@ export function Navbar() {
                         </div>
                         <div className="h-px bg-white/10 w-full" />
                         <div className="flex flex-col gap-3">
-                            <Link href="/enter" onClick={() => setIsMenuOpen(false)}>
+                            <Link href="https://soulprintengine.ai/signup" onClick={() => setIsMenuOpen(false)}>
                                 <Button className="w-full h-12 rounded-full bg-[#E8632B] text-white hover:bg-[#E8632B]/90">
                                     Enter SoulPrint
                                 </Button>
