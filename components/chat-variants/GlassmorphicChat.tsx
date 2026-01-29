@@ -68,7 +68,7 @@ export default function GlassmorphicChat() {
       </div>
 
       {/* Glass header */}
-      <header className="sticky top-0 z-20 backdrop-blur-xl bg-white/[0.02] border-b border-white/[0.08]">
+      <header className="sticky top-0 z-20 backdrop-blur-xl bg-white/[0.02] border-b border-white/[0.08] pt-[env(safe-area-inset-top)]">
         <div className="flex items-center px-6 h-20 max-w-3xl mx-auto">
           <div className="flex items-center gap-4">
             <div className="relative">

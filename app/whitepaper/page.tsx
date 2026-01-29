@@ -6,7 +6,7 @@ export default function WhitepaperPage() {
   return (
     <div className="min-h-screen bg-[#09090B] text-white">
       {/* Header */}
-      <header className="border-b border-white/[0.06] bg-[#09090B]/95 backdrop-blur-lg sticky top-0 z-10">
+      <header className="border-b border-white/[0.06] bg-[#09090B]/95 backdrop-blur-lg sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <img src="/logo.svg" alt="SoulPrint" className="w-8 h-8" />

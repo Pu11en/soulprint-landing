@@ -84,7 +84,7 @@ export default function AchievementsPage() {
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-white">
       {/* Header */}
-      <header className="sticky top-0 bg-[#0A0A0B]/95 backdrop-blur-lg border-b border-white/[0.06] z-10">
+      <header className="sticky top-0 bg-[#0A0A0B]/95 backdrop-blur-lg border-b border-white/[0.06] z-10 pt-[env(safe-area-inset-top)]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/chat" className="p-2 -ml-2 text-white/60 hover:text-white transition-colors">
