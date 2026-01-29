@@ -6,6 +6,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { searchWeb, shouldSearchWeb, formatSearchContext } from '@/lib/search/tavily';
+import { queryPerplexity, needsRealtimeInfo, formatPerplexityContext } from '@/lib/search/perplexity';
 
 // Initialize Bedrock client (fallback)
 const bedrockClient = new BedrockRuntimeClient({
@@ -221,9 +222,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if we should do a web search
+    // Check if we should use Perplexity for real-time info (news, current events)
+    let realtimeContext = '';
+    if (process.env.PERPLEXITY_API_KEY && needsRealtimeInfo(message)) {
+      try {
+        console.log('[Chat] Running Perplexity for real-time info:', message.slice(0, 50));
+        const perplexityResponse = await queryPerplexity(message);
+        realtimeContext = formatPerplexityContext(perplexityResponse);
+        console.log('[Chat] Perplexity returned answer with', perplexityResponse.citations.length, 'citations');
+      } catch (error) {
+        console.log('[Chat] Perplexity search failed:', error);
+        // Fall through to Tavily as backup
+      }
+    }
+
+    // Check if we should do a web search (use Tavily for general queries, skip if Perplexity already handled it)
     let webSearchContext = '';
-    if (process.env.TAVILY_API_KEY && shouldSearchWeb(message)) {
+    if (!realtimeContext && process.env.TAVILY_API_KEY && shouldSearchWeb(message)) {
       try {
         console.log('[Chat] Running web search for:', message.slice(0, 50));
         const searchResponse = await searchWeb(message, { maxResults: 3 });
@@ -236,7 +251,9 @@ export async function POST(request: NextRequest) {
     }
 
     const aiName = userProfile?.ai_name || 'SoulPrint';
-    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null, webSearchContext, memoryContext, voiceVerified, aiName);
+    // Combine realtime and web search contexts
+    const combinedSearchContext = [realtimeContext, webSearchContext].filter(Boolean).join('\n\n');
+    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null, combinedSearchContext, memoryContext, voiceVerified, aiName);
 
     const messages = [
       ...history.map((msg) => ({
