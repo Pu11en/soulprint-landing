@@ -4,244 +4,14 @@ import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Upload, Shield, CheckCircle2, AlertCircle, Loader2, Lock, ExternalLink, Settings, Mail, Download, FileArchive } from 'lucide-react';
-import { Stepper, Step, useStepper } from '@/components/ui/stepper';
+import { Upload, Shield, CheckCircle2, AlertCircle, Loader2, Lock, ExternalLink, Settings, Mail, Download, FileArchive, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { SpotlightCard } from '@/components/ui/spotlight';
 import { BackgroundBeams } from '@/components/ui/background-beams';
 import { RingProgress } from '@/components/ui/ring-progress';
 import { generateClientSoulprint, type ClientSoulprint } from '@/lib/import/client-soulprint';
 
 type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
-
-// Step content components
-function ExportStep() {
-  const { nextStep } = useStepper();
-  
-  return (
-    <div className="mt-4 space-y-4">
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 md:p-6">
-        <h3 className="text-white font-semibold text-lg mb-4">How to export your ChatGPT data</h3>
-        
-        <div className="space-y-4">
-          {/* Step 1 */}
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-              <Settings className="w-4 h-4 text-orange-400" />
-            </div>
-            <div>
-              <p className="text-white font-medium">1. Open ChatGPT Settings</p>
-              <p className="text-white/50 text-sm mt-1">
-                Go to <a href="https://chat.openai.com" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">chat.openai.com</a> → Click your profile picture → Select <span className="text-white/70 font-medium">Settings</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Step 2 */}
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-              <FileArchive className="w-4 h-4 text-orange-400" />
-            </div>
-            <div>
-              <p className="text-white font-medium">2. Request your data export</p>
-              <p className="text-white/50 text-sm mt-1">
-                Click <span className="text-white/70 font-medium">Data controls</span> → Click <span className="text-white/70 font-medium">Export data</span> → Click <span className="text-white/70 font-medium">Confirm export</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-              <Mail className="w-4 h-4 text-orange-400" />
-            </div>
-            <div>
-              <p className="text-white font-medium">3. Check your email</p>
-              <p className="text-white/50 text-sm mt-1">
-                OpenAI will send you an email (usually within a few minutes) with a download link for your data.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 4 */}
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
-              <Download className="w-4 h-4 text-orange-400" />
-            </div>
-            <div>
-              <p className="text-white font-medium">4. Download the ZIP file</p>
-              <p className="text-white/50 text-sm mt-1">
-                Click the download link in the email. You'll get a <span className="text-white/70 font-medium">.zip</span> file — that's what you'll upload here.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <a 
-          href="https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 mt-4 text-sm text-orange-400 hover:text-orange-300 transition-colors"
-        >
-          View OpenAI's official guide <ExternalLink className="w-3.5 h-3.5" />
-        </a>
-      </div>
-
-      <div className="flex justify-end">
-        <Button onClick={nextStep} className="bg-orange-500 hover:bg-orange-400 text-black font-semibold">
-          I have my ZIP file →
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function UploadStep({ onFileSelect }: { onFileSelect: (file: File) => void }) {
-  const { prevStep } = useStepper();
-  const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    if (e.dataTransfer.files?.[0]) {
-      onFileSelect(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
-  };
-
-  return (
-    <div className="mt-4 space-y-4">
-      <SpotlightCard
-        className={`
-          cursor-pointer border-2 border-dashed transition-all duration-200
-          ${dragActive 
-            ? 'border-orange-500 bg-orange-500/10' 
-            : 'border-white/15 bg-white/[0.02] hover:border-orange-500/40'
-          }
-        `}
-      >
-        <div
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className="p-8 md:p-12 text-center"
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".zip"
-            onChange={(e) => e.target.files?.[0] && onFileSelect(e.target.files[0])}
-            className="hidden"
-          />
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors ${dragActive ? 'bg-orange-500/20' : 'bg-white/5'}`}>
-            <Upload className={`w-8 h-8 transition-colors ${dragActive ? 'text-orange-400' : 'text-white/40'}`} />
-          </div>
-          <p className="text-white font-semibold text-xl mb-2">
-            {dragActive ? 'Drop it here!' : 'Drop your ZIP file here'}
-          </p>
-          <p className="text-white/40 text-sm">or click anywhere to browse your files</p>
-        </div>
-      </SpotlightCard>
-
-      {/* Privacy notice */}
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/5 border border-green-500/20">
-        <Shield className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="text-green-400 font-medium text-sm">Your privacy is protected</p>
-          <p className="text-white/50 text-xs mt-1">
-            All processing happens right here in your browser. Your data never leaves your device and is never uploaded to any server.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex justify-between">
-        <Button variant="ghost" onClick={prevStep} className="text-white/60 hover:text-white">
-          ← Back
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function ProcessingStep({ progress, stage }: { progress: number; stage: string }) {
-  return (
-    <div className="mt-4">
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center">
-        <div className="mb-6">
-          <RingProgress 
-            progress={progress} 
-            size={120} 
-            strokeWidth={8}
-          />
-        </div>
-        <h3 className="text-white font-semibold text-lg mb-2">Creating your SoulPrint</h3>
-        <p className="text-white/50 text-sm">{stage || 'Analyzing your conversations...'}</p>
-        
-        <div className="mt-6 w-full h-2 bg-white/10 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.3 }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SuccessStep({ onContinue }: { onContinue: () => void }) {
-  return (
-    <div className="mt-4">
-      <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-8 text-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', delay: 0.1 }}
-          className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center mx-auto mb-4"
-        >
-          <CheckCircle2 className="w-8 h-8 text-green-500" />
-        </motion.div>
-        <h3 className="text-white font-semibold text-xl mb-2">You're all set!</h3>
-        <p className="text-white/50 text-sm mb-6">Your AI now understands your style, interests, and preferences.</p>
-        <Button 
-          onClick={onContinue}
-          className="bg-orange-500 hover:bg-orange-400 text-black font-semibold px-8"
-        >
-          Start Chatting →
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function ErrorStep({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="mt-4">
-      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
-          <AlertCircle className="w-8 h-8 text-red-500" />
-        </div>
-        <h3 className="text-white font-semibold text-lg mb-2">Something went wrong</h3>
-        <p className="text-white/50 text-sm mb-6">{message}</p>
-        <Button 
-          onClick={onRetry}
-          variant="outline"
-          className="border-white/20 text-white hover:bg-white/10"
-        >
-          Try Again
-        </Button>
-      </div>
-    </div>
-  );
-}
+type Step = 'export' | 'upload' | 'processing' | 'done';
 
 export default function ImportPage() {
   const router = useRouter();
@@ -250,7 +20,9 @@ export default function ImportPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [progressStage, setProgressStage] = useState('');
-  const [activeStep, setActiveStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState<Step>('export');
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const checkExisting = async () => {
@@ -267,14 +39,6 @@ export default function ImportPage() {
     checkExisting();
   }, [router]);
 
-  if (checkingExisting) {
-    return (
-      <main className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-      </main>
-    );
-  }
-
   const handleFile = async (file: File) => {
     if (!file.name.endsWith('.zip')) {
       setErrorMessage('Please upload a ZIP file');
@@ -283,7 +47,7 @@ export default function ImportPage() {
     }
 
     setStatus('processing');
-    setActiveStep(2);
+    setCurrentStep('processing');
     setProgress(0);
 
     try {
@@ -309,7 +73,7 @@ export default function ImportPage() {
 
       setProgress(100);
       setStatus('success');
-      setActiveStep(3);
+      setCurrentStep('done');
     } catch (err) {
       console.error('Import error:', err);
       setErrorMessage(err instanceof Error ? err.message : 'Processing failed');
@@ -317,80 +81,283 @@ export default function ImportPage() {
     }
   };
 
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    if (e.dataTransfer.files?.[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
+  };
+
   const handleRetry = () => {
     setStatus('idle');
     setErrorMessage('');
-    setActiveStep(1);
+    setCurrentStep('upload');
   };
 
+  if (checkingExisting) {
+    return (
+      <main className="h-[100dvh] bg-black flex items-center justify-center overflow-hidden">
+        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+      </main>
+    );
+  }
+
   const steps = [
-    { label: 'Export', description: 'Get your ChatGPT data' },
-    { label: 'Upload', description: 'Drop your ZIP file' },
-    { label: 'Process', description: 'We analyze your style' },
-    { label: 'Done', description: 'Start chatting!' },
+    { id: 'export', label: 'Export' },
+    { id: 'upload', label: 'Upload' },
+    { id: 'processing', label: 'Process' },
+    { id: 'done', label: 'Done' },
   ];
 
+  const stepIndex = steps.findIndex(s => s.id === currentStep);
+
   return (
-    <main className="min-h-screen bg-black flex flex-col relative">
+    <main className="h-[100dvh] bg-black flex flex-col overflow-hidden relative">
       <BackgroundBeams />
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-4 md:px-6 py-4 border-b border-white/5">
-        <Link href="/" className="flex items-center gap-2.5">
-          <img src="/logo.svg" alt="SoulPrint" className="w-7 h-7" />
-          <span className="text-white font-semibold">SoulPrint</span>
+      {/* Header - Compact */}
+      <header className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
+        <Link href="/" className="flex items-center gap-2">
+          <img src="/logo.svg" alt="SoulPrint" className="w-6 h-6" />
+          <span className="text-white font-semibold text-sm">SoulPrint</span>
         </Link>
         
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs">
+        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs">
           <Lock className="w-3 h-3" />
-          <span className="hidden sm:inline">100% Private</span>
+          <span>Private</span>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-start px-4 md:px-6 py-8 relative z-10">
-        <div className="w-full max-w-2xl">
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
-              Import Your ChatGPT History
-            </h1>
-            <p className="text-white/50 text-sm md:text-base">
-              Follow these simple steps to create your personalized AI
-            </p>
+      {/* Step Indicator - Horizontal dots */}
+      <div className="relative z-10 flex items-center justify-center gap-2 py-3 flex-shrink-0">
+        {steps.map((step, i) => (
+          <div key={step.id} className="flex items-center gap-2">
+            <div 
+              className={`w-2 h-2 rounded-full transition-colors ${
+                i < stepIndex ? 'bg-orange-500' : 
+                i === stepIndex ? 'bg-orange-500' : 'bg-white/20'
+              }`}
+            />
+            {i < steps.length - 1 && (
+              <div className={`w-6 h-0.5 transition-colors ${
+                i < stepIndex ? 'bg-orange-500' : 'bg-white/10'
+              }`} />
+            )}
           </div>
+        ))}
+      </div>
 
-          {/* Stepper */}
-          <Stepper
-            initialStep={activeStep}
-            steps={steps}
-            orientation="horizontal"
-            variant="circle-alt"
-            size="md"
-            styles={{
-              'step-button-container': 'data-[active=true]:bg-orange-500 data-[active=true]:border-orange-500 data-[current=true]:border-orange-500',
-              'step-label': 'text-white',
-              'step-description': 'text-white/40',
-            }}
-          >
-            <Step label="Export" description="Get your data">
-              <ExportStep />
-            </Step>
-            <Step label="Upload" description="Drop ZIP file">
-              <UploadStep onFileSelect={handleFile} />
-            </Step>
-            <Step label="Process" description="Analyzing...">
-              {status === 'processing' || status === 'saving' ? (
-                <ProcessingStep progress={progress} stage={progressStage} />
-              ) : status === 'error' ? (
-                <ErrorStep message={errorMessage} onRetry={handleRetry} />
-              ) : null}
-            </Step>
-            <Step label="Done" description="Ready!">
-              <SuccessStep onContinue={() => router.push('/chat')} />
-            </Step>
-          </Stepper>
-        </div>
+      {/* Main Content - Fills remaining space */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 overflow-hidden">
+        <AnimatePresence mode="wait">
+          {/* EXPORT STEP */}
+          {currentStep === 'export' && (
+            <motion.div
+              key="export"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="w-full max-w-sm flex flex-col h-full justify-center"
+            >
+              <h1 className="text-xl font-bold text-white mb-1 text-center">Export Your ChatGPT Data</h1>
+              <p className="text-white/50 text-sm mb-4 text-center">Follow these steps in ChatGPT</p>
+
+              <div className="space-y-3 mb-4">
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                  <div className="w-7 h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <Settings className="w-3.5 h-3.5 text-orange-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium">1. Open Settings</p>
+                    <p className="text-white/40 text-xs">Profile → Settings → Data controls</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                  <div className="w-7 h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <FileArchive className="w-3.5 h-3.5 text-orange-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium">2. Export data</p>
+                    <p className="text-white/40 text-xs">Click "Export data" → Confirm</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                  <div className="w-7 h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-3.5 h-3.5 text-orange-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium">3. Check email</p>
+                    <p className="text-white/40 text-xs">Download the ZIP from OpenAI's email</p>
+                  </div>
+                </div>
+              </div>
+
+              <Button 
+                onClick={() => setCurrentStep('upload')}
+                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-semibold h-11"
+              >
+                I have my ZIP file <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+
+              <a 
+                href="https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1 mt-3 text-xs text-white/40 hover:text-white/60"
+              >
+                Detailed guide <ExternalLink className="w-3 h-3" />
+              </a>
+            </motion.div>
+          )}
+
+          {/* UPLOAD STEP */}
+          {currentStep === 'upload' && status !== 'error' && (
+            <motion.div
+              key="upload"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="w-full max-w-sm flex flex-col h-full justify-center"
+            >
+              <h1 className="text-xl font-bold text-white mb-1 text-center">Upload Your Export</h1>
+              <p className="text-white/50 text-sm mb-4 text-center">Drop the ZIP file you downloaded</p>
+
+              <div
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`
+                  cursor-pointer border-2 border-dashed rounded-2xl p-8 text-center transition-all
+                  ${dragActive 
+                    ? 'border-orange-500 bg-orange-500/10' 
+                    : 'border-white/15 bg-white/[0.02] hover:border-orange-500/40'
+                  }
+                `}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                  className="hidden"
+                />
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors ${dragActive ? 'bg-orange-500/20' : 'bg-white/5'}`}>
+                  <Upload className={`w-7 h-7 transition-colors ${dragActive ? 'text-orange-400' : 'text-white/40'}`} />
+                </div>
+                <p className="text-white font-medium mb-1">
+                  {dragActive ? 'Drop it here!' : 'Drop ZIP file here'}
+                </p>
+                <p className="text-white/40 text-xs">or tap to browse</p>
+              </div>
+
+              <div className="flex items-center gap-2 mt-4 p-3 rounded-xl bg-green-500/5 border border-green-500/20">
+                <Shield className="w-4 h-4 text-green-400 flex-shrink-0" />
+                <p className="text-white/50 text-xs">
+                  100% private — processed in your browser only
+                </p>
+              </div>
+
+              <button 
+                onClick={() => setCurrentStep('export')}
+                className="mt-4 text-white/40 text-xs hover:text-white/60"
+              >
+                ← Back to instructions
+              </button>
+            </motion.div>
+          )}
+
+          {/* ERROR STATE */}
+          {status === 'error' && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-sm flex flex-col h-full justify-center text-center"
+            >
+              <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-7 h-7 text-red-500" />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
+              <p className="text-white/50 text-sm mb-6">{errorMessage}</p>
+              <Button 
+                onClick={handleRetry}
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                Try Again
+              </Button>
+            </motion.div>
+          )}
+
+          {/* PROCESSING STEP */}
+          {currentStep === 'processing' && status !== 'error' && (
+            <motion.div
+              key="processing"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-sm flex flex-col h-full justify-center text-center"
+            >
+              <div className="mb-4">
+                <RingProgress 
+                  progress={progress} 
+                  size={100} 
+                  strokeWidth={6}
+                />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Creating your SoulPrint</h2>
+              <p className="text-white/50 text-sm">{progressStage || 'Analyzing your conversations...'}</p>
+              
+              <div className="mt-6 w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+            </motion.div>
+          )}
+
+          {/* DONE STEP */}
+          {currentStep === 'done' && (
+            <motion.div
+              key="done"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-sm flex flex-col h-full justify-center text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', delay: 0.1 }}
+                className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center mx-auto mb-4"
+              >
+                <CheckCircle2 className="w-8 h-8 text-green-500" />
+              </motion.div>
+              <h2 className="text-2xl font-bold text-white mb-2">You're all set!</h2>
+              <p className="text-white/50 text-sm mb-6">Your AI now understands you</p>
+              <Button 
+                onClick={() => router.push('/chat')}
+                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-semibold h-11"
+              >
+                Start Chatting <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </main>
   );
