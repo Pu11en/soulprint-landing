@@ -10,6 +10,7 @@ export default function DashboardPage() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameInput, setRenameInput] = useState('');
   const [stats, setStats] = useState({ messages: 0, memories: 0 });
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -18,6 +19,7 @@ export default function DashboardPage() {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
+          setUserEmail(user.email || null);
           // Load AI name and stats from user_profiles
           const { data: profile } = await supabase
             .from('user_profiles')
@@ -170,9 +172,16 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Danger Zone */}
+        {/* Account Section */}
         <div className="mt-8 pt-6 border-t border-white/[0.06]">
           <h3 className="text-white/40 text-xs uppercase tracking-widest mb-3 px-1">Account</h3>
+          
+          {/* Email Display */}
+          <div className="p-4 bg-white/[0.03] border border-white/[0.06] rounded-xl mb-3">
+            <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Logged in as</p>
+            <p className="text-white font-medium">{userEmail || 'Loading...'}</p>
+          </div>
+          
           <button
             onClick={handleSignOut}
             className="w-full flex items-center justify-between p-4 min-h-[60px] bg-red-500/10 border border-red-500/20 rounded-xl hover:bg-red-500/15 active:bg-red-500/20 transition-colors text-red-400"
