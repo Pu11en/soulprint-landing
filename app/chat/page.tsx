@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { TelegramChatV2 } from '@/components/chat/telegram-chat-v2';
@@ -11,6 +11,12 @@ type Message = {
   role: 'user' | 'assistant';
   content: string;
   timestamp?: Date;
+};
+
+type QueuedMessage = {
+  content: string;
+  voiceVerified?: boolean;
+  deepSearch?: boolean;
 };
 
 export default function ChatPage() {
@@ -26,6 +32,10 @@ export default function ChatPage() {
   const [showRename, setShowRename] = useState(false);
   const [renameInput, setRenameInput] = useState('');
   const [hasReceivedAIResponse, setHasReceivedAIResponse] = useState(false);
+  
+  // Message queue for handling multiple messages while AI is responding
+  const messageQueueRef = useRef<QueuedMessage[]>([]);
+  const isProcessingRef = useRef(false);
 
   // Load initial state
   useEffect(() => {
@@ -117,19 +127,8 @@ export default function ChatPage() {
     }
   };
 
-  const handleSendMessage = async (content: string, voiceVerified?: boolean, deepSearch?: boolean) => {
-    if (isLoading) return;
-
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
-    
+  // Process a single message from the queue
+  const processMessage = useCallback(async (content: string, voiceVerified?: boolean, deepSearch?: boolean) => {
     // Track if this is a deep search request
     if (deepSearch) {
       setIsDeepSearching(true);
@@ -166,7 +165,6 @@ export default function ChatPage() {
       } catch (error) {
         console.error('Failed to save name:', error);
       }
-      setIsLoading(false);
       return;
     }
 
@@ -183,7 +181,6 @@ export default function ChatPage() {
       setMessages(prev => [...prev, responseMessage]);
       saveMessage('user', content);
       saveMessage('assistant', responseMessage.content);
-      setIsLoading(false);
       return;
     }
 
@@ -200,7 +197,6 @@ export default function ChatPage() {
       setMessages(prev => [...prev, responseMessage]);
       saveMessage('user', content);
       saveMessage('assistant', responseMessage.content);
-      setIsLoading(false);
       return;
     }
 
@@ -234,7 +230,6 @@ export default function ChatPage() {
               setMessages(prev => [...prev, responseMessage]);
               saveMessage('user', content);
               saveMessage('assistant', responseMessage.content);
-              setIsLoading(false);
               return;
             }
           } catch (error) {
@@ -290,7 +285,6 @@ export default function ChatPage() {
               setMessages(prev => [...prev, responseMessage]);
               saveMessage('user', content);
               saveMessage('assistant', responseMessage.content);
-              setIsLoading(false);
               return;
             }
           } catch (error) {
@@ -365,9 +359,46 @@ export default function ChatPage() {
       }]);
     }
 
-    setIsLoading(false);
     setIsDeepSearching(false);
-  };
+  }, [isNamingMode, messages, aiName]);
+
+  // Process the message queue sequentially
+  const processQueue = useCallback(async () => {
+    if (isProcessingRef.current || messageQueueRef.current.length === 0) {
+      return;
+    }
+
+    isProcessingRef.current = true;
+    setIsLoading(true);
+
+    while (messageQueueRef.current.length > 0) {
+      const nextMessage = messageQueueRef.current.shift()!;
+      await processMessage(nextMessage.content, nextMessage.voiceVerified, nextMessage.deepSearch);
+    }
+
+    isProcessingRef.current = false;
+    setIsLoading(false);
+  }, [processMessage]);
+
+  // Public handler - adds message to queue and starts processing
+  const handleSendMessage = useCallback((content: string, voiceVerified?: boolean, deepSearch?: boolean) => {
+    // Immediately add user message to UI
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, userMessage]);
+
+    // Add to queue
+    messageQueueRef.current.push({ content, voiceVerified, deepSearch });
+
+    // Start processing if not already running
+    if (!isProcessingRef.current) {
+      processQueue();
+    }
+  }, [processQueue]);
 
   const handleBack = () => {
     router.push('/');

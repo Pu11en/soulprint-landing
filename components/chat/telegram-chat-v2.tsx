@@ -335,8 +335,9 @@ export function TelegramChatV2({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim()) return;
     // Pass voice verification status and deep search flag
+    // Allow sending even while loading - messages will queue
     onSendMessage(input.trim(), lastVoiceVerified ?? undefined, deepSearchEnabled);
     setInput('');
     setLastVoiceVerified(null); // Reset for next message
@@ -549,7 +550,6 @@ export function TelegramChatV2({
               placeholder={deepSearchEnabled ? "Deep search..." : "Message"}
               className="flex-1 text-[16px] bg-transparent outline-none transition-colors placeholder:text-[#8E8E93]"
               style={{ color: theme.textPrimary }}
-              disabled={isLoading}
               enterKeyHint="send"
               autoComplete="off"
               autoCorrect="on"
