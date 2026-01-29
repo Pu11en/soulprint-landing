@@ -3,9 +3,12 @@
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Shield, CheckCircle2, AlertCircle, Loader2, HelpCircle, Lock, FileArchive, Clock, Database, Zap } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Upload, Shield, CheckCircle2, AlertCircle, Loader2, Lock, FileArchive, Clock, Database, Zap } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { SpotlightCard } from '@/components/ui/spotlight';
+import { BackgroundBeams } from '@/components/ui/background-beams';
+import { RingProgress } from '@/components/ui/ring-progress';
 import { generateClientSoulprint, type ClientSoulprint } from '@/lib/import/client-soulprint';
 
 type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
@@ -119,7 +122,7 @@ export default function ImportPage() {
 
   if (checkingExisting) {
     return (
-      <main className="h-screen max-h-screen bg-black flex items-center justify-center overflow-hidden">
+      <main className="h-screen bg-black flex items-center justify-center overflow-hidden">
         <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
       </main>
     );
@@ -181,30 +184,22 @@ export default function ImportPage() {
 
   return (
     <TooltipProvider delayDuration={150}>
-      <main className="h-screen max-h-screen bg-black flex flex-col overflow-hidden">
-        {/* Subtle background glow */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-orange-500/8 rounded-full blur-[100px]" />
-        </div>
+      <main className="h-screen bg-black flex flex-col overflow-hidden relative">
+        {/* Background Beams */}
+        <BackgroundBeams />
 
-        {/* Header - compact with inline title */}
-        <motion.header
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-white/5"
-        >
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2">
-              <img src="/logo.svg" alt="SoulPrint" className="w-6 h-6" />
-              <span className="text-white/80 font-medium text-sm">SoulPrint</span>
+        {/* Header */}
+        <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2.5">
+              <img src="/logo.svg" alt="SoulPrint" className="w-7 h-7" />
+              <span className="text-white font-semibold">SoulPrint</span>
             </Link>
-            <span className="text-white/20">|</span>
-            <h1 className="text-white/60 text-sm">Import Your ChatGPT History</h1>
           </div>
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="flex items-center gap-1.5 text-white/30 hover:text-white/50 transition-colors text-xs">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white/70 hover:border-white/20 transition-all text-xs">
                 <Lock className="w-3 h-3" />
                 <span>Private</span>
               </button>
@@ -213,77 +208,78 @@ export default function ImportPage() {
               <p className="text-xs">All processing happens locally in your browser</p>
             </TooltipContent>
           </Tooltip>
-        </motion.header>
+        </header>
 
-        {/* Main content - centered with flex-1 */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 relative z-10 min-h-0">
-          {/* Upload Zone / Progress / Success / Error */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.05 }}
-            className="w-full max-w-lg"
-          >
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 relative z-10 min-h-0">
+          {/* Title */}
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-8 text-center">
+            Import Your ChatGPT History
+          </h1>
+
+          {/* Upload Zone / States */}
+          <div className="w-full max-w-md">
             <AnimatePresence mode="wait">
               {status === 'idle' && (
                 <motion.div
                   key="upload"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`
-                    relative cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-200
-                    ${dragActive 
-                      ? 'border-orange-500 bg-orange-500/10 scale-[1.01]' 
-                      : 'border-white/15 bg-white/[0.02] hover:border-orange-500/40 hover:bg-white/[0.04]'
-                    }
-                  `}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
                 >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".zip"
-                    onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-                    className="hidden"
-                  />
-                  <motion.div
-                    animate={{ y: dragActive ? -2 : 0 }}
-                    className="flex flex-col items-center"
+                  <SpotlightCard
+                    className={`
+                      cursor-pointer border-2 border-dashed transition-all duration-200
+                      ${dragActive 
+                        ? 'border-orange-500 bg-orange-500/10' 
+                        : 'border-white/15 bg-white/[0.02] hover:border-orange-500/40'
+                      }
+                    `}
                   >
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-colors ${dragActive ? 'bg-orange-500/20' : 'bg-white/5'}`}>
-                      <Upload className={`w-6 h-6 transition-colors ${dragActive ? 'text-orange-400' : 'text-white/40'}`} />
+                    <div
+                      onDragEnter={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDragOver={handleDrag}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-10 text-center"
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".zip"
+                        onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                        className="hidden"
+                      />
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors ${dragActive ? 'bg-orange-500/20' : 'bg-white/5'}`}>
+                        <Upload className={`w-7 h-7 transition-colors ${dragActive ? 'text-orange-400' : 'text-white/40'}`} />
+                      </div>
+                      <p className="text-white font-semibold text-lg mb-1">
+                        {dragActive ? 'Drop to upload' : 'Drop your ZIP file here'}
+                      </p>
+                      <p className="text-white/40 text-sm">or click to browse</p>
                     </div>
-                    <p className="text-white font-medium mb-1">
-                      {dragActive ? 'Drop to upload' : 'Drop your ZIP file here'}
-                    </p>
-                    <p className="text-white/30 text-sm">or click to browse</p>
-                  </motion.div>
+                  </SpotlightCard>
                 </motion.div>
               )}
 
               {(status === 'processing' || status === 'saving') && (
                 <motion.div
                   key="processing"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm p-10 text-center"
                 >
-                  <div className="w-12 h-12 rounded-full bg-orange-500/15 flex items-center justify-center mx-auto mb-4 relative">
-                    <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-orange-500/30 border-t-orange-500"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  <div className="mb-6">
+                    <RingProgress 
+                      progress={progress} 
+                      size={100} 
+                      strokeWidth={6}
                     />
-                    <span className="text-sm font-semibold text-orange-500">{Math.round(progress)}%</span>
                   </div>
-                  <p className="text-white/60 text-sm mb-3">{progressStage || 'Processing...'}</p>
-                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <p className="text-white/60 text-sm mb-4">{progressStage || 'Processing...'}</p>
+                  <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
                     <motion.div
                       className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full"
                       initial={{ width: 0 }}
@@ -299,23 +295,23 @@ export default function ImportPage() {
                   key="success"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="rounded-2xl border border-green-500/20 bg-green-500/5 p-8 text-center"
+                  className="rounded-2xl border border-green-500/20 bg-green-500/5 backdrop-blur-sm p-10 text-center"
                 >
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', delay: 0.1 }}
-                    className="w-12 h-12 rounded-full bg-green-500/15 flex items-center justify-center mx-auto mb-3"
+                    className="w-14 h-14 rounded-full bg-green-500/15 flex items-center justify-center mx-auto mb-4"
                   >
-                    <CheckCircle2 className="w-6 h-6 text-green-500" />
+                    <CheckCircle2 className="w-7 h-7 text-green-500" />
                   </motion.div>
-                  <h3 className="text-white font-medium text-lg mb-1">Import Complete</h3>
-                  <p className="text-white/50 text-sm mb-4">Your AI now knows you</p>
+                  <h3 className="text-white font-semibold text-xl mb-2">Import Complete</h3>
+                  <p className="text-white/50 text-sm mb-6">Your AI now knows you</p>
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => router.push('/chat')}
-                    className="px-6 py-2 bg-orange-500 hover:bg-orange-400 text-black font-medium rounded-xl transition-colors text-sm"
+                    className="px-8 py-2.5 bg-orange-500 hover:bg-orange-400 text-black font-semibold rounded-xl transition-colors"
                   >
                     Start Chatting
                   </motion.button>
@@ -325,52 +321,42 @@ export default function ImportPage() {
               {status === 'error' && (
                 <motion.div
                   key="error"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl border border-red-500/20 bg-red-500/5 backdrop-blur-sm p-10 text-center"
                 >
-                  <div className="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-3">
-                    <AlertCircle className="w-6 h-6 text-red-500" />
+                  <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-7 h-7 text-red-500" />
                   </div>
-                  <h3 className="text-white font-medium mb-1">Something went wrong</h3>
-                  <p className="text-white/50 text-sm mb-4">{errorMessage}</p>
+                  <h3 className="text-white font-semibold text-lg mb-2">Something went wrong</h3>
+                  <p className="text-white/50 text-sm mb-6">{errorMessage}</p>
                   <button
                     onClick={() => { setStatus('idle'); setErrorMessage(''); }}
-                    className="px-5 py-2 bg-white/10 hover:bg-white/15 text-white/80 rounded-xl transition-colors text-sm"
+                    className="px-6 py-2.5 bg-white/10 hover:bg-white/15 text-white/80 rounded-xl transition-colors font-medium"
                   >
                     Try Again
                   </button>
                 </motion.div>
               )}
             </AnimatePresence>
-          </motion.div>
+          </div>
 
-          {/* FAQ Cards - compact grid with hover popovers */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="w-full max-w-xl mt-6"
-          >
-            <div className="grid grid-cols-5 gap-2">
+          {/* FAQ Tooltips */}
+          <div className="w-full max-w-lg mt-8">
+            <div className="flex justify-center gap-3">
               {faqs.map((faq, i) => (
                 <Tooltip key={i}>
                   <TooltipTrigger asChild>
-                    <motion.button
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 + i * 0.03 }}
-                      className="group flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-orange-500/20 transition-all"
-                    >
-                      <faq.icon className="w-4 h-4 text-white/30 group-hover:text-orange-400 transition-colors" />
-                      <span className="text-[10px] text-white/40 group-hover:text-white/60 transition-colors text-center leading-tight">
+                    <button className="group flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-orange-500/20 transition-all">
+                      <faq.icon className="w-3.5 h-3.5 text-white/30 group-hover:text-orange-400 transition-colors" />
+                      <span className="text-xs text-white/40 group-hover:text-white/60 transition-colors">
                         {faq.title}
                       </span>
-                    </motion.button>
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent 
                     side="top" 
-                    className="max-w-[260px] bg-zinc-900/95 backdrop-blur border-white/10 text-white/80 p-3"
+                    className="max-w-[280px] bg-zinc-900/95 backdrop-blur border-white/10 text-white/80 p-4"
                     sideOffset={8}
                   >
                     <p className="text-white/90 font-medium text-xs mb-2">
@@ -381,7 +367,7 @@ export default function ImportPage() {
                 </Tooltip>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </main>
     </TooltipProvider>
