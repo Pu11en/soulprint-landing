@@ -6,14 +6,19 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
 
-// Referral codes - team members will provide these
+// Referral codes from ArcheForge team
 const VALID_CODES: Record<string, string> = {
-  // Format: 'CODE': 'Team Member Name'
+  // Team codes
+  'NINETEEN19': 'Layla Ghafarri',
+  'ACE1': 'Ben Woodard',
+  'ACE!1': 'Ben Woodard',
+  'FLOYD': 'Adrian Floyd',
+  'WHITEBOYNICK': 'Nicholas Hill',
+  'BLANCHE': 'Lisa Quible',
+  // Founders
   'DREW2026': 'Drew',
   'GLENN2026': 'Glenn',
   'RONNIE2026': 'Ronnie',
-  'NICK2026': 'Nicholas',
-  // Add more codes as team provides them
 };
 
 export default function EnterPage() {
