@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Upload, Shield, CheckCircle2, AlertCircle, Loader2, Lock, FileArchive, Clock, Database, Zap } from 'lucide-react';
+import { Upload, Shield, CheckCircle2, AlertCircle, Loader2, Lock, Clock, Database, Zap } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { SpotlightCard } from '@/components/ui/spotlight';
 import { BackgroundBeams } from '@/components/ui/background-beams';
@@ -14,26 +14,6 @@ import { generateClientSoulprint, type ClientSoulprint } from '@/lib/import/clie
 type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
 
 const faqs = [
-  {
-    icon: FileArchive,
-    title: 'How to export',
-    content: (
-      <div className="space-y-2">
-        <div className="flex items-start gap-2">
-          <span className="text-white/40 text-xs w-3">1.</span>
-          <p className="text-xs text-white/70">Go to ChatGPT → Settings → Data controls</p>
-        </div>
-        <div className="flex items-start gap-2">
-          <span className="text-white/40 text-xs w-3">2.</span>
-          <p className="text-xs text-white/70">Click "Export data" and confirm</p>
-        </div>
-        <div className="flex items-start gap-2">
-          <span className="text-white/40 text-xs w-3">3.</span>
-          <p className="text-xs text-white/70">Download the ZIP from OpenAI's email</p>
-        </div>
-      </div>
-    ),
-  },
   {
     icon: Shield,
     title: 'Privacy',
@@ -213,9 +193,19 @@ export default function ImportPage() {
         {/* Main Content */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 relative z-10 min-h-0 py-2 md:py-4">
           {/* Title */}
-          <h1 className="text-2xl md:text-4xl font-bold text-white mb-4 md:mb-8 text-center">
+          <h1 className="text-2xl md:text-4xl font-bold text-white mb-4 md:mb-6 text-center">
             Import Your ChatGPT History
           </h1>
+
+          {/* How to export steps */}
+          <div className="text-center mb-4 md:mb-6">
+            <p className="text-white/50 text-xs md:text-sm mb-2">How to export:</p>
+            <div className="text-white/40 text-xs md:text-sm space-y-0.5">
+              <p>1. Go to ChatGPT → Settings</p>
+              <p>2. Click "Export data"</p>
+              <p>3. Download the ZIP file</p>
+            </div>
+          </div>
 
           {/* Upload Zone / States */}
           <div className="w-full max-w-md">
@@ -342,14 +332,14 @@ export default function ImportPage() {
           </div>
 
           {/* FAQ Tooltips */}
-          <div className="w-full max-w-lg mt-4 md:mt-8 px-2 md:px-0">
-            <div className="grid grid-cols-2 md:flex md:justify-center gap-2 md:gap-3">
+          <div className="w-full max-w-xl mt-4 md:mt-8 px-2 md:px-0">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
               {faqs.map((faq, i) => (
                 <Tooltip key={i}>
                   <TooltipTrigger asChild>
-                    <button className="group flex items-center justify-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-orange-500/20 transition-all">
-                      <faq.icon className="w-3 h-3 md:w-3.5 md:h-3.5 text-white/30 group-hover:text-orange-400 transition-colors flex-shrink-0" />
-                      <span className="text-[10px] md:text-xs text-white/40 group-hover:text-white/60 transition-colors truncate">
+                    <button className="group flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-orange-500/20 transition-all">
+                      <faq.icon className="w-4 h-4 md:w-5 md:h-5 text-white/30 group-hover:text-orange-400 transition-colors flex-shrink-0" />
+                      <span className="text-sm md:text-base text-white/50 group-hover:text-white/70 transition-colors">
                         {faq.title}
                       </span>
                     </button>

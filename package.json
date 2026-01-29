@@ -45,6 +45,7 @@
     "react-dom": "^19.2.3",
     "shadcn-glass-ui": "^2.11.2",
     "tailwind-merge": "^3.4.0",
+    "tailwindcss-animate": "^1.0.7",
     "three": "^0.182.0",
     "use-stick-to-bottom": "^1.1.2"
   },
