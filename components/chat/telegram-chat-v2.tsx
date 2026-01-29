@@ -190,7 +190,7 @@ export function TelegramChatV2({
                 className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className="max-w-[80%] px-4 py-3 relative shadow-sm transition-colors duration-300"
+                  className="max-w-[75%] px-3 py-2 relative shadow-sm transition-colors duration-300 overflow-hidden"
                   style={{
                     backgroundColor: isUser ? theme.senderBubble : theme.recipientBubble,
                     borderRadius: isUser 

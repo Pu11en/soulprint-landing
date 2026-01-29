@@ -104,8 +104,8 @@ export function MessageContent({ content, textColor }: MessageContentProps) {
 
   return (
     <div 
-      className="text-[15px] leading-[1.6] break-words"
-      style={{ color: textColor }}
+      className="text-[14px] leading-[1.5] break-words overflow-hidden"
+      style={{ color: textColor, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
     >
       {formatText(content)}
     </div>
