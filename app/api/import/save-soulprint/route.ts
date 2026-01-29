@@ -128,11 +128,11 @@ export async function POST(request: Request) {
         const batch = conversationChunks.slice(i, i + BATCH_SIZE).map((chunk: ChunkInput) => ({
           user_id: user.id,
           conversation_id: chunk.id,
-          title: chunk.title,
+          title: chunk.title || 'Untitled',
           content: chunk.content,
-          message_count: chunk.messageCount,
-          created_at: chunk.createdAt,
-          is_recent: chunk.isRecent,
+          message_count: chunk.messageCount || 0,
+          created_at: chunk.createdAt || new Date().toISOString(),
+          is_recent: chunk.isRecent ?? false,
         }));
         
         const { error: chunkError } = await adminSupabase

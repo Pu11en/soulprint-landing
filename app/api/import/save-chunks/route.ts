@@ -46,15 +46,15 @@ export async function POST(request: Request) {
 
     console.log(`[SaveChunks] User ${user.id} - batch ${batchIndex + 1}/${totalBatches} (${chunks.length} chunks)`);
 
-    // Insert chunks
+    // Insert chunks (with fallback for missing created_at)
     const batch = chunks.map((chunk: ChunkInput) => ({
       user_id: user.id,
       conversation_id: chunk.id,
-      title: chunk.title,
+      title: chunk.title || 'Untitled',
       content: chunk.content,
-      message_count: chunk.messageCount,
-      created_at: chunk.createdAt,
-      is_recent: chunk.isRecent,
+      message_count: chunk.messageCount || 0,
+      created_at: chunk.createdAt || new Date().toISOString(),
+      is_recent: chunk.isRecent ?? false,
     }));
 
     const { error: chunkError } = await adminSupabase
