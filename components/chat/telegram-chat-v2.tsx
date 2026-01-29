@@ -13,7 +13,7 @@ type Message = {
 
 interface TelegramChatV2Props {
   messages: Message[];
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, voiceVerified?: boolean) => void;
   isLoading?: boolean;
   aiName?: string;
   aiAvatar?: string;
@@ -212,6 +212,7 @@ export function TelegramChatV2({
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [lastVoiceVerified, setLastVoiceVerified] = useState<boolean | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -281,6 +282,8 @@ export function TelegramChatV2({
         const data = await response.json();
         if (data.text) {
           setInput(prev => prev + (prev ? ' ' : '') + data.text);
+          // Store voice verification status for when message is sent
+          setLastVoiceVerified(data.voiceVerified ?? true);
           inputRef.current?.focus();
         }
       } else {
@@ -329,8 +332,10 @@ export function TelegramChatV2({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-    onSendMessage(input.trim());
+    // Pass voice verification status if message came from voice input
+    onSendMessage(input.trim(), lastVoiceVerified ?? undefined);
     setInput('');
+    setLastVoiceVerified(null); // Reset for next message
     inputRef.current?.focus();
   };
 

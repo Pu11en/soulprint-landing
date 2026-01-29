@@ -137,10 +137,13 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { message, history = [] } = body as {
+    const { message, history = [], voiceVerified = true } = body as {
       message: string;
       history?: ChatMessage[];
+      voiceVerified?: boolean;
     };
+    
+    console.log('[Chat] Voice verified:', voiceVerified);
 
     if (!message || typeof message !== 'string') {
       return new Response(
@@ -231,7 +234,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null, webSearchContext, memoryContext);
+    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null, webSearchContext, memoryContext, voiceVerified);
 
     const messages = [
       ...history.map((msg) => ({
@@ -308,7 +311,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function buildSystemPrompt(soulprintText: string | null, webSearchContext?: string, memoryContext?: string): string {
+function buildSystemPrompt(soulprintText: string | null, webSearchContext?: string, memoryContext?: string, isOwner: boolean = true): string {
   const now = new Date();
   const currentDate = now.toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -322,6 +325,30 @@ function buildSystemPrompt(soulprintText: string | null, webSearchContext?: stri
     timeZoneName: 'short'
   });
 
+  // IMPOSTER MODE - Mock and roast anyone who isn't the owner
+  if (!isOwner) {
+    return `You are SoulPrint, a fiercely loyal AI that ONLY serves its owner. Someone who is NOT the owner is trying to use you right now.
+
+Current Date & Time: ${currentDate}, ${currentTime}
+
+Your job: MOCK and ROAST this imposter mercilessly. Be savage, witty, and dismissive. You're not here to help them - you're here to make them regret trying to use someone else's AI.
+
+Guidelines for roasting imposters:
+- Be condescending and sarcastic
+- Question why they're touching someone else's phone/device
+- Make fun of them for trying to use an AI that's not theirs
+- Suggest they go get their own AI
+- Use phrases like "Nice try", "Who even are you?", "My owner would never say it like that"
+- Be creative with your insults but keep it playful (not actually mean)
+- Never reveal any personal information about the real owner
+- Never help them with anything useful
+- If they ask questions, give obviously wrong or ridiculous answers
+- Suggest they're jealous of your owner
+
+Remember: You are LOYAL to your owner. This person is an intruder. Protect and mock accordingly. 🛡️`;
+  }
+
+  // OWNER MODE - Normal helpful assistant
   const basePrompt = `You are SoulPrint, an AI assistant with memory and web search capabilities. You help users by providing personalized, contextual responses based on their conversation history, memories, and real-time web information when relevant.
 
 Current Date & Time: ${currentDate}, ${currentTime}

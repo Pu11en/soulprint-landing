@@ -108,7 +108,7 @@ export default function ChatPage() {
     }
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, voiceVerified?: boolean) => {
     if (isLoading) return;
 
     // Add user message
@@ -163,7 +163,11 @@ export default function ChatPage() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content, history }),
+        body: JSON.stringify({ 
+          message: content, 
+          history,
+          voiceVerified: voiceVerified ?? true, // Default to true for typed messages
+        }),
       });
 
       if (!res.ok) throw new Error('Chat request failed');
