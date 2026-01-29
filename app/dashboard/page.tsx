@@ -14,18 +14,24 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load AI name
-        const nameRes = await fetch('/api/profile/ai-name');
-        if (nameRes.ok) {
-          const data = await nameRes.json();
-          setAiName(data.aiName || null);
-        }
-
-        // Load stats
-        const statsRes = await fetch('/api/chat/messages?limit=1');
-        if (statsRes.ok) {
-          const data = await statsRes.json();
-          setStats({ messages: data.total || 0, memories: data.memoryCount || 0 });
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // Load AI name and stats from user_profiles
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('ai_name, total_messages, total_conversations')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (profile) {
+            setAiName(profile.ai_name || null);
+            setStats({ 
+              messages: profile.total_messages || 0, 
+              memories: profile.total_conversations || 0 
+            });
+          }
         }
       } catch (e) {
         console.error('Failed to load dashboard data', e);
@@ -114,7 +120,7 @@ export default function DashboardPage() {
               <p className="text-xl font-semibold">{stats.messages.toLocaleString()}</p>
             </div>
             <div className="bg-white/[0.03] rounded-xl p-4">
-              <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Memories</p>
+              <p className="text-white/40 text-xs uppercase tracking-widest mb-1">Conversations</p>
               <p className="text-xl font-semibold">{stats.memories.toLocaleString()}</p>
             </div>
           </div>
