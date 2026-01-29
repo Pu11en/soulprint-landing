@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Koulen, Geist, Inter, Host_Grotesk, Cinzel } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
 import { AchievementToastProvider } from "@/components/AchievementToast";
 
 const plusJakarta = Plus_Jakarta_Sans({ 
@@ -71,7 +72,15 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className={`${plusJakarta.className} ${inter.variable} ${koulen.variable} ${geist.variable} ${hostGrotesk.variable} ${cinzel.variable} antialiased bg-[#0A0A0B]`}>
+      <body className={cn(
+        "min-h-screen bg-background font-sans antialiased",
+        plusJakarta.className,
+        inter.variable,
+        koulen.variable,
+        geist.variable,
+        hostGrotesk.variable,
+        cinzel.variable
+      )}>
         <AchievementToastProvider>
           {children}
         </AchievementToastProvider>
