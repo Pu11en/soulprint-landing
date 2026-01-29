@@ -102,62 +102,91 @@ export async function queryPerplexity(
 }
 
 /**
- * Determine if a message should SKIP Perplexity (memory/personal questions)
- * AGGRESSIVE MODE: Default to using Perplexity for everything except personal/memory questions
+ * Determine if a message needs real-time data from Perplexity
+ * SMART MODE: Use Perplexity only when the question likely needs CURRENT information
+ * LLM handles everything else (it already knows a lot)
  */
 export function needsRealtimeInfo(message: string): boolean {
   const lowerMessage = message.toLowerCase();
 
-  // ONLY skip for clearly personal/memory-based questions
-  const skipIndicators = [
-    // Memory questions
-    'remember when',
-    'do you remember',
-    'we talked about',
-    'i told you',
-    'you said',
-    'last time we',
-    'our conversation',
-    'our last chat',
-    
-    // Personal profile questions
-    'my name is',
-    'my favorite',
-    'about me',
-    'my profile',
-    'what do you know about me',
-    'what\'s my',
-    'who am i',
-    
-    // Simple greetings/chitchat (no research needed)
-    'hello',
-    'hi there',
-    'hey',
-    'good morning',
-    'good night',
-    'how are you',
-    'thank you',
-    'thanks',
-    'bye',
-    'goodbye',
+  // SKIP: Personal/memory questions - LLM + memory handles these
+  const memoryIndicators = [
+    'remember when', 'do you remember', 'we talked about', 'i told you',
+    'you said', 'last time we', 'our conversation', 'my name', 'my favorite',
+    'about me', 'my profile', 'what do you know about me', 'who am i',
   ];
   
-  // Skip Perplexity ONLY if it matches a skip indicator
-  if (skipIndicators.some(indicator => lowerMessage.includes(indicator))) {
-    console.log('[Perplexity] Skipping - personal/memory question detected');
+  if (memoryIndicators.some(ind => lowerMessage.includes(ind))) {
+    console.log('[Perplexity] Skip - memory/personal question');
     return false;
   }
 
-  // Also skip very short messages (likely greetings)
-  if (lowerMessage.length < 10) {
-    console.log('[Perplexity] Skipping - message too short');
+  // SKIP: Simple greetings and short messages
+  const greetings = ['hello', 'hi there', 'hey', 'good morning', 'good night', 
+    'how are you', 'thank you', 'thanks', 'bye', 'goodbye', 'ok', 'okay'];
+  if (greetings.some(g => lowerMessage === g || lowerMessage.startsWith(g + ' ')) || lowerMessage.length < 15) {
+    console.log('[Perplexity] Skip - greeting or short message');
     return false;
   }
 
-  // DEFAULT: Use Perplexity for everything else
-  // The LLM will combine its knowledge with real-time data
-  console.log('[Perplexity] Will query - aggressive mode enabled');
-  return true;
+  // SKIP: Timeless knowledge questions - LLM knows these
+  const timelessIndicators = [
+    'how to ', 'how do i ', 'what is a ', 'what are ', 'explain ', 'define ',
+    'tutorial', 'example of', 'difference between', 'why does', 'why do',
+    'help me with', 'can you help', 'write a ', 'write me', 'create a',
+    'code for', 'function that', 'script to', 'program that',
+  ];
+  
+  if (timelessIndicators.some(ind => lowerMessage.includes(ind))) {
+    // But check if it's asking about something current
+    const currentModifiers = ['latest', 'newest', 'recent', '2024', '2025', '2026', 'today', 'this week'];
+    if (!currentModifiers.some(mod => lowerMessage.includes(mod))) {
+      console.log('[Perplexity] Skip - timeless knowledge question');
+      return false;
+    }
+  }
+
+  // USE PERPLEXITY: Questions about things that change
+  const realtimeIndicators = [
+    // News and current events
+    'news', 'headlines', 'breaking', 'happening', 'update on', 'latest',
+    'today', 'yesterday', 'this week', 'this month', 'right now', 'currently',
+    'recent', 'just happened', 'current', 'live', 'real-time',
+    // Data that changes
+    'stock', 'price', 'weather', 'score', 'election', 'results', 'worth',
+    'cost', 'rate', 'forecast', 'prediction',
+    // Current state questions  
+    'what\'s happening', 'what is happening', 'what happened', 'who won',
+    'who is winning', 'is it true', 'did they', 'has ', 'have they',
+    // Specific entities that might have recent news
+    'company', 'ceo', 'president', 'released', 'announced', 'launched',
+  ];
+
+  if (realtimeIndicators.some(ind => lowerMessage.includes(ind))) {
+    console.log('[Perplexity] Use - realtime indicator found');
+    return true;
+  }
+
+  // Check for recent year references
+  if (/20(2[4-9]|[3-9]\d)/.test(lowerMessage)) {
+    console.log('[Perplexity] Use - recent year mentioned');
+    return true;
+  }
+
+  // Check if it's a factual question that MIGHT need current data
+  const factualPatterns = [
+    /^(what|who|where|when|how much|how many|is |are |does |do |did |has |have |will )/,
+  ];
+  
+  if (factualPatterns.some(pattern => pattern.test(lowerMessage))) {
+    // For factual questions, use Perplexity to be safe
+    console.log('[Perplexity] Use - factual question detected');
+    return true;
+  }
+
+  // DEFAULT: Skip - let LLM handle it
+  console.log('[Perplexity] Skip - LLM can handle this');
+  return false;
 }
 
 /**
