@@ -22,6 +22,8 @@ export default function ChatPage() {
   const [aiAvatar, setAiAvatar] = useState<string | null>(null);
   const [isNamingMode, setIsNamingMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showRename, setShowRename] = useState(false);
+  const [renameInput, setRenameInput] = useState('');
   const [hasReceivedAIResponse, setHasReceivedAIResponse] = useState(false);
 
   // Load initial state
@@ -239,6 +241,26 @@ export default function ChatPage() {
     window.location.href = '/';
   };
 
+  const handleRename = async () => {
+    if (!renameInput.trim()) return;
+    try {
+      const res = await fetch('/api/profile/ai-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renameInput.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiName(data.aiName);
+        setShowRename(false);
+        setShowSettings(false);
+        setRenameInput('');
+      }
+    } catch (error) {
+      console.error('Failed to rename:', error);
+    }
+  };
+
   if (loadingHistory) {
     return (
       <div className="fixed inset-0 h-screen w-screen bg-black flex items-center justify-center">
@@ -282,12 +304,63 @@ export default function ChatPage() {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
+              {/* Current AI Name */}
+              <div className="bg-[#2C2C2E] rounded-xl p-4">
+                <div className="text-[#8E8E93] text-sm mb-1">AI Name</div>
+                <div className="text-white text-lg font-medium">{aiName}</div>
+              </div>
+
+              {/* Rename Button */}
+              <button
+                onClick={() => {
+                  setRenameInput(aiName);
+                  setShowRename(true);
+                }}
+                className="w-full py-4 bg-[#2C2C2E] text-[#0A84FF] rounded-xl font-medium"
+              >
+                Rename AI
+              </button>
+
+              {/* Sign Out */}
               <button
                 onClick={handleSignOut}
                 className="w-full py-4 bg-red-500/20 text-red-400 rounded-xl font-medium"
               >
                 Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Modal */}
+      {showRename && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setShowRename(false)}>
+          <div className="bg-[#1C1C1E] w-full max-w-sm rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white text-center mb-4">Rename Your AI</h3>
+            <input
+              type="text"
+              value={renameInput}
+              onChange={(e) => setRenameInput(e.target.value)}
+              placeholder="Enter new name"
+              className="w-full bg-[#2C2C2E] text-white rounded-xl px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-[#0A84FF] text-center text-lg"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRename(false)}
+                className="flex-1 py-3 bg-[#2C2C2E] text-[#8E8E93] rounded-xl font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRename}
+                disabled={!renameInput.trim()}
+                className="flex-1 py-3 bg-[#0A84FF] text-white rounded-xl font-medium disabled:opacity-50"
+              >
+                Save
               </button>
             </div>
           </div>
