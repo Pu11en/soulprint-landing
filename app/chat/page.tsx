@@ -203,6 +203,62 @@ export default function ChatPage() {
       }
     }
 
+    // Check for recurring task request
+    const taskPatterns = [
+      /(?:send|email|remind|tell|give|notify)\s+(?:me|us)\s+(?:about\s+)?(.+?)\s+(?:every|each)\s+(morning|evening|day|night|week)/i,
+      /(?:every|each)\s+(morning|evening|day|night)\s+(?:send|email|remind|tell|give)\s+(?:me|us)\s+(?:about\s+)?(.+)/i,
+      /(?:daily|weekly)\s+(?:send|email|remind|tell|give)\s+(?:me|us)\s+(?:about\s+)?(.+)/i,
+      /(?:schedule|set up|create)\s+(?:a\s+)?(?:daily|recurring|regular)\s+(?:task|reminder|email|update)\s+(?:for|about|to)\s+(.+)/i,
+    ];
+
+    for (const pattern of taskPatterns) {
+      const match = content.match(pattern);
+      if (match) {
+        const taskContent = match[1]?.replace(/^(the|a|an)\s+/i, '').trim() || match[2]?.trim();
+        const timing = match[2] || match[1] || 'morning';
+        
+        if (taskContent && taskContent.length > 3) {
+          // Determine hour based on timing
+          let hour = 8; // default morning
+          if (timing.includes('evening') || timing.includes('night')) hour = 18;
+          if (timing.includes('afternoon')) hour = 14;
+          
+          // Determine task type
+          const taskType = taskContent.toLowerCase().includes('news') ? 'news' : 'custom';
+          
+          try {
+            const res = await fetch('/api/tasks', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                prompt: taskContent,
+                description: `${timing}: ${taskContent}`.slice(0, 50),
+                task_type: taskType,
+                schedule_hour: hour,
+              }),
+            });
+            
+            if (res.ok) {
+              const timeStr = hour < 12 ? `${hour}am` : hour === 12 ? '12pm' : `${hour-12}pm`;
+              const responseMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: `Done! I'll send you "${taskContent}" every ${timing} at ${timeStr} via email. 📬\n\nYou can manage your scheduled tasks in settings.`,
+                timestamp: new Date(),
+              };
+              setMessages(prev => [...prev, responseMessage]);
+              saveMessage('user', content);
+              saveMessage('assistant', responseMessage.content);
+              setIsLoading(false);
+              return;
+            }
+          } catch (error) {
+            console.error('Failed to create task:', error);
+          }
+        }
+      }
+    }
+
     // Regular chat flow
     saveMessage('user', content);
 
