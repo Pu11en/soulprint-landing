@@ -40,6 +40,11 @@ export async function queryPerplexity(
 
   console.log(`[Perplexity] Using model: ${model}, isDeepSearch: ${isDeepSearch}`);
 
+  // Add timeout to prevent hanging - 10s for normal, 30s for deep research
+  const timeoutMs = isDeepSearch ? 30000 : 10000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -62,7 +67,10 @@ export async function queryPerplexity(
         max_tokens: maxTokens,
         return_citations: true,
       }),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -83,6 +91,11 @@ export async function queryPerplexity(
       isDeepSearch,
     };
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error(`[Perplexity] Request timed out after ${timeoutMs}ms`);
+      throw new Error(`Perplexity request timed out after ${timeoutMs / 1000}s`);
+    }
     console.error('[Perplexity] Query error:', error);
     throw error;
   }
