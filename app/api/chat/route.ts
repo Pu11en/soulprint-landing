@@ -6,7 +6,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { searchWeb, shouldSearchWeb, formatSearchContext } from '@/lib/search/tavily';
-import { queryPerplexity, needsRealtimeInfo, formatPerplexityContext } from '@/lib/search/perplexity';
+import { queryPerplexity, needsRealtimeInfo, formatPerplexityContext, formatSourcesForDisplay, PerplexityModel } from '@/lib/search/perplexity';
 
 // Initialize Bedrock client (fallback)
 const bedrockClient = new BedrockRuntimeClient({
@@ -139,13 +139,14 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { message, history = [], voiceVerified = true } = body as {
+    const { message, history = [], voiceVerified = true, deepSearch = false } = body as {
       message: string;
       history?: ChatMessage[];
       voiceVerified?: boolean;
+      deepSearch?: boolean;
     };
     
-    console.log('[Chat] Voice verified:', voiceVerified);
+    console.log('[Chat] Voice verified:', voiceVerified, '| Deep Search:', deepSearch);
 
     if (!message || typeof message !== 'string') {
       return new Response(
@@ -223,12 +224,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if we should use Perplexity for real-time info (news, current events)
+    // Deep Search always triggers Perplexity with sonar-deep-research model
     let realtimeContext = '';
-    if (process.env.PERPLEXITY_API_KEY && needsRealtimeInfo(message)) {
+    let deepSearchCitations: string[] = [];
+    const shouldUsePerplexity = deepSearch || (process.env.PERPLEXITY_API_KEY && needsRealtimeInfo(message));
+    
+    if (process.env.PERPLEXITY_API_KEY && shouldUsePerplexity) {
       try {
-        console.log('[Chat] Running Perplexity for real-time info:', message.slice(0, 50));
-        const perplexityResponse = await queryPerplexity(message);
+        const model: PerplexityModel = deepSearch ? 'sonar-deep-research' : 'sonar';
+        console.log(`[Chat] Running Perplexity (${model}) for:`, message.slice(0, 50));
+        const perplexityResponse = await queryPerplexity(message, { model });
         realtimeContext = formatPerplexityContext(perplexityResponse);
+        deepSearchCitations = perplexityResponse.citations;
         console.log('[Chat] Perplexity returned answer with', perplexityResponse.citations.length, 'citations');
       } catch (error) {
         console.log('[Chat] Perplexity search failed:', error);
@@ -253,7 +260,15 @@ export async function POST(request: NextRequest) {
     const aiName = userProfile?.ai_name || 'SoulPrint';
     // Combine realtime and web search contexts
     const combinedSearchContext = [realtimeContext, webSearchContext].filter(Boolean).join('\n\n');
-    const systemPrompt = buildSystemPrompt(userProfile?.soulprint_text || null, combinedSearchContext, memoryContext, voiceVerified, aiName);
+    const systemPrompt = buildSystemPrompt(
+      userProfile?.soulprint_text || null, 
+      combinedSearchContext, 
+      memoryContext, 
+      voiceVerified, 
+      aiName,
+      deepSearch,
+      deepSearchCitations
+    );
 
     const messages = [
       ...history.map((msg) => ({
@@ -330,7 +345,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function buildSystemPrompt(soulprintText: string | null, webSearchContext?: string, memoryContext?: string, isOwner: boolean = true, aiName: string = 'SoulPrint'): string {
+function buildSystemPrompt(
+  soulprintText: string | null, 
+  webSearchContext?: string, 
+  memoryContext?: string, 
+  isOwner: boolean = true, 
+  aiName: string = 'SoulPrint',
+  isDeepSearch: boolean = false,
+  citations: string[] = []
+): string {
   const now = new Date();
   const currentDate = now.toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -414,6 +437,26 @@ Use these memories to provide personalized, contextual responses. Reference them
 ${webSearchContext}
 
 Use this web search information to provide accurate, current answers. Cite sources when appropriate.`;
+  }
+
+  // Deep Search mode specific instructions
+  if (isDeepSearch) {
+    prompt += `
+
+🔍 DEEP SEARCH MODE ACTIVE:
+This query used comprehensive deep research. Your response should:
+1. Start with "🔍 **Deep Search Results:**" on the first line
+2. Provide thorough, well-researched information
+3. Organize information clearly with headers or bullet points when helpful
+4. At the end of your response, list the sources in a "📚 Sources:" section`;
+    
+    if (citations.length > 0) {
+      prompt += `
+5. Include these source links in your Sources section:`;
+      citations.slice(0, 6).forEach((url, i) => {
+        prompt += `\n   ${i + 1}. ${url}`;
+      });
+    }
   }
 
   return prompt;

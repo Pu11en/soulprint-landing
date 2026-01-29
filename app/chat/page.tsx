@@ -17,6 +17,7 @@ export default function ChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeepSearching, setIsDeepSearching] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [aiName, setAiName] = useState<string>('SoulPrint');
   const [aiAvatar, setAiAvatar] = useState<string | null>(null);
@@ -116,7 +117,7 @@ export default function ChatPage() {
     }
   };
 
-  const handleSendMessage = async (content: string, voiceVerified?: boolean) => {
+  const handleSendMessage = async (content: string, voiceVerified?: boolean, deepSearch?: boolean) => {
     if (isLoading) return;
 
     // Add user message
@@ -128,6 +129,11 @@ export default function ChatPage() {
     };
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
+    
+    // Track if this is a deep search request
+    if (deepSearch) {
+      setIsDeepSearching(true);
+    }
 
     // Feature: Naming Mode
     if (isNamingMode) {
@@ -306,6 +312,7 @@ export default function ChatPage() {
           message: content, 
           history,
           voiceVerified: voiceVerified ?? true, // Default to true for typed messages
+          deepSearch: deepSearch ?? false, // Deep Search mode
         }),
       });
 
@@ -359,6 +366,7 @@ export default function ChatPage() {
     }
 
     setIsLoading(false);
+    setIsDeepSearching(false);
   };
 
   const handleBack = () => {
@@ -409,6 +417,7 @@ export default function ChatPage() {
           messages={messages}
           onSendMessage={handleSendMessage}
           isLoading={isLoading}
+          isDeepSearching={isDeepSearching}
           aiName={aiName}
           aiAvatar={aiAvatar || undefined}
           onBack={handleBack}

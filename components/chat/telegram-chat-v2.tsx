@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, TouchEvent } from 'react';
-import { ArrowLeft, Paperclip, Mic, Send, Moon, Sun, LogOut } from 'lucide-react';
+import { ArrowLeft, Paperclip, Mic, Send, Moon, Sun, LogOut, Search } from 'lucide-react';
 import { MessageContent } from './message-content';
 
 type Message = {
@@ -13,8 +13,9 @@ type Message = {
 
 interface TelegramChatV2Props {
   messages: Message[];
-  onSendMessage: (content: string, voiceVerified?: boolean) => void;
+  onSendMessage: (content: string, voiceVerified?: boolean, deepSearch?: boolean) => void;
   isLoading?: boolean;
+  isDeepSearching?: boolean;
   aiName?: string;
   aiAvatar?: string;
   onBack?: () => void;
@@ -196,6 +197,7 @@ export function TelegramChatV2({
   messages,
   onSendMessage,
   isLoading = false,
+  isDeepSearching = false,
   aiName = 'SoulPrint',
   aiAvatar,
   onBack,
@@ -204,6 +206,7 @@ export function TelegramChatV2({
 }: TelegramChatV2Props) {
   const [input, setInput] = useState('');
   const [isDark, setIsDark] = useState(defaultDarkMode);
+  const [deepSearchEnabled, setDeepSearchEnabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [headerHeight, setHeaderHeight] = useState(52);
@@ -337,10 +340,11 @@ export function TelegramChatV2({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-    // Pass voice verification status if message came from voice input
-    onSendMessage(input.trim(), lastVoiceVerified ?? undefined);
+    // Pass voice verification status and deep search flag
+    onSendMessage(input.trim(), lastVoiceVerified ?? undefined, deepSearchEnabled);
     setInput('');
     setLastVoiceVerified(null); // Reset for next message
+    // Keep deep search enabled after send (user can toggle it off manually)
     inputRef.current?.focus();
   };
 
@@ -469,20 +473,29 @@ export function TelegramChatV2({
                 className="rounded-[16px_16px_16px_4px] px-4 py-3 shadow-sm transition-colors"
                 style={{ backgroundColor: theme.recipientBubble }}
               >
-                <div className="flex gap-1">
-                  <span
-                    className="w-2 h-2 rounded-full animate-bounce"
-                    style={{ backgroundColor: theme.textSecondary, animationDelay: '0ms' }}
-                  />
-                  <span
-                    className="w-2 h-2 rounded-full animate-bounce"
-                    style={{ backgroundColor: theme.textSecondary, animationDelay: '150ms' }}
-                  />
-                  <span
-                    className="w-2 h-2 rounded-full animate-bounce"
-                    style={{ backgroundColor: theme.textSecondary, animationDelay: '300ms' }}
-                  />
-                </div>
+                {isDeepSearching ? (
+                  <div className="flex items-center gap-2">
+                    <Search className="w-4 h-4 animate-pulse" style={{ color: '#EA580C' }} />
+                    <span className="text-sm" style={{ color: theme.textSecondary }}>
+                      Researching...
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex gap-1">
+                    <span
+                      className="w-2 h-2 rounded-full animate-bounce"
+                      style={{ backgroundColor: theme.textSecondary, animationDelay: '0ms' }}
+                    />
+                    <span
+                      className="w-2 h-2 rounded-full animate-bounce"
+                      style={{ backgroundColor: theme.textSecondary, animationDelay: '150ms' }}
+                    />
+                    <span
+                      className="w-2 h-2 rounded-full animate-bounce"
+                      style={{ backgroundColor: theme.textSecondary, animationDelay: '300ms' }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -502,13 +515,20 @@ export function TelegramChatV2({
         }}
       >
         <form onSubmit={handleSubmit} className="flex items-center gap-2 px-3 py-2">
-          {/* Attach Button */}
+          {/* Deep Search Toggle */}
           <button
             type="button"
-            className="flex-shrink-0 w-11 h-11 flex items-center justify-center transition-colors active:opacity-70"
-            style={{ color: theme.textSecondary }}
+            onClick={() => setDeepSearchEnabled(!deepSearchEnabled)}
+            className={`flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-full transition-all active:opacity-70 ${
+              deepSearchEnabled ? 'scale-110' : ''
+            }`}
+            style={{ 
+              color: deepSearchEnabled ? '#EA580C' : theme.textSecondary,
+              backgroundColor: deepSearchEnabled ? 'rgba(234, 88, 12, 0.15)' : 'transparent',
+            }}
+            title={deepSearchEnabled ? 'Deep Search ON - Click to disable' : 'Enable Deep Search'}
           >
-            <Paperclip className="w-6 h-6" />
+            <Search className={`w-5 h-5 transition-all ${deepSearchEnabled ? 'stroke-[2.5px]' : ''}`} />
           </button>
 
           {/* Input Field */}
@@ -516,15 +536,21 @@ export function TelegramChatV2({
             className="flex-1 flex items-center rounded-full px-4 min-h-[44px] transition-colors duration-300"
             style={{
               backgroundColor: theme.inputBg,
-              border: `1px solid ${theme.inputBorder}`,
+              border: `1px solid ${deepSearchEnabled ? '#EA580C' : theme.inputBorder}`,
+              boxShadow: deepSearchEnabled ? '0 0 0 1px rgba(234, 88, 12, 0.3)' : 'none',
             }}
           >
+            {deepSearchEnabled && (
+              <span className="text-[11px] font-medium mr-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(234, 88, 12, 0.15)', color: '#EA580C' }}>
+                🔍
+              </span>
+            )}
             <input
               ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Message"
+              placeholder={deepSearchEnabled ? "Deep search..." : "Message"}
               className="flex-1 text-[16px] bg-transparent outline-none transition-colors placeholder:text-[#8E8E93]"
               style={{ color: theme.textPrimary }}
               disabled={isLoading}
