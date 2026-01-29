@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Hardcoded for script - these are already in .env.local
 const SUPABASE_URL = 'https://swvljsixpvvcirjmflze.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3dmxqc2l4cHZ2Y2lyam1mbHplIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzU2OTEzNCwiZXhwIjoyMDgzMTQ1MTM0fQ.2XRSViXVJbn_sVcxL3keP5ZIDlz3Ge4MFQOkilV6Q48';
+const SERVICE_ROLE_KEY = 'process.env.SUPABASE_SERVICE_ROLE_KEY!';
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
