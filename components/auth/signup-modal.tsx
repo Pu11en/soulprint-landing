@@ -19,10 +19,20 @@ export function SignUpModal({ children }: SignUpModalProps) {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [referralCode, setReferralCode] = useState<string | null>(null);
+    const [referredBy, setReferredBy] = useState<string | null>(null);
 
+    // Hydration fix - intentional setState in effect
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         setMounted(true);
+        // Read referral info from localStorage (set by /enter page)
+        const storedCode = localStorage.getItem('referralCode');
+        const storedReferrer = localStorage.getItem('referredBy');
+        if (storedCode) setReferralCode(storedCode);
+        if (storedReferrer) setReferredBy(storedReferrer);
     }, []);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const handleEmailSignUp = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -32,6 +42,9 @@ export function SignUpModal({ children }: SignUpModalProps) {
         const formData = new FormData();
         formData.append("email", email);
         formData.append("password", password);
+        if (referralCode) {
+            formData.append("referralCode", referralCode);
+        }
 
         try {
             const result = await signUp(formData);
@@ -53,7 +66,7 @@ export function SignUpModal({ children }: SignUpModalProps) {
 
     const handleGoogleSignIn = async () => {
         setLoading(true);
-        await signInWithGoogle();
+        await signInWithGoogle(referralCode || undefined);
     };
 
     // Prevent hydration mismatch by only rendering Dialog on client
@@ -101,6 +114,13 @@ export function SignUpModal({ children }: SignUpModalProps) {
                                 </div>
                             ) : (
                                 <>
+                                    {/* Referral Badge */}
+                                    {referredBy && (
+                                        <div className="flex items-center justify-center gap-2 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                                            <span className="text-orange-600 text-sm">🎟️ Invited by {referredBy}</span>
+                                        </div>
+                                    )}
+
                                     {/* Header */}
                                     <div className="flex flex-col gap-2 text-center">
                                         <h2 className="font-host-grotesk font-semibold text-2xl leading-8 tracking-[-0.4px] text-[#341E63]">
