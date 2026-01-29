@@ -15,18 +15,18 @@ const faqs = [
     icon: FileArchive,
     title: 'How to export',
     content: (
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         <div className="flex items-start gap-2">
-          <span className="text-orange-400 font-medium text-xs">1.</span>
-          <p className="text-xs">Go to ChatGPT → Settings → Data controls</p>
+          <span className="text-white/40 text-xs w-3">1.</span>
+          <p className="text-xs text-white/70">Go to ChatGPT → Settings → Data controls</p>
         </div>
         <div className="flex items-start gap-2">
-          <span className="text-orange-400 font-medium text-xs">2.</span>
-          <p className="text-xs">Click "Export data" and confirm</p>
+          <span className="text-white/40 text-xs w-3">2.</span>
+          <p className="text-xs text-white/70">Click "Export data" and confirm</p>
         </div>
         <div className="flex items-start gap-2">
-          <span className="text-orange-400 font-medium text-xs">3.</span>
-          <p className="text-xs">Download the ZIP from OpenAI's email</p>
+          <span className="text-white/40 text-xs w-3">3.</span>
+          <p className="text-xs text-white/70">Download the ZIP from OpenAI's email</p>
         </div>
       </div>
     ),
@@ -36,11 +36,8 @@ const faqs = [
     title: 'Privacy',
     content: (
       <div className="space-y-1.5">
-        <p className="text-xs flex items-center gap-1.5">
-          <Lock className="w-3 h-3 text-green-400" />
-          <span className="text-white font-medium">100% local processing</span>
-        </p>
-        <ul className="text-xs text-white/60 space-y-1 ml-4">
+        <p className="text-xs text-white/80 font-medium">100% local processing</p>
+        <ul className="text-xs text-white/50 space-y-1">
           <li>• Data never leaves your browser</li>
           <li>• No external server calls</li>
           <li>• You own and control everything</li>
@@ -54,7 +51,7 @@ const faqs = [
     content: (
       <div className="space-y-1.5">
         <p className="text-xs text-white/80">Your ChatGPT export contains:</p>
-        <ul className="text-xs text-white/60 space-y-1 ml-2">
+        <ul className="text-xs text-white/50 space-y-1">
           <li>• All conversation history</li>
           <li>• Topics you've discussed</li>
           <li>• Your communication style</li>
@@ -69,7 +66,7 @@ const faqs = [
     content: (
       <div className="space-y-1.5">
         <p className="text-xs text-white/80">Processing time depends on history size:</p>
-        <ul className="text-xs text-white/60 space-y-1 ml-2">
+        <ul className="text-xs text-white/50 space-y-1">
           <li>• Small (~100 chats): ~30 seconds</li>
           <li>• Medium (~500 chats): 1-2 minutes</li>
           <li>• Large (1000+): 3-5 minutes</li>
@@ -83,7 +80,7 @@ const faqs = [
     content: (
       <div className="space-y-1.5">
         <p className="text-xs text-white/80">We analyze your conversations to extract:</p>
-        <ul className="text-xs text-white/60 space-y-1 ml-2">
+        <ul className="text-xs text-white/50 space-y-1">
           <li>• Key facts about you</li>
           <li>• Writing patterns & style</li>
           <li>• Topics you care about</li>
@@ -376,8 +373,7 @@ export default function ImportPage() {
                     className="max-w-[260px] bg-zinc-900/95 backdrop-blur border-white/10 text-white/80 p-3"
                     sideOffset={8}
                   >
-                    <p className="text-white font-medium text-xs mb-2 flex items-center gap-1.5">
-                      <faq.icon className="w-3.5 h-3.5 text-orange-400" />
+                    <p className="text-white/90 font-medium text-xs mb-2">
                       {faq.title}
                     </p>
                     {faq.content}
