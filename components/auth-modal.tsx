@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { signIn, signUp, signInWithGoogle } from '@/app/actions/auth';
@@ -13,6 +13,19 @@ interface AuthModalProps {
 
 export function AuthModal({ isOpen, onClose, defaultMode = 'login' }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'signup'>(defaultMode);
+  
+  // Sync mode when defaultMode changes (e.g., Login vs Enter SoulPrint button)
+  // Also reset form state when modal opens
+  useEffect(() => {
+    setMode(defaultMode);
+    if (isOpen) {
+      setEmail('');
+      setPassword('');
+      setName('');
+      setError('');
+      setSuccess(false);
+    }
+  }, [defaultMode, isOpen]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
