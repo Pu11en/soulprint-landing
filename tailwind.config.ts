@@ -1,7 +1,9 @@
 import type { Config } from "tailwindcss";
 
+// Force rebuild
+
 const config: Config = {
-    darkMode: "class",
+    darkMode: ["class"],
     content: [
         "./pages/**/*.{js,ts,jsx,tsx,mdx}",
         "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -51,11 +53,6 @@ const config: Config = {
                     DEFAULT: "hsl(var(--card))",
                     foreground: "hsl(var(--card-foreground))",
                 },
-                // Preserved SoulPrint Brand Colors
-                'orange-600': '#EA580C',
-                'orange-500': '#F97316',
-                'orange-400': '#FB923C',
-                'orange-300': '#FDBA74',
             },
             borderRadius: {
                 lg: "var(--radius)",

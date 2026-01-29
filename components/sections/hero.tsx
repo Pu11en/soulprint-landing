@@ -13,7 +13,8 @@ export function Hero() {
             <section className="lg:hidden relative flex flex-col min-h-[85dvh] w-full overflow-hidden">
                 {/* Full-bleed Background Image with Zoom */}
                 <div
-                    className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-110 origin-center hero-bg-mobile"
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-110 origin-center"
+                    style={{ backgroundImage: "url('/images/mobile-hero-v2.png')" }}
                 />
 
                 {/* Gradient overlays for text readability */}
@@ -94,7 +95,8 @@ export function Hero() {
             <section className="hidden lg:flex relative flex-col min-h-[100dvh] w-full overflow-hidden">
                 {/* Full-bleed Background Image */}
                 <div
-                    className="absolute inset-0 bg-cover bg-center bg-no-repeat hero-bg-desktop"
+                    className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    style={{ backgroundImage: "url('/images/desktop-hero-v2.png')" }}
                 />
 
                 {/* Gradient overlays for text readability */}
