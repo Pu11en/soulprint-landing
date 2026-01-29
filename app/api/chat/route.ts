@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { searchWeb, shouldSearchWeb, formatSearchContext } from '@/lib/search/tavily';
 import { queryPerplexity, needsRealtimeInfo, formatPerplexityContext, PerplexityModel } from '@/lib/search/perplexity';
+import { getMemoryContext } from '@/lib/memory/query';
 
 // Initialize Bedrock client (fallback)
 const bedrockClient = new BedrockRuntimeClient({
@@ -41,50 +42,6 @@ interface RLMResponse {
   chunks_used: number;
   method: string;
   latency_ms: number;
-}
-
-/**
- * Simple keyword search on conversation_chunks as fallback when RLM is unavailable
- */
-async function searchConversationChunks(
-  userId: string,
-  query: string,
-  limit: number = 5
-): Promise<{ chunks: Array<{ title: string; content: string }>; count: number }> {
-  try {
-    const adminSupabase = getSupabaseAdmin();
-    
-    // Extract keywords (simple approach: split on spaces, filter short words)
-    const keywords = query
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(w => w.length > 3)
-      .slice(0, 5);
-    
-    if (keywords.length === 0) {
-      return { chunks: [], count: 0 };
-    }
-    
-    // Search using ILIKE for each keyword (basic but works)
-    const { data, error } = await adminSupabase
-      .from('conversation_chunks')
-      .select('title, content')
-      .eq('user_id', userId)
-      .or(keywords.map(k => `content.ilike.%${k}%`).join(','))
-      .order('is_recent', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    
-    if (error) {
-      console.log('[Chat] Chunk search error:', error.message);
-      return { chunks: [], count: 0 };
-    }
-    
-    return { chunks: data || [], count: data?.length || 0 };
-  } catch (error) {
-    console.log('[Chat] Chunk search failed:', error);
-    return { chunks: [], count: 0 };
-  }
 }
 
 async function tryRLMService(
@@ -204,17 +161,15 @@ export async function POST(request: NextRequest) {
     // Fallback to Bedrock streaming
     console.log('[Chat] Falling back to Bedrock...');
 
-    // Search conversation chunks for memory context
+    // Search conversation chunks for memory context using vector search
     let memoryContext = '';
     if (hasSoulprint) {
       try {
-        console.log('[Chat] Searching conversation chunks...');
-        const { chunks, count } = await searchConversationChunks(user.id, message, 5);
+        console.log('[Chat] Searching memories (vector/keyword)...');
+        const { contextText, chunks, method } = await getMemoryContext(user.id, message, 5);
         if (chunks.length > 0) {
-          memoryContext = chunks
-            .map((c, i) => `[Memory ${i + 1}: ${c.title}]\n${c.content.slice(0, 1500)}`)
-            .join('\n\n---\n\n');
-          console.log('[Chat] Found', count, 'relevant memories');
+          memoryContext = contextText;
+          console.log(`[Chat] Found ${chunks.length} memories via ${method} search`);
         }
       } catch (error) {
         console.log('[Chat] Memory search failed:', error);

@@ -1,202 +1,200 @@
 /**
  * Background Embedding Processor
- * Runs parallel embedding jobs for users with pending chunks
- * Can be triggered by Vercel Cron or manual API call
+ * Embeds conversation_chunks using OpenAI text-embedding-3-small
+ * Stores embeddings directly in the conversation_chunks table
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' });
-
 // Configuration
-const PARALLEL_WORKERS = 5;  // Number of parallel embedding requests
-const BATCH_SIZE = 50;       // Chunks to process per API call
-const RATE_LIMIT_MS = 50;    // Delay between batches to respect rate limits
+const BATCH_SIZE = 50;       // Chunks to embed per batch (OpenAI limit is 2048)
+const PARALLEL_BATCHES = 2;  // Number of parallel API calls
 
 interface ConversationChunk {
   id: string;
   user_id: string;
-  conversation_id: string;
-  title: string;
   content: string;
 }
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  const command = new InvokeModelCommand({
-    modelId: 'amazon.titan-embed-text-v2:0',
-    contentType: 'application/json',
-    accept: 'application/json',
+/**
+ * Generate embeddings using OpenAI text-embedding-3-small
+ * Returns array of embeddings in same order as input
+ */
+async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY not configured');
+  }
+
+  // Truncate texts to safe limit
+  const truncated = texts.map(t => t.slice(0, 8000));
+
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
-      inputText: text.slice(0, 8000), // Titan limit
+      model: 'text-embedding-3-small',
+      input: truncated,
     }),
   });
 
-  const response = await bedrock.send(command);
-  const result = JSON.parse(new TextDecoder().decode(response.body));
-  return result.embedding;
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`OpenAI embedding error: ${error}`);
+  }
+
+  const data = await response.json();
+  
+  // Sort by index to maintain order
+  return data.data
+    .sort((a: { index: number }, b: { index: number }) => a.index - b.index)
+    .map((item: { embedding: number[] }) => item.embedding);
 }
 
-async function processChunk(chunk: ConversationChunk): Promise<boolean> {
+/**
+ * Process a batch of chunks - embed and update
+ */
+async function processBatch(chunks: ConversationChunk[]): Promise<{ success: number; failed: number }> {
+  let success = 0;
+  let failed = 0;
+
   try {
-    // Check if already embedded
-    const { data: existing } = await supabase
-      .from('memory_chunks')
-      .select('id')
-      .eq('conversation_id', chunk.conversation_id)
-      .eq('user_id', chunk.user_id)
-      .limit(1);
+    // Generate embeddings for all chunks in batch
+    const embeddings = await generateEmbeddings(chunks.map(c => c.content));
 
-    if (existing && existing.length > 0) {
-      return true; // Already embedded
+    // Update each chunk with its embedding
+    for (let i = 0; i < chunks.length; i++) {
+      const { error } = await supabase
+        .from('conversation_chunks')
+        .update({ embedding: embeddings[i] })
+        .eq('id', chunks[i].id);
+
+      if (error) {
+        console.error(`[Embed] Error updating chunk ${chunks[i].id}:`, error.message);
+        failed++;
+      } else {
+        success++;
+      }
     }
-
-    // Generate embedding
-    const embedding = await generateEmbedding(chunk.content);
-
-    // Store in memory_chunks
-    const { error } = await supabase.from('memory_chunks').insert({
-      user_id: chunk.user_id,
-      conversation_id: chunk.conversation_id,
-      content: chunk.content,
-      embedding,
-      metadata: {
-        title: chunk.title,
-        source: 'conversation_chunk',
-        embedded_at: new Date().toISOString(),
-      },
-    });
-
-    if (error) {
-      console.error(`[Embed] Error storing chunk ${chunk.conversation_id}:`, error);
-      return false;
-    }
-
-    return true;
   } catch (error) {
-    console.error(`[Embed] Error processing chunk ${chunk.conversation_id}:`, error);
-    return false;
+    console.error('[Embed] Batch embedding error:', error);
+    failed = chunks.length;
   }
+
+  return { success, failed };
 }
 
-async function processUserChunks(userId: string, limit: number): Promise<{ processed: number; failed: number }> {
-  // Get unembedded chunks for this user
-  const { data: allChunks } = await supabase
+/**
+ * Process all unembedded chunks for a user
+ */
+async function processUserChunks(userId: string, limit: number): Promise<{ processed: number; failed: number; total: number }> {
+  // Get chunks without embeddings
+  const { data: chunks, error: fetchError } = await supabase
     .from('conversation_chunks')
-    .select('id, user_id, conversation_id, title, content')
+    .select('id, user_id, content')
     .eq('user_id', userId)
-    .limit(limit * 2); // Get extra in case some are already done
+    .is('embedding', null)
+    .limit(limit);
 
-  if (!allChunks || allChunks.length === 0) {
-    return { processed: 0, failed: 0 };
+  if (fetchError) {
+    console.error('[Embed] Error fetching chunks:', fetchError);
+    throw fetchError;
   }
 
-  // Filter out already embedded chunks
-  const { data: existingEmbeddings } = await supabase
-    .from('memory_chunks')
-    .select('conversation_id')
-    .eq('user_id', userId);
-
-  const embeddedIds = new Set(existingEmbeddings?.map(e => e.conversation_id) || []);
-  const chunksToProcess = allChunks.filter(c => !embeddedIds.has(c.conversation_id)).slice(0, limit);
-
-  if (chunksToProcess.length === 0) {
-    // All done! Lock the soulprint permanently
-    const totalEmbedded = embeddedIds.size;
-    const totalChunks = allChunks.length;
-    
+  if (!chunks || chunks.length === 0) {
+    // All done! Update user status
     await supabase
       .from('user_profiles')
       .update({ 
         embedding_status: 'complete',
         embedding_progress: 100,
-        import_status: 'locked',
+        import_status: 'complete',
         soulprint_locked: true,
-        locked_at: new Date().toISOString(),
-        embeddings_completed_at: new Date().toISOString(),
-        processed_chunks: totalChunks,
       })
       .eq('user_id', userId);
     
-    console.log(`[Embed] User ${userId} soulprint LOCKED - all ${totalEmbedded} chunks embedded (no remaining)`);
-    return { processed: 0, failed: 0 };
+    console.log(`[Embed] User ${userId} complete - all chunks embedded`);
+    return { processed: 0, failed: 0, total: 0 };
   }
 
-  // Process in parallel batches
-  let processed = 0;
-  let failed = 0;
+  console.log(`[Embed] Processing ${chunks.length} chunks for user ${userId}`);
 
-  for (let i = 0; i < chunksToProcess.length; i += PARALLEL_WORKERS) {
-    const batch = chunksToProcess.slice(i, i + PARALLEL_WORKERS);
-    
-    const results = await Promise.all(batch.map(chunk => processChunk(chunk)));
-    
-    results.forEach(success => {
-      if (success) processed++;
-      else failed++;
-    });
+  let totalProcessed = 0;
+  let totalFailed = 0;
 
-    // Rate limit delay
-    if (i + PARALLEL_WORKERS < chunksToProcess.length) {
-      await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_MS));
+  // Process in batches
+  for (let i = 0; i < chunks.length; i += BATCH_SIZE * PARALLEL_BATCHES) {
+    const batchGroup = chunks.slice(i, i + BATCH_SIZE * PARALLEL_BATCHES);
+    
+    // Split into parallel batches
+    const batches: ConversationChunk[][] = [];
+    for (let j = 0; j < batchGroup.length; j += BATCH_SIZE) {
+      batches.push(batchGroup.slice(j, j + BATCH_SIZE));
     }
+
+    // Process batches in parallel
+    const results = await Promise.all(batches.map(batch => processBatch(batch)));
+    
+    results.forEach(r => {
+      totalProcessed += r.success;
+      totalFailed += r.failed;
+    });
   }
 
   // Update progress
-  const { data: totalChunks } = await supabase
+  const { count: totalCount } = await supabase
     .from('conversation_chunks')
-    .select('id', { count: 'exact' })
+    .select('*', { count: 'exact', head: true })
     .eq('user_id', userId);
 
-  const { data: embeddedCount } = await supabase
-    .from('memory_chunks')
-    .select('id', { count: 'exact' })
-    .eq('user_id', userId);
+  const { count: embeddedCount } = await supabase
+    .from('conversation_chunks')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .not('embedding', 'is', null);
 
-  const total = totalChunks?.length || 0;
-  const embedded = (embeddedCount?.length || 0) + processed;
+  const total = totalCount || 0;
+  const embedded = embeddedCount || 0;
   const progress = total > 0 ? Math.round((embedded / total) * 100) : 0;
-  const isComplete = embedded >= total && total > 0;
+  const isComplete = embedded >= total;
 
-  // When all embeddings are complete, lock the soulprint permanently
-  // This prevents any re-imports - one soulprint per account, finalized
-  if (isComplete) {
-    await supabase
-      .from('user_profiles')
-      .update({
-        embedding_status: 'complete',
-        embedding_progress: 100,
-        import_status: 'locked',  // Finalize the import
-        soulprint_locked: true,   // Lock the soulprint permanently
-        locked_at: new Date().toISOString(),
-        embeddings_completed_at: new Date().toISOString(),
-        processed_chunks: total,
-      })
-      .eq('user_id', userId);
-    
-    console.log(`[Embed] User ${userId} soulprint LOCKED - all ${total} chunks embedded`);
-  } else {
-    await supabase
-      .from('user_profiles')
-      .update({
-        embedding_status: 'processing',
-        embedding_progress: progress,
-        processed_chunks: embedded,
-      })
-      .eq('user_id', userId);
-  }
+  await supabase
+    .from('user_profiles')
+    .update({
+      embedding_status: isComplete ? 'complete' : 'processing',
+      embedding_progress: progress,
+      processed_chunks: embedded,
+      import_status: isComplete ? 'complete' : 'processing',
+      soulprint_locked: isComplete,
+    })
+    .eq('user_id', userId);
 
-  return { processed, failed };
+  console.log(`[Embed] User ${userId}: ${embedded}/${total} (${progress}%) - processed ${totalProcessed}, failed ${totalFailed}`);
+
+  return { processed: totalProcessed, failed: totalFailed, total };
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, limit = BATCH_SIZE } = await request.json();
+    // Check for OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: 'OPENAI_API_KEY not configured' },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const { userId, limit = BATCH_SIZE * 2 } = body;
 
     if (userId) {
       // Process specific user
@@ -248,10 +246,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Trigger processing for all pending users
-  const response = await POST(new NextRequest(request.url, {
+  return POST(new NextRequest(request.url, {
     method: 'POST',
-    body: JSON.stringify({ limit: BATCH_SIZE }),
+    body: JSON.stringify({ limit: BATCH_SIZE * 2 }),
   }));
-
-  return response;
 }
