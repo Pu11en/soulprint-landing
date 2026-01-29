@@ -9,6 +9,16 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
+// Increase body size limit for large chat exports (Vercel Pro: up to 50MB)
+export const maxDuration = 60; // 60 second timeout
+export const dynamic = 'force-dynamic';
+
+// Route segment config for body size
+export const fetchCache = 'force-no-store';
+
+// For App Router, we need to configure this in next.config.ts or use streaming
+// But we can at least handle the error gracefully
+
 function getSupabaseAdmin() {
   return createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -94,17 +104,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: profileError.message }, { status: 500 });
     }
 
-    // Save conversation chunks for RLM
+    // Delete existing chunks for this user (fresh import)
+    await adminSupabase
+      .from('conversation_chunks')
+      .delete()
+      .eq('user_id', user.id);
+
+    // Handle legacy path: if chunks are provided in this request, save them
+    // New path: chunks sent via /api/import/save-chunks in batches
     if (conversationChunks && conversationChunks.length > 0) {
-      console.log(`[SaveSoulprint] Saving ${conversationChunks.length} conversation chunks...`);
+      console.log(`[SaveSoulprint] Legacy path: Saving ${conversationChunks.length} conversation chunks...`);
       
-      // Delete existing chunks for this user first
-      await adminSupabase
-        .from('conversation_chunks')
-        .delete()
-        .eq('user_id', user.id);
-      
-      // Insert new chunks in batches
       const BATCH_SIZE = 50;
       for (let i = 0; i < conversationChunks.length; i += BATCH_SIZE) {
         interface ChunkInput {
@@ -131,18 +141,21 @@ export async function POST(request: Request) {
         
         if (chunkError) {
           console.error('[SaveSoulprint] Chunk insert error:', chunkError);
-          // Don't fail the whole request, just log
         }
       }
       
+      // Legacy path: mark as pending since all chunks are here
+      await adminSupabase
+        .from('user_profiles')
+        .update({ embedding_status: 'pending' })
+        .eq('user_id', user.id);
+      
       console.log(`[SaveSoulprint] Chunks saved!`);
+    } else {
+      // New chunked upload path: chunks will be sent via /api/import/save-chunks
+      // Keep status as 'importing' - save-chunks will set to 'pending' when done
+      console.log(`[SaveSoulprint] Awaiting chunked upload via /api/import/save-chunks`);
     }
-
-    // Now mark as 'pending' so embedding cron can process
-    await adminSupabase
-      .from('user_profiles')
-      .update({ embedding_status: 'pending' })
-      .eq('user_id', user.id);
 
     console.log(`[SaveSoulprint] Success!`);
 

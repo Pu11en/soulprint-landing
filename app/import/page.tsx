@@ -63,24 +63,50 @@ export default function ImportPage() {
       });
 
       setStatus('saving');
-      setProgressStage('Saving your memories...');
-      setProgress(90);
+      setProgressStage('Saving your profile...');
+      setProgress(85);
 
+      // Step 1: Save soulprint metadata first (small payload)
       const response = await fetch('/api/import/save-soulprint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ soulprint: result, conversationChunks }),
+        body: JSON.stringify({ soulprint: result }), // No chunks - sent separately
       });
 
       if (!response.ok) {
         const data = await response.json();
-        // Special handling for "already has soulprint" error
-        if (data.code === 'ALREADY_HAS_SOULPRINT') {
-          // Redirect to chat since they already have one
+        if (data.code === 'ALREADY_HAS_SOULPRINT' || data.code === 'ALREADY_IMPORTED') {
           router.push('/chat');
           return;
         }
         throw new Error(data.error || 'Failed to save');
+      }
+
+      // Step 2: Send chunks in batches to avoid body size limits
+      const BATCH_SIZE = 50;
+      const totalBatches = Math.ceil(conversationChunks.length / BATCH_SIZE);
+      
+      for (let i = 0; i < conversationChunks.length; i += BATCH_SIZE) {
+        const batch = conversationChunks.slice(i, i + BATCH_SIZE);
+        const batchIndex = Math.floor(i / BATCH_SIZE);
+        
+        setProgressStage(`Uploading memories (${batchIndex + 1}/${totalBatches})...`);
+        setProgress(85 + Math.round((batchIndex / totalBatches) * 10));
+
+        const chunkResponse = await fetch('/api/import/save-chunks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            chunks: batch, 
+            batchIndex, 
+            totalBatches,
+          }),
+        });
+
+        if (!chunkResponse.ok) {
+          const data = await chunkResponse.json();
+          throw new Error(data.error || 'Failed to save memories');
+        }
       }
 
       setProgressStage('Starting embedding process...');
@@ -90,7 +116,7 @@ export default function ImportPage() {
       await fetch('/api/embeddings/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 100 }), // Start processing first batch
+        body: JSON.stringify({ limit: 100 }),
       });
 
       setProgress(100);
