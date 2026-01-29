@@ -122,7 +122,7 @@ export default function ImportPage() {
       <BackgroundBeams />
 
       {/* Header - Compact */}
-      <header className="relative z-10 flex items-center justify-between px-4 py-2 border-b border-white/5 flex-shrink-0">
+      <header className="relative z-10 flex items-center justify-between px-4 py-2 border-b border-white/5 flex-shrink-0 pt-[env(safe-area-inset-top)]">
         <Link href="/" className="flex items-center gap-2">
           <img src="/logo.svg" alt="SoulPrint" className="w-5 h-5 sm:w-6 sm:h-6" />
           <span className="text-white font-semibold text-xs sm:text-sm">SoulPrint</span>
