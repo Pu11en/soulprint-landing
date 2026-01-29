@@ -28,7 +28,7 @@ const features = [
 
 export function FeatureBlogSection() {
     return (
-        <section className="flex w-full flex-col items-center bg-white py-24">
+        <section className="flex w-full flex-col items-center !bg-white py-24">
             <div className="flex w-full max-w-[1400px] flex-col items-center gap-16 px-6 md:px-12 lg:px-12 xl:px-24">
                 {/* Header Section */}
                 <div className="flex w-full max-w-[800px] flex-col items-center gap-6 text-center">
