@@ -166,36 +166,54 @@ export default function ImportPage() {
               className="w-full max-w-sm flex flex-col justify-center"
             >
               <h1 className="text-lg sm:text-xl font-bold text-white mb-0.5 text-center">Export Your ChatGPT Data</h1>
-              <p className="text-white/50 text-xs md:text-sm mb-3 text-center">Follow these steps in ChatGPT</p>
+              <p className="text-white/50 text-xs md:text-sm mb-3 text-center">We'll guide you through it step by step</p>
 
-              <div className="space-y-2 mb-3">
-                <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white/[0.03] border border-white/10">
-                  <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <Settings className="w-3 h-3 text-orange-400" />
+              <div className="space-y-2 sm:space-y-2.5 mb-3">
+                <div className="flex gap-2.5 p-2.5 sm:p-3 rounded-lg bg-white/[0.03] border border-white/10">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <Settings className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium leading-tight">1. Open Settings</p>
-                    <p className="text-white/40 text-xs leading-tight">Profile → Settings → Data controls</p>
+                    <p className="text-white text-sm font-medium leading-tight">1. Open ChatGPT Settings</p>
+                    <p className="text-white/50 text-xs leading-snug mt-0.5">
+                      Go to <a href="https://chat.openai.com" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">chat.openai.com</a> → Click your profile picture → Select <span className="text-white/70">Settings</span>
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white/[0.03] border border-white/10">
-                  <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <FileArchive className="w-3 h-3 text-orange-400" />
+                <div className="flex gap-2.5 p-2.5 sm:p-3 rounded-lg bg-white/[0.03] border border-white/10">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <FileArchive className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium leading-tight">2. Export data</p>
-                    <p className="text-white/40 text-xs leading-tight">Click "Export data" → Confirm</p>
+                    <p className="text-white text-sm font-medium leading-tight">2. Request your data export</p>
+                    <p className="text-white/50 text-xs leading-snug mt-0.5">
+                      Click <span className="text-white/70">Data controls</span> → <span className="text-white/70">Export data</span> → <span className="text-white/70">Confirm export</span>
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white/[0.03] border border-white/10">
-                  <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <Mail className="w-3 h-3 text-orange-400" />
+                <div className="flex gap-2.5 p-2.5 sm:p-3 rounded-lg bg-white/[0.03] border border-white/10">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium leading-tight">3. Check email</p>
-                    <p className="text-white/40 text-xs leading-tight">Download ZIP from OpenAI's email</p>
+                    <p className="text-white text-sm font-medium leading-tight">3. Check your email</p>
+                    <p className="text-white/50 text-xs leading-snug mt-0.5">
+                      OpenAI will email you a download link (usually within minutes)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 p-2.5 sm:p-3 rounded-lg bg-white/[0.03] border border-white/10">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium leading-tight">4. Download the ZIP file</p>
+                    <p className="text-white/50 text-xs leading-snug mt-0.5">
+                      Click the link in your email — you'll get a <span className="text-white/70">.zip</span> file to upload here
+                    </p>
                   </div>
                 </div>
               </div>
