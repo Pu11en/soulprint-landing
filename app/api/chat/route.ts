@@ -8,6 +8,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { searchWeb, shouldSearchWeb, formatSearchContext } from '@/lib/search/tavily';
 import { queryPerplexity, needsRealtimeInfo, formatPerplexityContext, PerplexityModel } from '@/lib/search/perplexity';
 import { getMemoryContext } from '@/lib/memory/query';
+import { learnFromChat } from '@/lib/memory/learning';
 
 // Initialize Bedrock client (fallback)
 const bedrockClient = new BedrockRuntimeClient({
@@ -136,7 +137,12 @@ export async function POST(request: NextRequest) {
     );
 
     if (rlmResponse) {
-      // RLM worked - return SSE format that frontend expects
+      // RLM worked - learn from this conversation asynchronously
+      learnFromChat(user.id, message, rlmResponse.response).catch(err => {
+        console.log('[Chat] Learning failed (non-blocking):', err);
+      });
+
+      // Return SSE format that frontend expects
       const stream = new ReadableStream({
         start(controller) {
           // Send content in SSE format: "data: {json}\n\n"
@@ -250,8 +256,14 @@ export async function POST(request: NextRequest) {
     const response = await bedrockClient.send(command);
     console.log('[Chat] Bedrock response received');
 
+    // Capture user ID and message for learning after stream completes
+    const userId = user.id;
+    const userMessage = message;
+
     const stream = new ReadableStream({
       async start(controller) {
+        let fullResponse = ''; // Collect full response for learning
+        
         try {
           if (response.body) {
             for await (const event of response.body) {
@@ -263,6 +275,7 @@ export async function POST(request: NextRequest) {
                 if (chunkData.type === 'content_block_delta') {
                   const text = chunkData.delta?.text || '';
                   if (text) {
+                    fullResponse += text; // Collect for learning
                     // SSE format: "data: {json}\n\n"
                     const data = `data: ${JSON.stringify({ content: text })}\n\n`;
                     controller.enqueue(new TextEncoder().encode(data));
@@ -273,6 +286,13 @@ export async function POST(request: NextRequest) {
           }
         } catch (error) {
           console.error('Stream error:', error);
+        }
+
+        // Learn from this conversation asynchronously (don't block stream)
+        if (fullResponse.length > 0) {
+          learnFromChat(userId, userMessage, fullResponse).catch(err => {
+            console.log('[Chat] Learning failed (non-blocking):', err);
+          });
         }
 
         // Send done signal in SSE format

@@ -112,17 +112,19 @@ async function processUserChunks(userId: string, limit: number): Promise<{ proce
 
   if (!chunks || chunks.length === 0) {
     // All done! Update user status
+    // NOTE: soulprint_locked=true means "initial import complete", NOT "no more updates"
+    // The soulprint will continue to learn and evolve from conversations
     await supabase
       .from('user_profiles')
       .update({ 
         embedding_status: 'complete',
         embedding_progress: 100,
         import_status: 'complete',
-        soulprint_locked: true,
+        soulprint_locked: true, // Marks initial import as done (can't re-import)
       })
       .eq('user_id', userId);
     
-    console.log(`[Embed] User ${userId} complete - all chunks embedded`);
+    console.log(`[Embed] User ${userId} complete - all chunks embedded, soulprint will continue to evolve`);
     return { processed: 0, failed: 0, total: 0 };
   }
 
@@ -167,6 +169,8 @@ async function processUserChunks(userId: string, limit: number): Promise<{ proce
   const progress = total > 0 ? Math.round((embedded / total) * 100) : 0;
   const isComplete = embedded >= total;
 
+  // NOTE: soulprint_locked=true means "initial import complete", NOT "no more updates"
+  // The soulprint will continue to learn and evolve from conversations
   await supabase
     .from('user_profiles')
     .update({
@@ -174,7 +178,7 @@ async function processUserChunks(userId: string, limit: number): Promise<{ proce
       embedding_progress: progress,
       processed_chunks: embedded,
       import_status: isComplete ? 'complete' : 'processing',
-      soulprint_locked: isComplete,
+      soulprint_locked: isComplete, // Marks initial import as done (can't re-import)
     })
     .eq('user_id', userId);
 

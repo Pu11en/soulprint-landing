@@ -29,7 +29,9 @@ export async function POST(request: Request) {
 
     const adminSupabase = getSupabaseAdmin();
 
-    // Check if user already has a locked soulprint
+    // Check if user already has an imported soulprint (can't re-import)
+    // NOTE: soulprint_locked means "initial import done" not "no more learning"
+    // The soulprint continues to evolve from conversations
     const { data: existingProfile } = await adminSupabase
       .from('user_profiles')
       .select('soulprint_locked, import_status')
@@ -38,16 +40,16 @@ export async function POST(request: Request) {
 
     if (existingProfile?.soulprint_locked) {
       return NextResponse.json({ 
-        error: 'You already have a SoulPrint. Each account can only have one SoulPrint.',
-        code: 'ALREADY_HAS_SOULPRINT'
+        error: 'You have already imported your ChatGPT history. Your SoulPrint will continue to learn from new conversations.',
+        code: 'ALREADY_IMPORTED'
       }, { status: 409 });
     }
 
     // Also check if import is already complete (additional safeguard)
     if (existingProfile?.import_status === 'complete' || existingProfile?.import_status === 'locked') {
       return NextResponse.json({ 
-        error: 'You already have a SoulPrint. Each account can only have one SoulPrint.',
-        code: 'ALREADY_HAS_SOULPRINT'
+        error: 'You have already imported your ChatGPT history. Your SoulPrint will continue to learn from new conversations.',
+        code: 'ALREADY_IMPORTED'
       }, { status: 409 });
     }
 

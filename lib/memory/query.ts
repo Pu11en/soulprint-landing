@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export interface MemoryChunk {
   id: string;
@@ -6,6 +7,20 @@ export interface MemoryChunk {
   content: string;
   created_at: string;
   similarity: number;
+}
+
+export interface LearnedFactResult {
+  fact: string;
+  category: string;
+  similarity: number;
+}
+
+function getSupabaseAdmin() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
 }
 
 /**
@@ -167,23 +182,72 @@ async function keywordSearch(
 }
 
 /**
+ * Search learned facts by vector similarity
+ */
+async function searchLearnedFacts(
+  userId: string,
+  queryEmbedding: number[],
+  limit: number = 5,
+  threshold: number = 0.5
+): Promise<LearnedFactResult[]> {
+  const supabase = getSupabaseAdmin();
+
+  try {
+    const { data, error } = await supabase.rpc('match_learned_facts', {
+      query_embedding: queryEmbedding,
+      match_user_id: userId,
+      match_count: limit,
+      match_threshold: threshold,
+    });
+
+    if (error) {
+      console.log('[Memory] Learned facts search failed:', error.message);
+      return [];
+    }
+
+    return (data || []).map((row: { fact: string; category: string; similarity: number }) => ({
+      fact: row.fact,
+      category: row.category,
+      similarity: row.similarity,
+    }));
+  } catch (error) {
+    // Table might not exist yet
+    console.log('[Memory] Learned facts search unavailable');
+    return [];
+  }
+}
+
+/**
  * Get memory context formatted for chat
  * Uses vector search if available, falls back to keyword search
+ * Also includes learned facts from ongoing conversations
  */
 export async function getMemoryContext(
   userId: string,
   query: string,
   maxChunks: number = 5
-): Promise<{ chunks: MemoryChunk[]; contextText: string; method: string }> {
+): Promise<{ chunks: MemoryChunk[]; contextText: string; method: string; learnedFacts: LearnedFactResult[] }> {
   let chunks: MemoryChunk[] = [];
+  let learnedFacts: LearnedFactResult[] = [];
   let method = 'none';
+  let queryEmbedding: number[] | null = null;
   
   // Try vector search first
   if (process.env.OPENAI_API_KEY) {
     try {
+      // Get embedding for the query
+      queryEmbedding = await embedQuery(query);
+      
+      // Search conversation chunks
       chunks = await searchMemory(userId, query, maxChunks);
       method = 'vector';
       console.log(`[Memory] Vector search found ${chunks.length} chunks`);
+      
+      // Also search learned facts
+      if (queryEmbedding) {
+        learnedFacts = await searchLearnedFacts(userId, queryEmbedding, 10, 0.5);
+        console.log(`[Memory] Found ${learnedFacts.length} relevant learned facts`);
+      }
     } catch (error) {
       console.log('[Memory] Vector search failed, trying keyword fallback:', error);
     }
@@ -200,13 +264,30 @@ export async function getMemoryContext(
     }
   }
   
-  if (chunks.length === 0) {
-    return { chunks: [], contextText: '', method };
+  if (chunks.length === 0 && learnedFacts.length === 0) {
+    return { chunks: [], contextText: '', method, learnedFacts: [] };
   }
 
-  const contextText = chunks
-    .map((chunk, i) => `[Memory ${i + 1}: ${chunk.title}] ${chunk.content.slice(0, 1500)}`)
-    .join('\n\n');
+  // Build context text from both sources
+  const contextParts: string[] = [];
+  
+  // Add learned facts first (more recent/relevant)
+  if (learnedFacts.length > 0) {
+    const factsText = learnedFacts
+      .map(f => `• [${f.category}] ${f.fact}`)
+      .join('\n');
+    contextParts.push(`[Learned Facts]\n${factsText}`);
+  }
+  
+  // Add conversation memories
+  if (chunks.length > 0) {
+    const chunksText = chunks
+      .map((chunk, i) => `[Memory ${i + 1}: ${chunk.title}] ${chunk.content.slice(0, 1500)}`)
+      .join('\n\n');
+    contextParts.push(chunksText);
+  }
 
-  return { chunks, contextText, method };
+  const contextText = contextParts.join('\n\n---\n\n');
+
+  return { chunks, contextText, method, learnedFacts };
 }
