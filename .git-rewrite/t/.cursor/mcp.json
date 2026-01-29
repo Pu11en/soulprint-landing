@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "drift": {
-      "command": "npx",
-      "args": ["-y", "driftdetect-mcp@0.9.28"]
-    }
-  }
-}
