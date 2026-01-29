@@ -161,8 +161,8 @@ export default function MemoryControlPage() {
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] text-white">
-      {/* Header */}
-      <header className="sticky top-0 bg-[#0e0e0e]/95 backdrop-blur-lg z-20 border-b border-white/[0.06]">
+      {/* Header - with safe area for iOS status bar */}
+      <header className="sticky top-0 bg-[#0e0e0e]/95 backdrop-blur-lg z-20 border-b border-white/[0.06] pt-[env(safe-area-inset-top)]">
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
