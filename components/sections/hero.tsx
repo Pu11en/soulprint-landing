@@ -1,12 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
+import { AuthModal } from "@/components/auth-modal";
 
 export function Hero() {
+    const [authModal, setAuthModal] = useState<{ open: boolean; mode: 'login' | 'signup' }>({ open: false, mode: 'login' });
+
     return (
         <>
             {/* Mobile Hero - Full-bleed background design */}
@@ -33,12 +37,15 @@ export function Hero() {
                         />
                         <span className="text-white text-3xl font-normal font-koulen leading-9 tracking-tight">SOULPRINT</span>
                     </div>
-                    <Link href="/login" className="relative group overflow-hidden">
+                    <button 
+                        onClick={() => setAuthModal({ open: true, mode: 'login' })}
+                        className="relative group overflow-hidden"
+                    >
                         <span className="text-white text-sm font-bold uppercase tracking-wide group-hover:text-orange-600 transition-colors duration-300">
                             Login
                         </span>
                         <span className="absolute bottom-0 left-0 w-full h-[2px] bg-orange-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-                    </Link>
+                    </button>
                 </header>
 
                 {/* Content & CTA Container */}
@@ -76,12 +83,13 @@ export function Hero() {
                         transition={{ duration: 0.6, delay: 0.4 }}
                         className="px-6 w-full max-w-[600px] mx-auto"
                     >
-                        <Link href="/signup" className="block w-full">
-                            <button className="w-full h-16 bg-orange-600 hover:bg-orange-500 active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-orange-600/20 rounded-none">
-                                <span className="text-black font-black text-xl uppercase tracking-wider font-koulen">Enter SoulPrint</span>
-                                <ArrowRight className="w-6 h-6 text-black group-hover:translate-x-1 transition-transform" />
-                            </button>
-                        </Link>
+                        <button 
+                            onClick={() => setAuthModal({ open: true, mode: 'signup' })}
+                            className="w-full h-16 bg-orange-600 hover:bg-orange-500 active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-orange-600/20 rounded-none"
+                        >
+                            <span className="text-black font-black text-xl uppercase tracking-wider font-koulen">Enter SoulPrint</span>
+                            <ArrowRight className="w-6 h-6 text-black group-hover:translate-x-1 transition-transform" />
+                        </button>
                     </motion.div>
 
                     {/* Spacer B - Balanced Gap (Same as A) */}
@@ -115,12 +123,15 @@ export function Hero() {
                         />
                         <span className="text-white text-4xl font-normal font-koulen leading-10 tracking-tight">SOULPRINT</span>
                     </div>
-                    <Link href="/login" className="relative group overflow-hidden">
+                    <button 
+                        onClick={() => setAuthModal({ open: true, mode: 'login' })}
+                        className="relative group overflow-hidden"
+                    >
                         <span className="text-white text-base font-bold uppercase tracking-wide group-hover:text-orange-600 transition-colors duration-300">
                             Login
                         </span>
                         <span className="absolute bottom-0 left-0 w-full h-[3px] bg-orange-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-                    </Link>
+                    </button>
                 </header>
 
                 {/* Content & CTA Container */}
@@ -158,18 +169,26 @@ export function Hero() {
                         transition={{ duration: 0.6, delay: 0.4 }}
                         className="px-12 w-full max-w-[500px] mx-auto"
                     >
-                        <Link href="/signup" className="block w-full">
-                            <button className="w-full h-16 bg-orange-600 hover:bg-orange-500 active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-orange-600/20 rounded-none">
-                                <span className="text-black font-black text-xl uppercase tracking-wider font-koulen">Enter SoulPrint</span>
-                                <ArrowRight className="w-6 h-6 text-black group-hover:translate-x-1 transition-transform" />
-                            </button>
-                        </Link>
+                        <button 
+                            onClick={() => setAuthModal({ open: true, mode: 'signup' })}
+                            className="w-full h-16 bg-orange-600 hover:bg-orange-500 active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-orange-600/20 rounded-none"
+                        >
+                            <span className="text-black font-black text-xl uppercase tracking-wider font-koulen">Enter SoulPrint</span>
+                            <ArrowRight className="w-6 h-6 text-black group-hover:translate-x-1 transition-transform" />
+                        </button>
                     </motion.div>
 
                     {/* Spacer B - Balanced Gap */}
                     <div className="flex-1" />
                 </div>
             </section>
+
+            {/* Auth Modal */}
+            <AuthModal 
+                isOpen={authModal.open} 
+                onClose={() => setAuthModal({ ...authModal, open: false })}
+                defaultMode={authModal.mode}
+            />
         </>
     );
 }
