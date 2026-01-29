@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import { SignUpModal } from "@/components/auth/signup-modal"
 
 export function CTA() {
   return (
@@ -14,11 +14,11 @@ export function CTA() {
               Join thousands of others who have already started their journey.
             </p>
           </div>
-          <Link href="https://soulprintengine.ai/signup">
+          <SignUpModal>
             <Button variant="secondary" size="lg">
               Get Started Now
             </Button>
-          </Link>
+          </SignUpModal>
         </div>
       </div>
     </section>

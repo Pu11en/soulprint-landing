@@ -10,7 +10,7 @@ export function Hero() {
     return (
         <>
             {/* Mobile Hero - Full-bleed background design */}
-            <section className="lg:hidden relative flex flex-col min-h-[85dvh] w-full overflow-hidden">
+            <section className="lg:hidden relative flex flex-col h-[85dvh] w-full overflow-hidden">
                 {/* Full-bleed Background Image with Zoom */}
                 <div
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-110 origin-center"
@@ -33,7 +33,7 @@ export function Hero() {
                         />
                         <span className="text-white text-3xl font-normal font-koulen leading-9 tracking-tight">SOULPRINT</span>
                     </div>
-                    <Link href="https://soulprintengine.ai/signup" className="relative group overflow-hidden">
+                    <Link href="/enter" className="relative group overflow-hidden">
                         <span className="text-white text-sm font-bold uppercase tracking-wide group-hover:text-orange-600 transition-colors duration-300">
                             Login
                         </span>
@@ -42,10 +42,7 @@ export function Hero() {
                 </header>
 
                 {/* Content & CTA Container */}
-                <div className="relative flex flex-1 flex-col z-10">
-                    {/* Top Spacer */}
-                    <div className="flex-[0.5]" />
-
+                <div className="relative flex flex-1 flex-col z-10 justify-center gap-8 pb-12">
                     {/* Headline and Subheading */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -53,7 +50,7 @@ export function Hero() {
                         transition={{ duration: 0.6, delay: 0.2 }}
                         className="flex flex-col items-center text-center space-y-5 px-6"
                     >
-                        <h1 className="text-[2.75rem] xs:text-[3.25rem] sm:text-[4.5rem] font-koulen uppercase tracking-tight leading-[0.85] text-white drop-shadow-2xl">
+                        <h1 className="text-[3rem] xs:text-[3.5rem] sm:text-[4.5rem] font-koulen uppercase tracking-tight leading-[0.9] text-white drop-shadow-2xl">
                             YOUR AI
                             <br />
                             SHOULD KNOW
@@ -66,9 +63,6 @@ export function Hero() {
                         </p>
                     </motion.div>
 
-                    {/* Spacer A - Balanced Gap */}
-                    <div className="flex-1" />
-
                     {/* CTA Button centered in remaining space */}
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
@@ -76,23 +70,18 @@ export function Hero() {
                         transition={{ duration: 0.6, delay: 0.4 }}
                         className="px-6 w-full max-w-[600px] mx-auto"
                     >
-                        <Link href="https://soulprintengine.ai/signup" className="block w-full">
+                        <Link href="/enter" className="block w-full">
                             <button className="w-full h-16 bg-orange-600 hover:bg-orange-500 active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-orange-600/20 rounded-none">
                                 <span className="text-black font-black text-xl uppercase tracking-wider font-koulen">Enter SoulPrint</span>
                                 <ArrowRight className="w-6 h-6 text-black group-hover:translate-x-1 transition-transform" />
                             </button>
                         </Link>
                     </motion.div>
-
-                    {/* Spacer B - Balanced Gap (Same as A) */}
-                    <div className="flex-1" />
                 </div>
-
-
             </section>
 
             {/* Desktop Hero - Full-bleed background design (matching mobile) */}
-            <section className="hidden lg:flex relative flex-col min-h-[100dvh] w-full overflow-hidden">
+            <section className="hidden lg:flex relative flex-col h-[100dvh] w-full overflow-hidden">
                 {/* Full-bleed Background Image */}
                 <div
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -115,7 +104,7 @@ export function Hero() {
                         />
                         <span className="text-white text-4xl font-normal font-koulen leading-10 tracking-tight">SOULPRINT</span>
                     </div>
-                    <Link href="https://soulprintengine.ai/signup" className="relative group overflow-hidden">
+                    <Link href="/enter" className="relative group overflow-hidden">
                         <span className="text-white text-base font-bold uppercase tracking-wide group-hover:text-orange-600 transition-colors duration-300">
                             Login
                         </span>
@@ -124,10 +113,7 @@ export function Hero() {
                 </header>
 
                 {/* Content & CTA Container */}
-                <div className="relative flex flex-1 flex-col z-10">
-                    {/* Top Spacer */}
-                    <div className="flex-[0.5]" />
-
+                <div className="relative flex flex-1 flex-col z-10 justify-center gap-12 pb-16">
                     {/* Headline and Subheading */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -135,7 +121,7 @@ export function Hero() {
                         transition={{ duration: 0.6, delay: 0.2 }}
                         className="flex flex-col items-center text-center space-y-6 px-12"
                     >
-                        <h1 className="text-[5rem] xl:text-[6rem] 2xl:text-[7rem] font-koulen uppercase tracking-tight leading-[0.85] text-white drop-shadow-2xl">
+                        <h1 className="text-[4rem] lg:text-[5rem] xl:text-[6rem] 2xl:text-[7rem] font-koulen uppercase tracking-tight leading-[0.85] text-white drop-shadow-2xl">
                             YOUR AI
                             <br />
                             SHOULD KNOW
@@ -148,9 +134,6 @@ export function Hero() {
                         </p>
                     </motion.div>
 
-                    {/* Spacer A - Balanced Gap */}
-                    <div className="flex-1" />
-
                     {/* CTA Button centered in remaining space */}
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
@@ -158,16 +141,13 @@ export function Hero() {
                         transition={{ duration: 0.6, delay: 0.4 }}
                         className="px-12 w-full max-w-[500px] mx-auto"
                     >
-                        <Link href="https://soulprintengine.ai/signup" className="block w-full">
+                        <Link href="/enter" className="block w-full">
                             <button className="w-full h-16 bg-orange-600 hover:bg-orange-500 active:scale-[0.98] transition-all flex items-center justify-between px-8 group shadow-2xl shadow-orange-600/20 rounded-none">
                                 <span className="text-black font-black text-xl uppercase tracking-wider font-koulen">Enter SoulPrint</span>
                                 <ArrowRight className="w-6 h-6 text-black group-hover:translate-x-1 transition-transform" />
                             </button>
                         </Link>
                     </motion.div>
-
-                    {/* Spacer B - Balanced Gap */}
-                    <div className="flex-1" />
                 </div>
             </section>
         </>
