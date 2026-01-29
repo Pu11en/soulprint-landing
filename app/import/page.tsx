@@ -29,7 +29,13 @@ export default function ImportPage() {
       try {
         const res = await fetch('/api/memory/status');
         const data = await res.json();
-        if (data.status === 'ready' || data.hasSoulprint) {
+        // Check if user already has a soulprint (locked or complete)
+        if (data.status === 'ready' || data.hasSoulprint || data.locked) {
+          router.push('/chat');
+          return;
+        }
+        // Also redirect if import is still processing (let them see progress in chat)
+        if (data.status === 'processing') {
           router.push('/chat');
           return;
         }
@@ -68,8 +74,24 @@ export default function ImportPage() {
 
       if (!response.ok) {
         const data = await response.json();
+        // Special handling for "already has soulprint" error
+        if (data.code === 'ALREADY_HAS_SOULPRINT') {
+          // Redirect to chat since they already have one
+          router.push('/chat');
+          return;
+        }
         throw new Error(data.error || 'Failed to save');
       }
+
+      setProgressStage('Starting embedding process...');
+      setProgress(95);
+
+      // Trigger background embedding process
+      await fetch('/api/embeddings/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 100 }), // Start processing first batch
+      });
 
       setProgress(100);
       setStatus('success');

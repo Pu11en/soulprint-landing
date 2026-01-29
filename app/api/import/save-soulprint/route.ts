@@ -27,6 +27,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
+    const adminSupabase = getSupabaseAdmin();
+
+    // Check if user already has a locked soulprint
+    const { data: existingProfile } = await adminSupabase
+      .from('user_profiles')
+      .select('soulprint_locked, import_status')
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingProfile?.soulprint_locked) {
+      return NextResponse.json({ 
+        error: 'You already have a SoulPrint. Each account can only have one SoulPrint.',
+        code: 'ALREADY_HAS_SOULPRINT'
+      }, { status: 409 });
+    }
+
+    // Also check if import is already complete (additional safeguard)
+    if (existingProfile?.import_status === 'complete' || existingProfile?.import_status === 'locked') {
+      return NextResponse.json({ 
+        error: 'You already have a SoulPrint. Each account can only have one SoulPrint.',
+        code: 'ALREADY_HAS_SOULPRINT'
+      }, { status: 409 });
+    }
+
     const body = await request.json();
     const { soulprint, conversationChunks } = body;
 
@@ -41,22 +65,23 @@ export async function POST(request: Request) {
     // Generate soulprint text for chat context
     const soulprintText = generateSoulprintText(soulprint);
 
-    const adminSupabase = getSupabaseAdmin();
-
     // Upsert user profile with soulprint
+    // Set import_status to 'processing' - will be marked 'locked' only after ALL embeddings are complete
     const { error: profileError } = await adminSupabase
       .from('user_profiles')
       .upsert({
         user_id: user.id,
         soulprint: soulprint,
         soulprint_text: soulprintText,
-        import_status: 'complete',
+        import_status: 'processing', // Not 'complete' until all embeddings done
         total_conversations: soulprint.stats.totalConversations,
         total_messages: soulprint.stats.totalMessages,
         soulprint_generated_at: new Date().toISOString(),
-        // Queue for background embedding - will be processed by cron job
+        // Queue for background embedding - will be processed fully before marking complete
         embedding_status: 'pending',
         embedding_progress: 0,
+        total_chunks: conversationChunks?.length || 0,
+        processed_chunks: 0,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id',

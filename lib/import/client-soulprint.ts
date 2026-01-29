@@ -121,23 +121,23 @@ export async function generateClientSoulprint(
   
   onProgress?.('Extracting conversation chunks...', 80);
   
-  // Extract conversation chunks for RLM (recent 6 months + sample of older)
-  const sixMonthsAgo = Date.now() - (180 * 24 * 60 * 60 * 1000);
+  // Extract ALL conversation chunks - no shortcuts
+  // Process every conversation fully for complete SoulPrint
   const conversationChunks: ConversationChunk[] = [];
+  const totalConvos = sorted.length;
   
-  for (const convo of sorted.slice(0, 500)) { // Top 500 convos
+  for (let i = 0; i < totalConvos; i++) {
+    const convo = sorted[i];
     const messages = extractMessages(convo);
     if (messages.length === 0) continue;
     
     const createdAt = new Date(convo.create_time * 1000);
-    const isRecent = createdAt.getTime() > sixMonthsAgo;
     
-    // Format conversation as text
+    // Format conversation as text - include ALL messages for full context
     const content = messages
-      .slice(0, 30) // Limit messages per convo
       .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
       .join('\n\n')
-      .slice(0, 4000); // Limit total length
+      .slice(0, 8000); // Increased limit for more context per conversation
     
     conversationChunks.push({
       id: convo.id,
@@ -145,8 +145,14 @@ export async function generateClientSoulprint(
       content,
       messageCount: messages.length,
       createdAt: createdAt.toISOString(),
-      isRecent,
+      isRecent: false, // No longer used - all conversations are processed equally
     });
+    
+    // Update progress during chunk extraction for large exports
+    if (i % 100 === 0 && totalConvos > 100) {
+      const chunkProgress = 80 + ((i / totalConvos) * 15); // 80-95% during chunking
+      onProgress?.(`Extracting conversations (${i}/${totalConvos})...`, Math.round(chunkProgress));
+    }
   }
   
   // Calculate stats

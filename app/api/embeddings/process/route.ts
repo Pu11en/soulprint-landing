@@ -106,11 +106,24 @@ async function processUserChunks(userId: string, limit: number): Promise<{ proce
   const chunksToProcess = allChunks.filter(c => !embeddedIds.has(c.conversation_id)).slice(0, limit);
 
   if (chunksToProcess.length === 0) {
-    // All done! Update user status
+    // All done! Lock the soulprint permanently
+    const totalEmbedded = embeddedIds.size;
+    const totalChunks = allChunks.length;
+    
     await supabase
       .from('user_profiles')
-      .update({ embedding_status: 'complete' })
+      .update({ 
+        embedding_status: 'complete',
+        embedding_progress: 100,
+        import_status: 'locked',
+        soulprint_locked: true,
+        locked_at: new Date().toISOString(),
+        embeddings_completed_at: new Date().toISOString(),
+        processed_chunks: totalChunks,
+      })
       .eq('user_id', userId);
+    
+    console.log(`[Embed] User ${userId} soulprint LOCKED - all ${totalEmbedded} chunks embedded (no remaining)`);
     return { processed: 0, failed: 0 };
   }
 
@@ -148,14 +161,35 @@ async function processUserChunks(userId: string, limit: number): Promise<{ proce
   const total = totalChunks?.length || 0;
   const embedded = (embeddedCount?.length || 0) + processed;
   const progress = total > 0 ? Math.round((embedded / total) * 100) : 0;
+  const isComplete = embedded >= total && total > 0;
 
-  await supabase
-    .from('user_profiles')
-    .update({
-      embedding_status: embedded >= total ? 'complete' : 'processing',
-      embedding_progress: progress,
-    })
-    .eq('user_id', userId);
+  // When all embeddings are complete, lock the soulprint permanently
+  // This prevents any re-imports - one soulprint per account, finalized
+  if (isComplete) {
+    await supabase
+      .from('user_profiles')
+      .update({
+        embedding_status: 'complete',
+        embedding_progress: 100,
+        import_status: 'locked',  // Finalize the import
+        soulprint_locked: true,   // Lock the soulprint permanently
+        locked_at: new Date().toISOString(),
+        embeddings_completed_at: new Date().toISOString(),
+        processed_chunks: total,
+      })
+      .eq('user_id', userId);
+    
+    console.log(`[Embed] User ${userId} soulprint LOCKED - all ${total} chunks embedded`);
+  } else {
+    await supabase
+      .from('user_profiles')
+      .update({
+        embedding_status: 'processing',
+        embedding_progress: progress,
+        processed_chunks: embedded,
+      })
+      .eq('user_id', userId);
+  }
 
   return { processed, failed };
 }
