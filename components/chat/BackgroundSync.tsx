@@ -64,6 +64,7 @@ export function BackgroundSync({ onComplete }: { onComplete?: () => void }) {
         await fetch('/api/import/save-chunks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ chunks: batch, batchIndex, totalBatches }),
         });
       }
@@ -84,6 +85,7 @@ export function BackgroundSync({ onComplete }: { onComplete?: () => void }) {
         await fetch('/api/import/save-raw', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ conversations: batch, batchIndex, totalBatches }),
         });
       }
@@ -99,6 +101,7 @@ export function BackgroundSync({ onComplete }: { onComplete?: () => void }) {
       await fetch('/api/import/embed-background', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
       });
 
       // Poll for completion
