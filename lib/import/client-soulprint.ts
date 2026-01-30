@@ -419,87 +419,119 @@ function sampleArray<T>(arr: T[], size: number): T[] {
 }
 
 /**
- * Smart chunking for conversations
- * Splits into smaller overlapping chunks for better vector search recall
+ * Ultra-granular chunking for maximum recall precision
+ * Each specific detail should be findable via vector search
  */
 function chunkConversation(
   messages: Array<{ role: string; content: string }>,
   title: string
 ): Array<{ content: string; messageCount: number }> {
-  const TARGET_CHUNK_SIZE = 1200;  // Target ~1000-1500 chars per chunk
-  const MIN_CHUNK_SIZE = 800;      // Don't create tiny chunks
-  const OVERLAP_CHARS = 200;       // Overlap between chunks
-  const MIN_MESSAGES_PER_CHUNK = 2;
+  const MAX_CHUNK_SIZE = 500;       // Hard max - prioritize granularity
+  const OVERLAP_CHARS = 120;        // Context overlap between chunks
+  const SUBSTANTIAL_MSG = 200;      // Messages this long get their own chunk
   
   // Format all messages
   const formattedMessages = messages.map(m => ({
     text: `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`,
     length: `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`.length,
+    role: m.role,
   }));
   
-  // Calculate total content length
-  const totalLength = formattedMessages.reduce((sum, m) => sum + m.length + 2, 0); // +2 for \n\n
+  const chunks: Array<{ content: string; messageCount: number }> = [];
   
-  // If total is small enough, return single chunk
-  if (totalLength <= TARGET_CHUNK_SIZE * 1.5 || messages.length < MIN_MESSAGES_PER_CHUNK * 2) {
-    const content = `[Conversation: ${title}]\n${formattedMessages.map(m => m.text).join('\n\n')}`;
-    return [{ content: content.slice(0, 8000), messageCount: messages.length }];
+  // Helper to create chunk with header
+  const makeChunk = (texts: string[], msgCount: number) => {
+    const partNum = chunks.length + 1;
+    const header = `[Conversation: ${title}] [Part ${partNum}]`;
+    chunks.push({
+      content: `${header}\n${texts.join('\n\n')}`,
+      messageCount: msgCount,
+    });
+  };
+  
+  // Track overlap context from previous chunk
+  let overlapText = '';
+  let i = 0;
+  
+  while (i < formattedMessages.length) {
+    const msg = formattedMessages[i];
+    
+    // Substantial messages get their own chunk (possibly with overlap prefix)
+    if (msg.length >= SUBSTANTIAL_MSG) {
+      // If message itself exceeds max, split it into sub-chunks
+      if (msg.length > MAX_CHUNK_SIZE) {
+        const words = msg.text.split(' ');
+        let subChunk = overlapText ? overlapText + '\n\n' : '';
+        let wordIdx = 0;
+        
+        while (wordIdx < words.length) {
+          const word = words[wordIdx];
+          if (subChunk.length + word.length + 1 > MAX_CHUNK_SIZE && subChunk.length > 0) {
+            // Flush current sub-chunk
+            const partNum = chunks.length + 1;
+            const header = `[Conversation: ${title}] [Part ${partNum}]`;
+            chunks.push({ content: `${header}\n${subChunk.trim()}`, messageCount: 1 });
+            
+            // Start new sub-chunk with overlap
+            const overlapWords = subChunk.split(' ').slice(-15).join(' '); // ~100-150 chars
+            subChunk = overlapWords + ' ';
+          }
+          subChunk += word + ' ';
+          wordIdx++;
+        }
+        
+        // Flush remaining
+        if (subChunk.trim()) {
+          const partNum = chunks.length + 1;
+          const header = `[Conversation: ${title}] [Part ${partNum}]`;
+          chunks.push({ content: `${header}\n${subChunk.trim()}`, messageCount: 1 });
+          overlapText = subChunk.trim().slice(-OVERLAP_CHARS);
+        }
+      } else {
+        // Message fits in one chunk
+        const content = overlapText ? overlapText + '\n\n' + msg.text : msg.text;
+        makeChunk([content], 1);
+        overlapText = msg.text.slice(-OVERLAP_CHARS);
+      }
+      i++;
+      continue;
+    }
+    
+    // Accumulate smaller messages until we hit the limit
+    let accumulated: string[] = overlapText ? [overlapText] : [];
+    let accumulatedLength = overlapText.length;
+    let msgCount = 0;
+    
+    while (i < formattedMessages.length) {
+      const nextMsg = formattedMessages[i];
+      
+      // If next message is substantial, break and let it get its own chunk
+      if (nextMsg.length >= SUBSTANTIAL_MSG) break;
+      
+      // If adding this would exceed max, break
+      if (accumulatedLength + nextMsg.length + 2 > MAX_CHUNK_SIZE && msgCount > 0) break;
+      
+      accumulated.push(nextMsg.text);
+      accumulatedLength += nextMsg.length + 2;
+      msgCount++;
+      i++;
+    }
+    
+    if (msgCount > 0) {
+      // Remove overlap prefix from message count
+      const texts = overlapText ? accumulated.slice(1) : accumulated;
+      const fullText = accumulated.join('\n\n');
+      const partNum = chunks.length + 1;
+      const header = `[Conversation: ${title}] [Part ${partNum}]`;
+      chunks.push({ content: `${header}\n${fullText}`, messageCount: msgCount });
+      overlapText = fullText.slice(-OVERLAP_CHARS);
+    }
   }
   
-  // Build chunks with overlap
-  const chunks: Array<{ content: string; messageCount: number }> = [];
-  let currentChunkStart = 0;
-  
-  while (currentChunkStart < formattedMessages.length) {
-    let currentLength = 0;
-    let endIndex = currentChunkStart;
-    
-    // Build chunk up to target size, respecting message boundaries
-    while (endIndex < formattedMessages.length && currentLength < TARGET_CHUNK_SIZE) {
-      currentLength += formattedMessages[endIndex].length + 2;
-      endIndex++;
-    }
-    
-    // Ensure minimum messages per chunk
-    if (endIndex - currentChunkStart < MIN_MESSAGES_PER_CHUNK && endIndex < formattedMessages.length) {
-      endIndex = Math.min(currentChunkStart + MIN_MESSAGES_PER_CHUNK, formattedMessages.length);
-    }
-    
-    // Build chunk content with title and part number
-    const chunkMessages = formattedMessages.slice(currentChunkStart, endIndex);
-    const partNum = chunks.length + 1;
-    const header = chunks.length === 0 
-      ? `[Conversation: ${title}]`
-      : `[Conversation: ${title}] [Part ${partNum}]`;
-    
-    const content = `${header}\n${chunkMessages.map(m => m.text).join('\n\n')}`;
-    
-    chunks.push({
-      content,
-      messageCount: endIndex - currentChunkStart,
-    });
-    
-    // Move start forward, but include overlap
-    // Find how many messages from the end to include as overlap
-    let overlapLength = 0;
-    let overlapMsgCount = 0;
-    for (let i = endIndex - 1; i >= currentChunkStart && overlapLength < OVERLAP_CHARS; i--) {
-      overlapLength += formattedMessages[i].length + 2;
-      overlapMsgCount++;
-    }
-    
-    // Next chunk starts with overlap messages
-    const nextStart = endIndex - Math.max(1, overlapMsgCount);
-    
-    // Prevent infinite loop - always advance
-    if (nextStart <= currentChunkStart) {
-      currentChunkStart = endIndex;
-    } else {
-      currentChunkStart = nextStart;
-    }
-    
-    // Break if we've processed all messages
-    if (endIndex >= formattedMessages.length) break;
+  // Edge case: very short conversation, ensure at least 1 chunk
+  if (chunks.length === 0 && formattedMessages.length > 0) {
+    const content = `[Conversation: ${title}]\n${formattedMessages.map(m => m.text).join('\n\n')}`;
+    return [{ content, messageCount: messages.length }];
   }
   
   return chunks;
