@@ -135,13 +135,44 @@ export default function ImportPage() {
         }
       }
 
+      // Step 4: RLM Deep Personality Analysis
+      setProgressStage('Analyzing your personality...');
+      setProgress(88);
+      
+      try {
+        // Sample conversations for personality analysis
+        const sampleForAnalysis = rawConversations
+          .slice(0, 300) // Max 300 conversations
+          .map(c => ({
+            title: c.title,
+            messages: c.messages.slice(0, 20), // Max 20 messages per convo
+            createdAt: c.createdAt,
+          }));
+
+        const personalityResponse = await fetch('/api/import/analyze-personality', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversations: sampleForAnalysis }),
+        });
+
+        if (personalityResponse.ok) {
+          const personalityResult = await personalityResponse.json();
+          console.log('Personality analysis complete:', personalityResult.profile?.identity?.archetype);
+          setProgressStage(`You are "${personalityResult.profile?.identity?.archetype || 'unique'}"...`);
+        } else {
+          console.warn('Personality analysis failed, continuing...');
+        }
+      } catch (personalityError) {
+        console.warn('Personality analysis error:', personalityError);
+        // Non-fatal - continue with basic profile
+      }
+
       setProgressStage('Generating memory embeddings...');
-      setProgress(95);
+      setProgress(92);
 
       // Embed ALL chunks for full precision
       let embeddingDone = false;
       let batchStart = 0;
-      let lastProgress = 95;
       
       while (!embeddingDone) {
         try {
@@ -157,10 +188,9 @@ export default function ImportPage() {
             embeddingDone = true;
           } else {
             batchStart = embedResult.nextBatch || batchStart + 50;
-            // Progress from 95% to 100% based on embedding progress
+            // Progress from 92% to 100% based on embedding progress
             const embedProgress = embedResult.progress || 0;
-            lastProgress = 95 + Math.round(embedProgress * 0.05);
-            setProgress(lastProgress);
+            setProgress(92 + Math.round(embedProgress * 0.08));
             setProgressStage(`Embedding memories (${embedResult.progress || 0}%)...`);
           }
         } catch (embedError) {
