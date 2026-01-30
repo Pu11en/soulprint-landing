@@ -124,7 +124,7 @@ export default function ImportPage() {
     setCurrentStep('processing');
     setProgress(0);
 
-    const FILE_SIZE_THRESHOLD = 100 * 1024 * 1024; // 100MB threshold for server-side processing
+    const FILE_SIZE_THRESHOLD = 0; // ALL imports go server-side for consistency
     
     try {
       let result: ClientSoulprint;
