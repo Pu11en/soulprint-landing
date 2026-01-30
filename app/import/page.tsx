@@ -162,6 +162,7 @@ export default function ImportPage() {
         const rlmResponse = await fetch('/api/import/create-soulprint', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', // Ensure auth cookies are sent
           body: JSON.stringify({ 
             conversations: conversationSample,
             stats: result.stats, // Pass stats from client-side analysis
@@ -184,6 +185,7 @@ export default function ImportPage() {
       const response = await fetch('/api/import/save-soulprint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Ensure auth cookies are sent
         body: JSON.stringify({ soulprint: finalSoulprint }),
       });
 
@@ -223,6 +225,7 @@ export default function ImportPage() {
       await fetch('/api/import/mark-pending', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Ensure auth cookies are sent
         body: JSON.stringify({ 
           totalChunks: conversationChunks.length,
           totalRaw: rawConversations.length,
