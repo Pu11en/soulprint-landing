@@ -14,7 +14,7 @@ interface AccessCodeModalProps {
 type Mode = 'code' | 'waitlist' | 'success';
 
 export function AccessCodeModal({ isOpen, onClose, onCodeValid }: AccessCodeModalProps) {
-  const [mode, setMode] = useState<Mode>('code');
+  const [mode, setMode] = useState<Mode>('waitlist'); // Waitlist first!
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -24,7 +24,7 @@ export function AccessCodeModal({ isOpen, onClose, onCodeValid }: AccessCodeModa
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setMode('code');
+      setMode('waitlist'); // Waitlist first!
       setCode('');
       setEmail('');
       setName('');
@@ -172,18 +172,11 @@ export function AccessCodeModal({ isOpen, onClose, onCodeValid }: AccessCodeModa
                 </button>
               </form>
 
-              <div className="flex items-center gap-4 my-6">
-                <div className="flex-1 h-px bg-white/10" />
-                <span className="text-white/40 text-sm">or</span>
-                <div className="flex-1 h-px bg-white/10" />
-              </div>
-
               <button
                 onClick={() => setMode('waitlist')}
-                className="w-full h-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white flex items-center justify-center gap-2 transition-colors"
+                className="w-full text-white/40 hover:text-white/60 text-sm mt-4 transition-colors"
               >
-                <Mail className="w-4 h-4 text-white/60" />
-                <span>Join the waitlist</span>
+                ← Back to waitlist
               </button>
             </>
           )}
@@ -235,11 +228,18 @@ export function AccessCodeModal({ isOpen, onClose, onCodeValid }: AccessCodeModa
                 </button>
               </form>
 
+              <div className="flex items-center gap-4 mt-6">
+                <div className="flex-1 h-px bg-white/10" />
+                <span className="text-white/40 text-sm">or</span>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
+
               <button
                 onClick={() => setMode('code')}
-                className="w-full text-white/40 hover:text-white/60 text-sm mt-4 transition-colors"
+                className="w-full h-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white flex items-center justify-center gap-2 mt-4 transition-colors"
               >
-                ← I have an access code
+                <Ticket className="w-4 h-4 text-white/60" />
+                <span>I have an access code</span>
               </button>
             </>
           )}

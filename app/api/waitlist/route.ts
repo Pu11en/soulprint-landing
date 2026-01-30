@@ -17,15 +17,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
     }
 
-    // Create a box (lead) in Streak pipeline
-    const boxResponse = await fetch('https://api.streak.com/api/v1/boxes', {
+    // Create a box (lead) in Streak pipeline using v2 API
+    const boxResponse = await fetch(`https://api.streak.com/api/v2/pipelines/${STREAK_PIPELINE_KEY}/boxes`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Basic ${Buffer.from(STREAK_API_KEY + ':').toString('base64')}`,
       },
       body: JSON.stringify({
-        pipelineKey: STREAK_PIPELINE_KEY,
         name: name || email.split('@')[0], // Use name or email prefix
         notes: `Waitlist signup from soulprintengine.ai\nEmail: ${email}\nDate: ${new Date().toISOString()}`,
       }),
