@@ -1,13 +1,23 @@
 /**
- * Waitlist API - Add email to Streak CRM pipeline
+ * Waitlist API - Email confirmation flow
+ * 1. User submits email → we send confirmation email
+ * 2. User clicks link → confirmed, added to Streak
  */
 
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { randomBytes } from 'crypto';
+import { sendEmail, generateWaitlistConfirmationEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
-const STREAK_API_KEY = process.env.STREAK_API_KEY!;
-const STREAK_PIPELINE_KEY = process.env.STREAK_PIPELINE_KEY!;
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
 
 export async function POST(request: Request) {
   try {
@@ -17,41 +27,67 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
     }
 
-    const displayName = name?.trim() || email.split('@')[0];
-    const timestamp = new Date().toISOString();
+    const supabase = getSupabaseAdmin();
 
-    // Create a box (lead) in Streak pipeline using v2 API
-    const boxResponse = await fetch(`https://api.streak.com/api/v2/pipelines/${STREAK_PIPELINE_KEY}/boxes`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(STREAK_API_KEY + ':').toString('base64')}`,
-      },
-      body: JSON.stringify({
-        name: `${displayName} (${email})`, // Name with email for easy ID
-        notes: [
-          '📧 WAITLIST SIGNUP',
-          '─────────────────',
-          `Name: ${displayName}`,
-          `Email: ${email}`,
-          `Source: soulprintengine.ai`,
-          `Date: ${timestamp}`,
-        ].join('\n'),
-      }),
-    });
+    // Check if already confirmed
+    const { data: existing } = await supabase
+      .from('pending_waitlist')
+      .select('confirmed')
+      .eq('email', email.toLowerCase())
+      .single();
 
-    if (!boxResponse.ok) {
-      const errorText = await boxResponse.text();
-      console.error('[Waitlist] Streak box creation failed:', errorText);
-      return NextResponse.json({ error: 'Failed to join waitlist' }, { status: 500 });
+    if (existing?.confirmed) {
+      return NextResponse.json({ 
+        success: true,
+        message: "You're already on the list!",
+      });
     }
 
-    const box = await boxResponse.json();
-    console.log(`[Waitlist] Added ${email} to Streak pipeline (box: ${box.boxKey})`);
+    // Generate unique token
+    const token = randomBytes(32).toString('hex');
+
+    // Upsert pending signup (updates if email exists)
+    const { error: insertError } = await supabase
+      .from('pending_waitlist')
+      .upsert({
+        email: email.toLowerCase(),
+        name: name?.trim() || null,
+        token,
+        confirmed: false,
+        created_at: new Date().toISOString(),
+      }, {
+        onConflict: 'email',
+      });
+
+    if (insertError) {
+      console.error('[Waitlist] DB error:', insertError);
+      return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+    }
+
+    // Generate confirmation URL
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://soulprintengine.ai';
+    const confirmUrl = `${baseUrl}/api/waitlist/confirm?token=${token}`;
+
+    // Send confirmation email
+    const emailContent = generateWaitlistConfirmationEmail(name || '', confirmUrl);
+    
+    const emailResult = await sendEmail({
+      to: email,
+      subject: emailContent.subject,
+      html: emailContent.html,
+    });
+    
+    if (!emailResult.success) {
+      console.error('[Waitlist] Email send failed:', emailResult.error);
+      return NextResponse.json({ error: 'Failed to send confirmation email' }, { status: 500 });
+    }
+    
+    console.log(`[Waitlist] Confirmation email sent to ${email}`);
 
     return NextResponse.json({ 
       success: true,
-      message: "You're on the list! We'll reach out soon.",
+      message: "Check your email to confirm your spot!",
+      requiresConfirmation: true,
     });
 
   } catch (error) {

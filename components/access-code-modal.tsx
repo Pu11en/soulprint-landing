@@ -113,19 +113,24 @@ export function AccessCodeModal({ isOpen, onClose, onCodeValid }: AccessCodeModa
             <X className="w-5 h-5" />
           </button>
 
-          {/* Success State */}
+          {/* Success State - Check Email */}
           {mode === 'success' && (
             <div className="text-center py-4">
-              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="w-8 h-8 text-green-500" />
+              <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-6">
+                <Mail className="w-8 h-8 text-orange-500" />
               </div>
-              <h2 className="text-xl font-semibold text-white mb-2">You're on the list!</h2>
-              <p className="text-white/60 mb-6">We'll reach out when your spot opens up.</p>
+              <h2 className="text-xl font-semibold text-white mb-2">Check your email!</h2>
+              <p className="text-white/60 mb-6">
+                We sent a confirmation link to <span className="text-white">{email}</span>
+              </p>
+              <p className="text-white/40 text-sm mb-6">
+                Click the link to confirm your spot on the waitlist.
+              </p>
               <button
                 onClick={onClose}
                 className="text-orange-500 hover:text-orange-400 font-medium"
               >
-                Close
+                Got it
               </button>
             </div>
           )}
