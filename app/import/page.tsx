@@ -136,75 +136,112 @@ export default function ImportPage() {
         // FAST PATH: Extract only conversations.json from ZIP (not the whole file)
         setProgressStage('Extracting conversations...');
         setProgress(5);
+        console.log('[Import] Starting ZIP extraction, file size:', file.size);
         
         // Load ZIP and extract just conversations.json
-        const JSZip = (await import('jszip')).default;
-        const zip = await JSZip.loadAsync(file);
+        let zip;
+        try {
+          const JSZip = (await import('jszip')).default;
+          console.log('[Import] JSZip loaded, loading file...');
+          zip = await JSZip.loadAsync(file);
+          console.log('[Import] ZIP loaded successfully');
+        } catch (zipErr) {
+          console.error('[Import] ZIP extraction failed:', zipErr);
+          throw new Error(`Failed to read ZIP file: ${zipErr instanceof Error ? zipErr.message : 'Unknown error'}`);
+        }
+        
         const conversationsFile = zip.file('conversations.json');
         
         if (!conversationsFile) {
+          console.error('[Import] conversations.json not found in ZIP. Files:', Object.keys(zip.files));
           throw new Error('conversations.json not found in ZIP');
         }
         
         setProgressStage('Reading conversation data...');
         setProgress(15);
         
-        const conversationsJson = await conversationsFile.async('string');
+        let conversationsJson: string;
+        try {
+          console.log('[Import] Extracting conversations.json...');
+          conversationsJson = await conversationsFile.async('string');
+          console.log('[Import] Extracted conversations.json, length:', conversationsJson.length);
+        } catch (extractErr) {
+          console.error('[Import] Failed to extract conversations.json:', extractErr);
+          throw new Error(`Failed to extract conversations: ${extractErr instanceof Error ? extractErr.message : 'Memory limit exceeded'}`);
+        }
+        
         const conversationsBlob = new Blob([conversationsJson], { type: 'application/json' });
+        console.log('[Import] Created blob, size:', conversationsBlob.size);
         
         setProgressStage('Uploading conversations...');
         setProgress(25);
         
-        // Upload via proxy (more reliable on mobile) or signed URL (faster on desktop)
+        // Upload via chunked proxy (mobile) or signed URL (desktop)
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         let storagePath: string;
         
         if (isMobile) {
-          // Mobile: Use signed URL but with fetch keepalive and better error handling
+          // Mobile: Use chunked upload to bypass Vercel's 4.5MB limit and avoid CORS issues
           setProgressStage('Uploading (mobile)...');
+          console.log('[Import] Mobile upload starting, blob size:', conversationsBlob.size);
           
-          const urlRes = await fetch('/api/import/get-upload-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ filename: 'conversations.json' }),
-          });
+          const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB chunks (under Vercel's 4.5MB limit)
+          const totalChunks = Math.ceil(conversationsBlob.size / CHUNK_SIZE);
+          const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
           
-          if (!urlRes.ok) {
-            const err = await urlRes.json().catch(() => ({ error: 'Failed to get upload URL' }));
-            throw new Error(err.error || 'Failed to get upload URL');
+          console.log(`[Import] Splitting into ${totalChunks} chunks of ${CHUNK_SIZE} bytes`);
+          
+          try {
+            let finalPath = '';
+            
+            for (let i = 0; i < totalChunks; i++) {
+              const start = i * CHUNK_SIZE;
+              const end = Math.min(start + CHUNK_SIZE, conversationsBlob.size);
+              const chunk = conversationsBlob.slice(start, end);
+              
+              console.log(`[Import] Uploading chunk ${i + 1}/${totalChunks} (${chunk.size} bytes)`);
+              setProgressStage(`Uploading chunk ${i + 1}/${totalChunks}...`);
+              setProgress(25 + Math.round((i / totalChunks) * 25)); // 25-50%
+              
+              const formData = new FormData();
+              formData.append('chunk', chunk);
+              formData.append('chunkIndex', i.toString());
+              formData.append('totalChunks', totalChunks.toString());
+              formData.append('uploadId', uploadId);
+              
+              const chunkRes = await fetch('/api/import/upload-chunk', {
+                method: 'POST',
+                credentials: 'include',
+                body: formData,
+              });
+              
+              if (!chunkRes.ok) {
+                const errText = await chunkRes.text();
+                console.error(`[Import] Chunk ${i + 1} failed:`, errText);
+                throw new Error(`Upload failed on chunk ${i + 1}: ${errText}`);
+              }
+              
+              const chunkData = await chunkRes.json();
+              console.log(`[Import] Chunk ${i + 1} response:`, chunkData);
+              
+              if (chunkData.complete && chunkData.path) {
+                finalPath = chunkData.path;
+                console.log('[Import] All chunks uploaded, path:', finalPath);
+              }
+            }
+            
+            if (!finalPath) {
+              throw new Error('Upload completed but no path returned');
+            }
+            
+            storagePath = finalPath;
+            setProgress(50);
+            console.log('[Import] Mobile upload complete:', storagePath);
+            
+          } catch (uploadErr) {
+            console.error('[Import] Mobile chunked upload failed:', uploadErr);
+            throw uploadErr;
           }
-          
-          const { uploadUrl, path: urlPath } = await urlRes.json();
-          storagePath = urlPath;
-          
-          // Use XMLHttpRequest for better mobile compatibility
-          await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('PUT', uploadUrl, true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            
-            xhr.onload = () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                resolve();
-              } else {
-                reject(new Error(`Upload failed: ${xhr.status}`));
-              }
-            };
-            
-            xhr.onerror = () => reject(new Error('Network error during upload'));
-            xhr.ontimeout = () => reject(new Error('Upload timed out'));
-            
-            xhr.upload.onprogress = (e) => {
-              if (e.lengthComputable) {
-                const pct = Math.round((e.loaded / e.total) * 25) + 25; // 25-50%
-                setProgress(pct);
-              }
-            };
-            
-            xhr.timeout = 300000; // 5 min timeout
-            xhr.send(conversationsBlob);
-          });
         } else {
           // Desktop: Use signed URL for faster direct upload
           const urlRes = await fetch('/api/import/get-upload-url', {
@@ -235,6 +272,7 @@ export default function ImportPage() {
         
         setProgressStage('Processing...');
         setProgress(50);
+        console.log('[Import] Queueing background processing, path:', storagePath);
         
         // Queue background processing
         const queueRes = await fetch('/api/import/queue-processing', {
@@ -249,9 +287,18 @@ export default function ImportPage() {
         });
         
         if (!queueRes.ok) {
-          const err = await queueRes.json();
-          throw new Error(err.error || 'Failed to start processing');
+          const errText = await queueRes.text();
+          console.error('[Import] Queue processing failed:', errText);
+          let errMsg = 'Failed to start processing';
+          try {
+            const errJson = JSON.parse(errText);
+            errMsg = errJson.error || errMsg;
+          } catch {}
+          throw new Error(errMsg);
         }
+        
+        const queueData = await queueRes.json();
+        console.log('[Import] Queue response:', queueData);
         
         // Processing started in background - redirect to chat
         setProgressStage('Upload complete! Processing in background...');
