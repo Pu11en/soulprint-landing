@@ -12,6 +12,8 @@ export interface ConversationChunk {
   messageCount: number;
   createdAt: string;
   isRecent: boolean;
+  chunkIndex?: number;    // 0-based index for multi-chunk conversations
+  totalChunks?: number;   // Total chunks for this conversation
 }
 
 export interface ClientSoulprintResult {
@@ -121,8 +123,8 @@ export async function generateClientSoulprint(
   
   onProgress?.('Extracting conversation chunks...', 80);
   
-  // Extract ALL conversation chunks - no shortcuts
-  // Process every conversation fully for complete SoulPrint
+  // Extract ALL conversation chunks with smart chunking for better recall
+  // Smaller overlapping chunks enable more precise vector search
   const conversationChunks: ConversationChunk[] = [];
   const totalConvos = sorted.length;
   
@@ -132,21 +134,23 @@ export async function generateClientSoulprint(
     if (messages.length === 0) continue;
     
     const createdAt = new Date(convo.create_time * 1000);
+    const title = convo.title || 'Untitled';
     
-    // Format conversation as text - include ALL messages for full context
-    const content = messages
-      .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
-      .join('\n\n')
-      .slice(0, 8000); // Increased limit for more context per conversation
+    // Use smart chunking for better vector search recall
+    const chunks = chunkConversation(messages, title);
     
-    conversationChunks.push({
-      id: convo.id,
-      title: convo.title || 'Untitled',
-      content,
-      messageCount: messages.length,
-      createdAt: createdAt.toISOString(),
-      isRecent: false, // No longer used - all conversations are processed equally
-    });
+    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+      conversationChunks.push({
+        id: chunks.length > 1 ? `${convo.id}-chunk-${chunkIdx}` : convo.id,
+        title,
+        content: chunks[chunkIdx].content,
+        messageCount: chunks[chunkIdx].messageCount,
+        createdAt: createdAt.toISOString(),
+        isRecent: false,
+        chunkIndex: chunkIdx,
+        totalChunks: chunks.length,
+      });
+    }
     
     // Update progress during chunk extraction for large exports
     if (i % 100 === 0 && totalConvos > 100) {
@@ -412,4 +416,91 @@ function sampleArray<T>(arr: T[], size: number): T[] {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled.slice(0, size);
+}
+
+/**
+ * Smart chunking for conversations
+ * Splits into smaller overlapping chunks for better vector search recall
+ */
+function chunkConversation(
+  messages: Array<{ role: string; content: string }>,
+  title: string
+): Array<{ content: string; messageCount: number }> {
+  const TARGET_CHUNK_SIZE = 1200;  // Target ~1000-1500 chars per chunk
+  const MIN_CHUNK_SIZE = 800;      // Don't create tiny chunks
+  const OVERLAP_CHARS = 200;       // Overlap between chunks
+  const MIN_MESSAGES_PER_CHUNK = 2;
+  
+  // Format all messages
+  const formattedMessages = messages.map(m => ({
+    text: `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`,
+    length: `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`.length,
+  }));
+  
+  // Calculate total content length
+  const totalLength = formattedMessages.reduce((sum, m) => sum + m.length + 2, 0); // +2 for \n\n
+  
+  // If total is small enough, return single chunk
+  if (totalLength <= TARGET_CHUNK_SIZE * 1.5 || messages.length < MIN_MESSAGES_PER_CHUNK * 2) {
+    const content = `[Conversation: ${title}]\n${formattedMessages.map(m => m.text).join('\n\n')}`;
+    return [{ content: content.slice(0, 8000), messageCount: messages.length }];
+  }
+  
+  // Build chunks with overlap
+  const chunks: Array<{ content: string; messageCount: number }> = [];
+  let currentChunkStart = 0;
+  
+  while (currentChunkStart < formattedMessages.length) {
+    let currentLength = 0;
+    let endIndex = currentChunkStart;
+    
+    // Build chunk up to target size, respecting message boundaries
+    while (endIndex < formattedMessages.length && currentLength < TARGET_CHUNK_SIZE) {
+      currentLength += formattedMessages[endIndex].length + 2;
+      endIndex++;
+    }
+    
+    // Ensure minimum messages per chunk
+    if (endIndex - currentChunkStart < MIN_MESSAGES_PER_CHUNK && endIndex < formattedMessages.length) {
+      endIndex = Math.min(currentChunkStart + MIN_MESSAGES_PER_CHUNK, formattedMessages.length);
+    }
+    
+    // Build chunk content with title and part number
+    const chunkMessages = formattedMessages.slice(currentChunkStart, endIndex);
+    const partNum = chunks.length + 1;
+    const header = chunks.length === 0 
+      ? `[Conversation: ${title}]`
+      : `[Conversation: ${title}] [Part ${partNum}]`;
+    
+    const content = `${header}\n${chunkMessages.map(m => m.text).join('\n\n')}`;
+    
+    chunks.push({
+      content,
+      messageCount: endIndex - currentChunkStart,
+    });
+    
+    // Move start forward, but include overlap
+    // Find how many messages from the end to include as overlap
+    let overlapLength = 0;
+    let overlapMsgCount = 0;
+    for (let i = endIndex - 1; i >= currentChunkStart && overlapLength < OVERLAP_CHARS; i--) {
+      overlapLength += formattedMessages[i].length + 2;
+      overlapMsgCount++;
+    }
+    
+    // Next chunk starts with overlap messages
+    const nextStart = endIndex - Math.max(1, overlapMsgCount);
+    
+    // Prevent infinite loop - always advance
+    if (nextStart <= currentChunkStart) {
+      currentChunkStart = endIndex;
+    } else {
+      currentChunkStart = nextStart;
+    }
+    
+    // Break if we've processed all messages
+    if (endIndex >= formattedMessages.length) break;
+  }
+  
+  return chunks;
 }
