@@ -146,12 +146,13 @@ export default function ImportPage() {
           body: JSON.stringify({ filename: file.name }),
         });
 
+        const urlData = await urlRes.json().catch(() => ({ error: 'Failed to parse response' }));
+        
         if (!urlRes.ok) {
-          const err = await urlRes.json().catch(() => ({ error: 'Failed to get upload URL' }));
-          throw new Error(err.error || 'Failed to get upload URL');
+          throw new Error(urlData.error || 'Failed to get upload URL');
         }
 
-        const { uploadUrl, path: urlPath } = await urlRes.json();
+        const { uploadUrl, path: urlPath } = urlData;
         const storagePath = urlPath;
 
         setProgressStage('Uploading ZIP file...');
