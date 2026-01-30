@@ -51,13 +51,14 @@ async function tryRLMService(
   userId: string,
   message: string,
   soulprintText: string | null,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  webSearchContext?: string  // NEW: pass web search results to RLM
 ): Promise<RLMResponse | null> {
   const rlmUrl = process.env.RLM_SERVICE_URL;
   if (!rlmUrl) return null;
 
   try {
-    console.log('[Chat] Trying RLM service...');
+    console.log('[Chat] Calling RLM service...');
     const response = await fetch(`${rlmUrl}/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -66,6 +67,7 @@ async function tryRLMService(
         message,
         soulprint_text: soulprintText,
         history,
+        web_search_context: webSearchContext,  // Pass to RLM
       }),
       signal: AbortSignal.timeout(60000), // 60s timeout
     });
@@ -149,58 +151,63 @@ export async function POST(request: NextRequest) {
 
     const aiName = userProfile?.ai_name || 'SoulPrint';
 
-    // If NOT using web search, try RLM service first (faster, cheaper)
-    if (!deepSearch) {
-      const rlmResponse = await tryRLMService(
-        user.id,
-        message,
-        userProfile?.soulprint_text || null,
-        history
-      );
-
-      if (rlmResponse) {
-        // RLM worked - learn and return
-        if (rlmResponse.response && rlmResponse.response.length > 0) {
-          learnFromChat(user.id, message, rlmResponse.response).catch(err => {
-            console.log('[Chat] Learning failed (non-blocking):', err);
-          });
-        }
-
-        // Return SSE format
-        const stream = new ReadableStream({
-          start(controller) {
-            const content = `data: ${JSON.stringify({ content: rlmResponse.response })}\n\n`;
-            controller.enqueue(new TextEncoder().encode(content));
-            const done = `data: [DONE]\n\n`;
-            controller.enqueue(new TextEncoder().encode(done));
-            controller.close();
-          },
-        });
-
-        return new Response(stream, {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-          },
-        });
-      }
-    }
-    
-    // If user triggered Web Search, call Perplexity
+    // Step 1: If Web Search ON, call Perplexity FIRST
     let webSearchContext = '';
     let webSearchCitations: string[] = [];
     if (deepSearch && process.env.PERPLEXITY_API_KEY) {
       try {
-        console.log('[Chat] User triggered Web Search - calling Perplexity...');
+        console.log('[Chat] Web Search ON - calling Perplexity...');
         const searchResult = await queryPerplexity(message, { model: 'sonar' });
         webSearchContext = `🔍 **Web Search Results:**\n\n${searchResult.answer}`;
+        if (searchResult.citations.length > 0) {
+          webSearchContext += '\n\nSources:\n' + searchResult.citations.slice(0, 5).map((url, i) => `${i + 1}. ${url}`).join('\n');
+        }
         webSearchCitations = searchResult.citations;
-        console.log('[Chat] Web Search returned', searchResult.citations.length, 'citations');
+        console.log('[Chat] Perplexity returned', searchResult.citations.length, 'citations');
       } catch (error) {
-        console.error('[Chat] Web Search failed:', error);
-        webSearchContext = '(Web search failed - answering with available knowledge)';
+        console.error('[Chat] Perplexity failed:', error);
+        // Continue without web search
       }
     }
+
+    // Step 2: ALWAYS try RLM (pass web search context if we have it)
+    const rlmResponse = await tryRLMService(
+      user.id,
+      message,
+      userProfile?.soulprint_text || null,
+      history,
+      webSearchContext || undefined  // Pass web search results to RLM
+    );
+
+    if (rlmResponse) {
+      // RLM worked - learn and return
+      if (rlmResponse.response && rlmResponse.response.length > 0) {
+        learnFromChat(user.id, message, rlmResponse.response).catch(err => {
+          console.log('[Chat] Learning failed (non-blocking):', err);
+        });
+      }
+
+      // Return SSE format
+      const stream = new ReadableStream({
+        start(controller) {
+          const content = `data: ${JSON.stringify({ content: rlmResponse.response })}\n\n`;
+          controller.enqueue(new TextEncoder().encode(content));
+          const done = `data: [DONE]\n\n`;
+          controller.enqueue(new TextEncoder().encode(done));
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+      });
+    }
+
+    // Step 3: Bedrock FALLBACK (only if RLM failed)
+    console.log('[Chat] RLM failed, falling back to Bedrock...');
     
     const systemPrompt = buildSystemPrompt(
       userProfile?.soulprint_text || null,
