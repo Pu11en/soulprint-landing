@@ -128,42 +128,66 @@ export async function POST(request: NextRequest) {
     const userProfile = profile as UserProfile | null;
     const hasSoulprint = !!userProfile?.soulprint_text;
 
-    // Try RLM service first
-    const rlmResponse = await tryRLMService(
-      user.id,
-      message,
-      userProfile?.soulprint_text || null,
-      history
-    );
+    // Check if we need real-time info FIRST (before RLM)
+    // This ensures Perplexity is used for news/current events even when RLM works
+    const shouldUsePerplexity = deepSearch || (process.env.PERPLEXITY_API_KEY && needsRealtimeInfo(message));
+    let perplexityContext = '';
+    let perplexityCitations: string[] = [];
+    
+    if (process.env.PERPLEXITY_API_KEY && shouldUsePerplexity) {
+      try {
+        const model: PerplexityModel = deepSearch ? 'sonar-deep-research' : 'sonar';
+        console.log(`[Chat] Running Perplexity EARLY (${model}) for:`, message.slice(0, 50));
+        const perplexityResponse = await queryPerplexity(message, { model });
+        perplexityContext = formatPerplexityContext(perplexityResponse);
+        perplexityCitations = perplexityResponse.citations;
+        console.log('[Chat] Perplexity returned answer with', perplexityResponse.citations.length, 'citations');
+      } catch (error) {
+        console.log('[Chat] Perplexity search failed:', error);
+        // Continue without Perplexity
+      }
+    }
 
-    if (rlmResponse) {
-      // RLM worked - learn from this conversation asynchronously
-      if (rlmResponse.response && rlmResponse.response.length > 0) {
-        learnFromChat(user.id, message, rlmResponse.response).catch(err => {
-          console.log('[Chat] Learning failed (non-blocking):', err);
+    // If we have Perplexity results, skip RLM and use Bedrock with full context
+    // This ensures real-time info is properly integrated into the response
+    if (!perplexityContext) {
+      // Try RLM service only when we don't need real-time info
+      const rlmResponse = await tryRLMService(
+        user.id,
+        message,
+        userProfile?.soulprint_text || null,
+        history
+      );
+
+      if (rlmResponse) {
+        // RLM worked - learn from this conversation asynchronously
+        if (rlmResponse.response && rlmResponse.response.length > 0) {
+          learnFromChat(user.id, message, rlmResponse.response).catch(err => {
+            console.log('[Chat] Learning failed (non-blocking):', err);
+          });
+        }
+
+        // Return SSE format that frontend expects
+        const stream = new ReadableStream({
+          start(controller) {
+            // Send content in SSE format: "data: {json}\n\n"
+            const content = `data: ${JSON.stringify({ content: rlmResponse.response })}\n\n`;
+            controller.enqueue(new TextEncoder().encode(content));
+
+            // Send done signal
+            const done = `data: [DONE]\n\n`;
+            controller.enqueue(new TextEncoder().encode(done));
+            controller.close();
+          },
+        });
+
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+          },
         });
       }
-
-      // Return SSE format that frontend expects
-      const stream = new ReadableStream({
-        start(controller) {
-          // Send content in SSE format: "data: {json}\n\n"
-          const content = `data: ${JSON.stringify({ content: rlmResponse.response })}\n\n`;
-          controller.enqueue(new TextEncoder().encode(content));
-
-          // Send done signal
-          const done = `data: [DONE]\n\n`;
-          controller.enqueue(new TextEncoder().encode(done));
-          controller.close();
-        },
-      });
-
-      return new Response(stream, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-        },
-      });
     }
 
     // Fallback to Bedrock streaming
@@ -184,25 +208,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if we should use Perplexity for real-time info (news, current events)
-    // Deep Search always triggers Perplexity with sonar-deep-research model
-    let realtimeContext = '';
-    let deepSearchCitations: string[] = [];
-    const shouldUsePerplexity = deepSearch || (process.env.PERPLEXITY_API_KEY && needsRealtimeInfo(message));
-    
-    if (process.env.PERPLEXITY_API_KEY && shouldUsePerplexity) {
-      try {
-        const model: PerplexityModel = deepSearch ? 'sonar-deep-research' : 'sonar';
-        console.log(`[Chat] Running Perplexity (${model}) for:`, message.slice(0, 50));
-        const perplexityResponse = await queryPerplexity(message, { model });
-        realtimeContext = formatPerplexityContext(perplexityResponse);
-        deepSearchCitations = perplexityResponse.citations;
-        console.log('[Chat] Perplexity returned answer with', perplexityResponse.citations.length, 'citations');
-      } catch (error) {
-        console.log('[Chat] Perplexity search failed:', error);
-        // Fall through to Tavily as backup
-      }
-    }
+    // Use the Perplexity context we already fetched at the top
+    const realtimeContext = perplexityContext;
+    const deepSearchCitations = perplexityCitations;
 
     // Check if we should do a web search (use Tavily for general queries, skip if Perplexity already handled it)
     let webSearchContext = '';
