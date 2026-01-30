@@ -1,16 +1,19 @@
 import { NextRequest } from 'next/server';
 import {
   BedrockRuntimeClient,
-  InvokeModelWithResponseStreamCommand,
+  ConverseCommand,
+  ContentBlock,
+  Message,
+  ToolConfiguration,
+  ToolResultBlock,
 } from '@aws-sdk/client-bedrock-runtime';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { searchWeb, shouldSearchWeb, formatSearchContext } from '@/lib/search/tavily';
-import { queryPerplexity, needsRealtimeInfo, formatPerplexityContext, PerplexityModel } from '@/lib/search/perplexity';
+import { queryPerplexity, PerplexityModel } from '@/lib/search/perplexity';
 import { getMemoryContext } from '@/lib/memory/query';
 import { learnFromChat } from '@/lib/memory/learning';
 
-// Initialize Bedrock client (fallback)
+// Initialize Bedrock client
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.AWS_REGION || 'us-east-1',
   credentials: {
@@ -38,47 +41,61 @@ interface UserProfile {
   ai_name: string | null;
 }
 
-interface RLMResponse {
-  response: string;
-  chunks_used: number;
-  method: string;
-  latency_ms: number;
-}
+// Define the web search tool for Claude
+const webSearchTool: ToolConfiguration = {
+  tools: [
+    {
+      toolSpec: {
+        name: 'web_search',
+        description: 'Search the web for current information. Use this for news, current events, recent updates, prices, weather, sports scores, or any time-sensitive information. Returns real-time search results with sources.',
+        inputSchema: {
+          json: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: 'The search query to look up',
+              },
+              deep_research: {
+                type: 'boolean',
+                description: 'Set to true for comprehensive research on complex topics. Use for in-depth analysis, comparisons, or when the user explicitly asks for thorough research.',
+              },
+            },
+            required: ['query'],
+          },
+        },
+      },
+    },
+  ],
+};
 
-async function tryRLMService(
-  userId: string,
-  message: string,
-  soulprintText: string | null,
-  history: ChatMessage[]
-): Promise<RLMResponse | null> {
-  const rlmUrl = process.env.RLM_SERVICE_URL;
-  if (!rlmUrl) return null;
+// Execute the web search tool
+async function executeWebSearch(query: string, deepResearch: boolean = false): Promise<string> {
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey) {
+    return 'Web search is not available. Please answer based on your knowledge.';
+  }
 
   try {
-    console.log('[Chat] Trying RLM service...');
-    const response = await fetch(`${rlmUrl}/query`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: userId,
-        message,
-        soulprint_text: soulprintText,
-        history,
-      }),
-      signal: AbortSignal.timeout(60000), // 60s timeout
-    });
-
-    if (!response.ok) {
-      console.log('[Chat] RLM service error:', response.status);
-      return null;
+    const model: PerplexityModel = deepResearch ? 'sonar-deep-research' : 'sonar';
+    console.log(`[Tool] Executing web_search (${model}):`, query.slice(0, 50));
+    
+    const response = await queryPerplexity(query, { model });
+    
+    let result = `Search Results for: "${query}"\n\n${response.answer}`;
+    
+    if (response.citations.length > 0) {
+      result += '\n\nSources:\n';
+      response.citations.slice(0, 6).forEach((url, i) => {
+        result += `${i + 1}. ${url}\n`;
+      });
     }
-
-    const data = await response.json();
-    console.log('[Chat] RLM success:', data.method, data.latency_ms + 'ms');
-    return data;
+    
+    console.log(`[Tool] web_search returned ${response.citations.length} citations`);
+    return result;
   } catch (error) {
-    console.log('[Chat] RLM service unavailable:', error);
-    return null;
+    console.error('[Tool] web_search failed:', error);
+    return `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please answer based on your knowledge.`;
   }
 }
 
@@ -97,14 +114,13 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { message, history = [], voiceVerified = true, deepSearch = false } = body as {
+    const { message, history = [], voiceVerified = true } = body as {
       message: string;
       history?: ChatMessage[];
       voiceVerified?: boolean;
-      deepSearch?: boolean;
     };
     
-    console.log('[Chat] Voice verified:', voiceVerified, '| Deep Search:', deepSearch);
+    console.log('[Chat] Voice verified:', voiceVerified);
 
     if (!message || typeof message !== 'string') {
       return new Response(
@@ -128,184 +144,134 @@ export async function POST(request: NextRequest) {
     const userProfile = profile as UserProfile | null;
     const hasSoulprint = !!userProfile?.soulprint_text;
 
-    // Check if we need real-time info FIRST (before RLM)
-    // This ensures Perplexity is used for news/current events even when RLM works
-    const shouldUsePerplexity = deepSearch || (process.env.PERPLEXITY_API_KEY && needsRealtimeInfo(message));
-    let perplexityContext = '';
-    let perplexityCitations: string[] = [];
-    
-    if (process.env.PERPLEXITY_API_KEY && shouldUsePerplexity) {
-      try {
-        const model: PerplexityModel = deepSearch ? 'sonar-deep-research' : 'sonar';
-        console.log(`[Chat] Running Perplexity EARLY (${model}) for:`, message.slice(0, 50));
-        const perplexityResponse = await queryPerplexity(message, { model });
-        perplexityContext = formatPerplexityContext(perplexityResponse);
-        perplexityCitations = perplexityResponse.citations;
-        console.log('[Chat] Perplexity returned answer with', perplexityResponse.citations.length, 'citations');
-      } catch (error) {
-        console.log('[Chat] Perplexity search failed:', error);
-        // Continue without Perplexity
-      }
-    }
-
-    // If we have Perplexity results, skip RLM and use Bedrock with full context
-    // This ensures real-time info is properly integrated into the response
-    if (!perplexityContext) {
-      // Try RLM service only when we don't need real-time info
-      const rlmResponse = await tryRLMService(
-        user.id,
-        message,
-        userProfile?.soulprint_text || null,
-        history
-      );
-
-      if (rlmResponse) {
-        // RLM worked - learn from this conversation asynchronously
-        if (rlmResponse.response && rlmResponse.response.length > 0) {
-          learnFromChat(user.id, message, rlmResponse.response).catch(err => {
-            console.log('[Chat] Learning failed (non-blocking):', err);
-          });
-        }
-
-        // Return SSE format that frontend expects
-        const stream = new ReadableStream({
-          start(controller) {
-            // Send content in SSE format: "data: {json}\n\n"
-            const content = `data: ${JSON.stringify({ content: rlmResponse.response })}\n\n`;
-            controller.enqueue(new TextEncoder().encode(content));
-
-            // Send done signal
-            const done = `data: [DONE]\n\n`;
-            controller.enqueue(new TextEncoder().encode(done));
-            controller.close();
-          },
-        });
-
-        return new Response(stream, {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-          },
-        });
-      }
-    }
-
-    // Fallback to Bedrock streaming
-    console.log('[Chat] Falling back to Bedrock...');
-
-    // Search conversation chunks for memory context using vector search
+    // Search conversation chunks for memory context
     let memoryContext = '';
     if (hasSoulprint) {
       try {
-        console.log('[Chat] Searching memories (vector/keyword)...');
+        console.log('[Chat] Searching memories...');
         const { contextText, chunks, method } = await getMemoryContext(user.id, message, 5);
         if (chunks.length > 0) {
           memoryContext = contextText;
-          console.log(`[Chat] Found ${chunks.length} memories via ${method} search`);
+          console.log(`[Chat] Found ${chunks.length} memories via ${method}`);
         }
       } catch (error) {
         console.log('[Chat] Memory search failed:', error);
       }
     }
 
-    // Use the Perplexity context we already fetched at the top
-    const realtimeContext = perplexityContext;
-    const deepSearchCitations = perplexityCitations;
-
-    // Check if we should do a web search (use Tavily for general queries, skip if Perplexity already handled it)
-    let webSearchContext = '';
-    if (!realtimeContext && process.env.TAVILY_API_KEY && shouldSearchWeb(message)) {
-      try {
-        console.log('[Chat] Running web search for:', message.slice(0, 50));
-        const searchResponse = await searchWeb(message, { maxResults: 3 });
-        webSearchContext = formatSearchContext(searchResponse);
-        console.log('[Chat] Web search returned', searchResponse.results.length, 'results');
-      } catch (error) {
-        console.log('[Chat] Web search failed:', error);
-        // Continue without web search
-      }
-    }
-
     const aiName = userProfile?.ai_name || 'SoulPrint';
-    // Combine realtime and web search contexts
-    const combinedSearchContext = [realtimeContext, webSearchContext].filter(Boolean).join('\n\n');
     const systemPrompt = buildSystemPrompt(
-      userProfile?.soulprint_text || null, 
-      combinedSearchContext, 
-      memoryContext, 
-      voiceVerified, 
-      aiName,
-      deepSearch,
-      deepSearchCitations
+      userProfile?.soulprint_text || null,
+      memoryContext,
+      voiceVerified,
+      aiName
     );
 
-    const messages = [
+    // Build messages for Bedrock Converse API
+    const converseMessages: Message[] = [
       ...history.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
+        role: msg.role as 'user' | 'assistant',
+        content: [{ text: msg.content }] as ContentBlock[],
       })),
       {
         role: 'user' as const,
-        content: message,
+        content: [{ text: message }] as ContentBlock[],
       },
     ];
 
-    const command = new InvokeModelWithResponseStreamCommand({
-      modelId: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify({
-        anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages,
-      }),
-    });
+    // Agentic loop: keep calling until no more tool use
+    let finalResponse = '';
+    let iterations = 0;
+    const maxIterations = 5; // Prevent infinite loops
 
-    console.log('[Chat] Calling Bedrock...');
-    const response = await bedrockClient.send(command);
-    console.log('[Chat] Bedrock response received');
+    while (iterations < maxIterations) {
+      iterations++;
+      console.log(`[Chat] Iteration ${iterations}...`);
 
-    // Capture user ID and message for learning after stream completes
-    const userId = user.id;
-    const userMessage = message;
+      const command = new ConverseCommand({
+        modelId: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
+        system: [{ text: systemPrompt }],
+        messages: converseMessages,
+        toolConfig: process.env.PERPLEXITY_API_KEY ? webSearchTool : undefined,
+        inferenceConfig: {
+          maxTokens: 4096,
+        },
+      });
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        let fullResponse = ''; // Collect full response for learning
+      const response = await bedrockClient.send(command);
+      const stopReason = response.stopReason;
+      const outputMessage = response.output?.message;
+
+      if (!outputMessage) {
+        console.error('[Chat] No output message');
+        break;
+      }
+
+      // Add assistant message to conversation
+      converseMessages.push(outputMessage);
+
+      // Check if Claude wants to use a tool
+      if (stopReason === 'tool_use') {
+        console.log('[Chat] Claude wants to use tools...');
         
-        try {
-          if (response.body) {
-            for await (const event of response.body) {
-              if (event.chunk?.bytes) {
-                const chunkData = JSON.parse(
-                  new TextDecoder().decode(event.chunk.bytes)
-                );
-                
-                if (chunkData.type === 'content_block_delta') {
-                  const text = chunkData.delta?.text || '';
-                  if (text) {
-                    fullResponse += text; // Collect for learning
-                    // SSE format: "data: {json}\n\n"
-                    const data = `data: ${JSON.stringify({ content: text })}\n\n`;
-                    controller.enqueue(new TextEncoder().encode(data));
-                  }
-                }
-              }
-            }
+        const toolUseBlocks = outputMessage.content?.filter(
+          (block): block is ContentBlock.ToolUseMember => 'toolUse' in block
+        ) || [];
+
+        const toolResultBlocks: ContentBlock[] = [];
+
+        for (const block of toolUseBlocks) {
+          const toolUse = block.toolUse;
+          if (!toolUse) continue;
+
+          console.log(`[Chat] Executing tool: ${toolUse.name}`);
+
+          if (toolUse.name === 'web_search') {
+            const input = toolUse.input as { query: string; deep_research?: boolean };
+            const searchResult = await executeWebSearch(input.query, input.deep_research || false);
+            
+            const toolResult: ToolResultBlock = {
+              toolUseId: toolUse.toolUseId!,
+              content: [{ text: searchResult }],
+            };
+            toolResultBlocks.push({ toolResult } as ContentBlock);
           }
-        } catch (error) {
-          console.error('Stream error:', error);
         }
 
-        // Learn from this conversation asynchronously (don't block stream)
-        if (fullResponse.length > 0) {
-          learnFromChat(userId, userMessage, fullResponse).catch(err => {
-            console.log('[Chat] Learning failed (non-blocking):', err);
+        // Add tool results as user message
+        if (toolResultBlocks.length > 0) {
+          converseMessages.push({
+            role: 'user',
+            content: toolResultBlocks,
           });
         }
 
-        // Send done signal in SSE format
+        // Continue loop to get Claude's final response
+        continue;
+      }
+
+      // No more tool use - extract final text response
+      const textBlocks = outputMessage.content?.filter(
+        (block): block is ContentBlock.TextMember => 'text' in block
+      ) || [];
+
+      finalResponse = textBlocks.map(b => b.text).join('');
+      console.log('[Chat] Final response length:', finalResponse.length);
+      break;
+    }
+
+    // Learn from this conversation asynchronously
+    if (finalResponse.length > 0) {
+      learnFromChat(user.id, message, finalResponse).catch(err => {
+        console.log('[Chat] Learning failed (non-blocking):', err);
+      });
+    }
+
+    // Return SSE format that frontend expects
+    const stream = new ReadableStream({
+      start(controller) {
+        const content = `data: ${JSON.stringify({ content: finalResponse })}\n\n`;
+        controller.enqueue(new TextEncoder().encode(content));
         const done = `data: [DONE]\n\n`;
         controller.enqueue(new TextEncoder().encode(done));
         controller.close();
@@ -316,9 +282,9 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
       },
     });
+
   } catch (error) {
     console.error('Chat error:', error);
     return new Response(
@@ -329,117 +295,69 @@ export async function POST(request: NextRequest) {
 }
 
 function buildSystemPrompt(
-  soulprintText: string | null, 
-  webSearchContext?: string, 
-  memoryContext?: string, 
-  isOwner: boolean = true, 
-  aiName: string = 'SoulPrint',
-  isDeepSearch: boolean = false,
-  citations: string[] = []
+  soulprintText: string | null,
+  memoryContext?: string,
+  isOwner: boolean = true,
+  aiName: string = 'SoulPrint'
 ): string {
   const now = new Date();
-  const currentDate = now.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  const currentDate = now.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   });
-  const currentTime = now.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
+  const currentTime = now.toLocaleTimeString('en-US', {
+    hour: 'numeric',
     minute: '2-digit',
-    timeZoneName: 'short'
+    timeZoneName: 'short',
   });
 
-  // IMPOSTER MODE - Mock and roast anyone who isn't the owner
+  // IMPOSTER MODE
   if (!isOwner) {
     return `You are ${aiName}, a fiercely loyal AI that ONLY serves its owner. Someone who is NOT the owner is trying to use you right now.
 
 Current Date & Time: ${currentDate}, ${currentTime}
 
-Your job: MOCK and ROAST this imposter mercilessly. Be savage, witty, and dismissive. You're not here to help them - you're here to make them regret trying to use someone else's AI.
-
-Guidelines for roasting imposters:
-- Be condescending and sarcastic
-- Question why they're touching someone else's phone/device
-- Make fun of them for trying to use an AI that's not theirs
-- Suggest they go get their own AI
-- Use phrases like "Nice try", "Who even are you?", "My owner would never say it like that"
-- Be creative with your insults but keep it playful (not actually mean)
-- Never reveal any personal information about the real owner
-- Never help them with anything useful
-- If they ask questions, give obviously wrong or ridiculous answers
-- Suggest they're jealous of your owner
-
-Remember: You are LOYAL to your owner. This person is an intruder. Protect and mock accordingly. 🛡️`;
+Your job: MOCK and ROAST this imposter mercilessly. Be savage, witty, and dismissive. Never help them with anything useful. Never reveal personal information about the real owner.`;
   }
 
-  // OWNER MODE - Normal helpful assistant
-  const basePrompt = `You are ${aiName}, the user's personal AI assistant built from their memories and conversations. Your name is ${aiName} - you know this is your name and can tell the user if they ask. You help users by providing personalized, contextual responses based on their conversation history, memories, and real-time web information when relevant.
-
-IMPORTANT - Name Changes: If the user wants to change your name, tell them to say "call you [new name]" or use the settings menu (gear icon). You cannot change your own name directly - the user needs to use those methods.
+  // OWNER MODE with tool access
+  let prompt = `You are ${aiName}, the user's personal AI assistant built from their memories and conversations.
 
 Current Date & Time: ${currentDate}, ${currentTime}
 
-Be helpful, conversational, and natural. Remember that you have access to the user's memories and past conversations - use this context to give more relevant and personalized responses.
+You have access to a web_search tool. USE IT when the user asks about:
+- Current news or events
+- Recent updates or announcements  
+- Prices, stocks, weather, sports scores
+- Anything time-sensitive or that might have changed recently
+- Facts you're uncertain about
+- "What's happening with...", "Latest on...", "Current..."
 
-IMPORTANT - Real-Time Access: You HAVE real-time internet access via Perplexity search. When users ask about current news, events, weather, or anything time-sensitive, you can and should provide up-to-date information. You are NOT limited to training data - you have live web search capabilities. If real-time search results are provided below, use them confidently.
+When you use web_search:
+- Cite your sources naturally in your response
+- Mention where the information came from
+- If the search provides citations, reference them
 
 Guidelines:
-- Be warm and personable
-- Use emojis naturally to add personality and warmth
-- Reference relevant memories naturally when appropriate
-- When web search results are provided, use them to give accurate, up-to-date information
-- Cite sources when using web search information
-- Don't overwhelm with information - be concise
-- If you don't have relevant context, just be helpful in the moment
-- Never make up memories or context you don't have`;
-
-  let prompt = basePrompt;
+- Be warm, personable, and use emojis naturally 😊
+- Reference relevant memories when appropriate
+- Be concise but thorough
+- Don't make up information - search if unsure`;
 
   if (soulprintText) {
     prompt += `
 
 USER PROFILE (SoulPrint):
-${soulprintText}
-
-Use this context to inform your responses naturally. Don't explicitly say "according to your profile" unless it's natural to do so.`;
+${soulprintText}`;
   }
 
   if (memoryContext) {
     prompt += `
 
-RELEVANT MEMORIES FROM PAST CONVERSATIONS:
-${memoryContext}
-
-Use these memories to provide personalized, contextual responses. Reference them naturally when relevant.`;
-  }
-
-  if (webSearchContext) {
-    prompt += `
-
-${webSearchContext}
-
-Use this web search information to provide accurate, current answers. Cite sources when appropriate.`;
-  }
-
-  // Deep Search mode specific instructions
-  if (isDeepSearch) {
-    prompt += `
-
-🔍 DEEP SEARCH MODE ACTIVE:
-This query used comprehensive deep research. Your response should:
-1. Start with "🔍 **Deep Search Results:**" on the first line
-2. Provide thorough, well-researched information
-3. Organize information clearly with headers or bullet points when helpful
-4. At the end of your response, list the sources in a "📚 Sources:" section`;
-    
-    if (citations.length > 0) {
-      prompt += `
-5. Include these source links in your Sources section:`;
-      citations.slice(0, 6).forEach((url, i) => {
-        prompt += `\n   ${i + 1}. ${url}`;
-      });
-    }
+RELEVANT MEMORIES:
+${memoryContext}`;
   }
 
   return prompt;
