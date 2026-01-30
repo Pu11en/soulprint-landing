@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { TelegramChatV2 } from '@/components/chat/telegram-chat-v2';
 import { AddToHomeScreen } from '@/components/ui/AddToHomeScreen';
+import { BackgroundSync } from '@/components/chat/BackgroundSync';
 
 type Message = {
   id: string;
@@ -586,6 +587,9 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+      
+      {/* Background sync for pending imports */}
+      <BackgroundSync onComplete={() => setMemoryStatus('ready')} />
     </>
   );
 }

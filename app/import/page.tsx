@@ -30,6 +30,49 @@ async function safeJsonParse(response: Response): Promise<{ ok: boolean; data?: 
   }
 }
 
+// IndexedDB helpers for storing large datasets client-side
+const DB_NAME = 'soulprint_import';
+const DB_VERSION = 1;
+
+async function openImportDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains('chunks')) {
+        db.createObjectStore('chunks', { keyPath: 'id', autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains('raw')) {
+        db.createObjectStore('raw', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+  });
+}
+
+async function storeChunksInDB(db: IDBDatabase, chunks: any[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('chunks', 'readwrite');
+    const store = tx.objectStore('chunks');
+    store.clear(); // Clear old data
+    chunks.forEach(chunk => store.add(chunk));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function storeRawInDB(db: IDBDatabase, conversations: any[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('raw', 'readwrite');
+    const store = tx.objectStore('raw');
+    store.clear(); // Clear old data
+    conversations.forEach(conv => store.add(conv));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export default function ImportPage() {
   const router = useRouter();
   const [status, setStatus] = useState<ImportStatus>('idle');
@@ -82,26 +125,66 @@ export default function ImportPage() {
     setProgress(0);
 
     try {
-      const { soulprint: result, conversationChunks, rawConversations, rawConversationsJson } = await generateClientSoulprint(file, (stage, percent) => {
+      // Step 1: Parse ZIP and extract conversations (client-side)
+      const { soulprint: result, conversationChunks, rawConversations } = await generateClientSoulprint(file, (stage, percent) => {
         setProgressStage(stage);
-        setProgress(percent);
+        setProgress(Math.min(percent, 70)); // Cap at 70% for parsing phase
       });
 
       setStatus('saving');
-      setProgress(82);
+      setProgress(72);
+      setProgressStage('Creating your SoulPrint with RLM...');
 
-      // Skip raw JSON backup for large exports (Vercel has 4.5MB body limit)
-      // Raw conversations are saved via /api/import/save-raw in batches instead
-      const rawExportPath: string | undefined = undefined;
+      // Step 2: Send a SAMPLE to RLM for soulprint generation (fast!)
+      // Sample: 50 recent + 50 oldest + 50 longest = 150 conversations max
+      const recentConvos = rawConversations.slice(0, 50);
+      const oldestConvos = rawConversations.slice(-50);
+      const longestConvos = [...rawConversations]
+        .sort((a, b) => (b.messages?.length || 0) - (a.messages?.length || 0))
+        .slice(0, 50);
+      
+      // Dedupe and limit message size
+      const sampleSet = new Map();
+      [...recentConvos, ...oldestConvos, ...longestConvos].forEach(c => {
+        if (!sampleSet.has(c.id || c.title)) {
+          sampleSet.set(c.id || c.title, {
+            title: c.title,
+            messages: (c.messages || []).slice(0, 30), // First 30 messages per convo
+            createdAt: c.createdAt,
+          });
+        }
+      });
+      const conversationSample = Array.from(sampleSet.values()).slice(0, 150);
 
-      setProgressStage('Saving your profile...');
+      // Create soulprint via RLM (or fallback to client-generated)
+      let finalSoulprint = result;
+      try {
+        const rlmResponse = await fetch('/api/import/create-soulprint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            conversations: conversationSample,
+            stats: result.stats, // Pass stats from client-side analysis
+          }),
+        });
+        
+        const rlmResult = await safeJsonParse(rlmResponse);
+        if (rlmResult.ok && rlmResult.data?.soulprint) {
+          finalSoulprint = { ...result, ...rlmResult.data.soulprint };
+          setProgressStage(`You are "${rlmResult.data.archetype || 'unique'}"...`);
+        }
+      } catch (rlmError) {
+        console.warn('RLM soulprint generation failed, using client-generated:', rlmError);
+      }
+
       setProgress(85);
+      setProgressStage('Saving your profile...');
 
-      // Step 1: Save soulprint metadata (no chunks - they're sent separately to avoid payload size limits)
+      // Step 3: Save soulprint to DB (quick - just metadata)
       const response = await fetch('/api/import/save-soulprint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ soulprint: result, rawExportPath }),
+        body: JSON.stringify({ soulprint: finalSoulprint }),
       });
 
       const soulprintResult = await safeJsonParse(response);
@@ -113,117 +196,41 @@ export default function ImportPage() {
         throw new Error(soulprintResult.data?.error || soulprintResult.error || 'Failed to save profile');
       }
 
-      // Step 2: Send chunks in batches to avoid body size limits
-      const BATCH_SIZE = 50;
-      const totalBatches = Math.ceil(conversationChunks.length / BATCH_SIZE);
-      
-      for (let i = 0; i < conversationChunks.length; i += BATCH_SIZE) {
-        const batch = conversationChunks.slice(i, i + BATCH_SIZE);
-        const batchIndex = Math.floor(i / BATCH_SIZE);
-        
-        setProgressStage(`Uploading memories (${batchIndex + 1}/${totalBatches})...`);
-        setProgress(85 + Math.round((batchIndex / totalBatches) * 10));
+      setProgress(90);
+      setProgressStage('Preparing memory sync...');
 
-        const chunkResponse = await fetch('/api/import/save-chunks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            chunks: batch, 
-            batchIndex, 
-            totalBatches,
-          }),
-        });
-
-        const chunkResult = await safeJsonParse(chunkResponse);
-        if (!chunkResult.ok) {
-          throw new Error(chunkResult.data?.error || chunkResult.error || 'Failed to save memories');
-        }
-      }
-
-      // Step 3: Save raw conversations for future re-chunking
-      const RAW_BATCH_SIZE = 25; // Smaller batches - messages are larger
-      const totalRawBatches = Math.ceil(rawConversations.length / RAW_BATCH_SIZE);
-      
-      for (let i = 0; i < rawConversations.length; i += RAW_BATCH_SIZE) {
-        const batch = rawConversations.slice(i, i + RAW_BATCH_SIZE);
-        const batchIndex = Math.floor(i / RAW_BATCH_SIZE);
-        
-        setProgressStage(`Saving originals (${batchIndex + 1}/${totalRawBatches})...`);
-        
-        const rawResponse = await fetch('/api/import/save-raw', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            conversations: batch, 
-            batchIndex, 
-            totalBatches: totalRawBatches,
-          }),
-        });
-
-        if (!rawResponse.ok) {
-          // Non-fatal - log but continue (raw save is for future re-chunking)
-          console.warn('Failed to save raw conversations batch', batchIndex);
-        }
-      }
-
-      // Step 4: RLM Deep Personality Analysis
-      setProgressStage('Analyzing your personality...');
-      setProgress(88);
-      
+      // Step 4: Store chunks in sessionStorage for background sync in chat page
+      // This avoids hitting Vercel's body size limits
       try {
-        // Try RLM deep analysis first (analyzes ALL conversations from DB)
-        console.log('Starting RLM deep analysis...');
-        const deepAnalysisResponse = await fetch('/api/import/analyze-deep', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        });
-
-        const deepParsed = await safeJsonParse(deepAnalysisResponse);
-        if (deepParsed.ok && deepParsed.data?.success) {
-          console.log('RLM deep analysis complete:', deepParsed.data.personality?.archetype);
-          setProgressStage(`Deep analysis: ${deepParsed.data.personality?.archetype || 'unique'}...`);
-        } else if (deepParsed.data?.skipped) {
-          console.log('RLM service not configured, falling back to Bedrock analysis');
-          // Fallback: Use Bedrock-based personality analysis
-          const sampleForAnalysis = rawConversations
-            .slice(0, 300)
-            .map(c => ({
-              title: c.title,
-              messages: c.messages.slice(0, 20),
-              createdAt: c.createdAt,
-            }));
-
-          const personalityResponse = await fetch('/api/import/analyze-personality', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ conversations: sampleForAnalysis }),
-          });
-
-          const personalityParsed = await safeJsonParse(personalityResponse);
-          if (personalityParsed.ok && personalityParsed.data) {
-            console.log('Bedrock analysis complete:', personalityParsed.data.profile?.identity?.archetype);
-            setProgressStage(`You are "${personalityParsed.data.profile?.identity?.archetype || 'unique'}"...`);
-          }
-        } else {
-          console.warn('Deep analysis failed:', deepParsed.data?.error);
-        }
-      } catch (personalityError) {
-        console.warn('Personality analysis error:', personalityError);
-        // Non-fatal - continue with basic profile
+        // Store metadata for the chat page to pick up
+        sessionStorage.setItem('soulprint_pending_chunks', JSON.stringify({
+          totalChunks: conversationChunks.length,
+          totalRaw: rawConversations.length,
+        }));
+        
+        // Store actual data in IndexedDB for large datasets
+        const db = await openImportDB();
+        await storeChunksInDB(db, conversationChunks);
+        await storeRawInDB(db, rawConversations);
+        
+        console.log(`[Import] Stored ${conversationChunks.length} chunks and ${rawConversations.length} raw for background sync`);
+      } catch (storageError) {
+        console.warn('[Import] Failed to store for background sync:', storageError);
+        // Continue anyway - user can re-import if needed
       }
 
-      setProgressStage('Starting memory embeddings...');
-      setProgress(95);
-
-      // Kick off background embedding - don't wait for it
-      // Chat page will poll progress and show "still learning..." indicator
-      fetch('/api/import/embed-background', {
+      // Mark user as having pending sync
+      await fetch('/api/import/mark-pending', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      }).catch(err => console.warn('Background embed trigger failed:', err));
+        body: JSON.stringify({ 
+          totalChunks: conversationChunks.length,
+          totalRaw: rawConversations.length,
+        }),
+      }).catch(err => console.warn('Mark pending failed:', err));
 
       setProgress(100);
-      setProgressStage('Complete!');
+      setProgressStage('Complete! Starting chat...');
       setStatus('success');
       setCurrentStep('done');
     } catch (err) {
