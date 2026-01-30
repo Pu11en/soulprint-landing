@@ -438,16 +438,17 @@ function sampleArray<T>(arr: T[], size: number): T[] {
 }
 
 /**
- * Ultra-granular chunking for maximum recall precision
- * Each specific detail should be findable via vector search
+ * Semantic chunking for pinpoint memory recall
+ * Optimized for Cohere Embed v4 (128K context, 1536 dims)
+ * Larger chunks preserve context, overlap prevents info loss
  */
 function chunkConversation(
   messages: Array<{ role: string; content: string }>,
   title: string
 ): Array<{ content: string; messageCount: number }> {
-  const MAX_CHUNK_SIZE = 300;       // Ultra-small for precise retrieval
-  const OVERLAP_CHARS = 80;         // Context overlap between chunks
-  const SUBSTANTIAL_MSG = 150;      // Messages this long get their own chunk
+  const MAX_CHUNK_SIZE = 6000;      // ~1500 tokens - optimal for semantic search
+  const OVERLAP_CHARS = 1200;       // ~300 tokens - prevents cross-chunk info loss
+  const SUBSTANTIAL_MSG = 2000;     // ~500 tokens - large msgs get own chunk
   
   // Format all messages
   const formattedMessages = messages.map(m => ({

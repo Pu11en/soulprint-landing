@@ -18,9 +18,10 @@ function getSupabaseAdmin() {
 }
 
 // Chunking settings - match client-soulprint.ts
-const MAX_CHUNK_SIZE = 300;
-const OVERLAP_CHARS = 80;
-const SUBSTANTIAL_MSG = 150;
+// Optimized for Cohere Embed v4 (128K context, 1536 dims)
+const MAX_CHUNK_SIZE = 6000;      // ~1500 tokens - optimal for semantic search
+const OVERLAP_CHARS = 1200;       // ~300 tokens - prevents cross-chunk info loss
+const SUBSTANTIAL_MSG = 2000;     // ~500 tokens - large msgs get own chunk
 
 interface RawConversation {
   id: string;
