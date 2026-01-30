@@ -189,24 +189,42 @@ export default function ImportPage() {
           xhr.send(file);
         });
         
-        setProgressStage('Processing...');
-        setProgress(50);
+        setProgressStage('Upload complete! Starting processing...');
+        setProgress(60);
         
-        // Queue background processing
-        const queueRes = await fetch('/api/import/queue-processing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ 
-            storagePath,
-            filename: file.name,
-            fileSize: file.size,
-          }),
-        });
+        // Small delay to let browser settle after large upload
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Queue background processing with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        let queueRes;
+        try {
+          queueRes = await fetch('/api/import/queue-processing', {
+            signal: controller.signal,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ 
+              storagePath,
+              filename: file.name,
+              fileSize: file.size,
+            }),
+          });
+          clearTimeout(timeoutId);
+        } catch (e) {
+          clearTimeout(timeoutId);
+          // If queue-processing times out, still redirect - processing may have started
+          console.warn('[Import] queue-processing timeout, redirecting anyway:', e);
+          router.push('/chat?processing=true');
+          return;
+        }
         
         if (!queueRes.ok) {
-          const err = await queueRes.json();
-          throw new Error(err.error || 'Failed to start processing');
+          const err = await queueRes.json().catch(() => ({}));
+          // Don't throw - redirect anyway since upload succeeded
+          console.warn('[Import] queue-processing error:', err);
         }
         
         // Processing started in background - redirect to chat
