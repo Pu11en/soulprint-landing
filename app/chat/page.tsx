@@ -35,6 +35,7 @@ export default function ChatPage() {
   const [hasReceivedAIResponse, setHasReceivedAIResponse] = useState(false);
   const [memoryProgress, setMemoryProgress] = useState<number | null>(null);
   const [memoryStatus, setMemoryStatus] = useState<string>('loading');
+  const [importError, setImportError] = useState<string | null>(null);
   
   // Message queue for handling multiple messages while AI is responding
   const messageQueueRef = useRef<QueuedMessage[]>([]);
@@ -126,9 +127,23 @@ export default function ChatPage() {
         if (res.ok) {
           const data = await res.json();
           
-          // If user has no soulprint, redirect to import
+          // If user has no soulprint and not processing, redirect to import
           if (!data.hasSoulprint && data.status === 'none') {
             router.push('/import');
+            return;
+          }
+          
+          // Handle failed imports
+          if (data.status === 'failed' || data.failed) {
+            setMemoryStatus('failed');
+            setImportError(data.importError || 'Import processing failed. Please try again.');
+            return;
+          }
+          
+          // Still processing - show progress
+          if (data.status === 'processing') {
+            setMemoryStatus('processing');
+            setMemoryProgress(data.embeddingProgress || 10);
             return;
           }
           
@@ -154,7 +169,7 @@ export default function ChatPage() {
     checkMemoryStatus();
     const interval = setInterval(checkMemoryStatus, 5000); // Poll every 5s
     return () => clearInterval(interval);
-  }, []);
+  }, [router]);
 
   const saveMessage = async (role: string, content: string) => {
     try {
@@ -499,11 +514,30 @@ export default function ChatPage() {
       </div>
 
       {/* Memory Loading Indicator */}
-      {memoryStatus === 'loading' && memoryProgress !== null && memoryProgress < 100 && (
+      {(memoryStatus === 'loading' || memoryStatus === 'processing') && memoryProgress !== null && memoryProgress < 100 && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40">
           <div className="bg-[#1a1a1a]/90 backdrop-blur-sm border border-[#262626] rounded-full px-4 py-2 flex items-center gap-2">
             <div className="w-3 h-3 border-2 border-[#EA580C] border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-[#a3a3a3]">Memory: {memoryProgress}%</span>
+            <span className="text-sm text-[#a3a3a3]">
+              {memoryStatus === 'processing' ? 'Processing import...' : `Memory: ${memoryProgress}%`}
+            </span>
+          </div>
+        </div>
+      )}
+      
+      {/* Import Failed Indicator */}
+      {memoryStatus === 'failed' && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40">
+          <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl px-4 py-3 flex flex-col items-center gap-2 max-w-xs">
+            <span className="text-sm text-red-400 text-center">
+              {importError || 'Import failed'}
+            </span>
+            <button
+              onClick={() => router.push('/import')}
+              className="text-xs text-[#EA580C] hover:text-[#C2410C] font-medium"
+            >
+              Try Again →
+            </button>
           </div>
         </div>
       )}

@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     // Fire background processing - continues even if user disconnects
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.soulprintengine.ai';
     
+    // Fire and forget, but track errors in DB
     fetch(`${baseUrl}/api/import/process-server`, {
       method: 'POST',
       headers: { 
@@ -53,8 +54,27 @@ export async function POST(request: Request) {
         'X-Internal-User-Id': user.id,
       },
       body: JSON.stringify({ storagePath, userId: user.id, filename }),
-    }).catch(err => {
+    }).then(async (response) => {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[QueueProcessing] Process server failed:', errorData);
+        // Mark as failed in DB
+        await adminSupabase.from('user_profiles').update({
+          import_status: 'failed',
+          import_error: errorData.error || `HTTP ${response.status}`,
+          updated_at: new Date().toISOString(),
+        }).eq('user_id', user.id);
+      } else {
+        console.log(`[QueueProcessing] Process server completed for user ${user.id}`);
+      }
+    }).catch(async (err) => {
       console.error('[QueueProcessing] Fire-and-forget error:', err);
+      // Mark as failed in DB
+      await adminSupabase.from('user_profiles').update({
+        import_status: 'failed',
+        import_error: err.message || 'Processing request failed',
+        updated_at: new Date().toISOString(),
+      }).eq('user_id', user.id);
     });
     
     // Return immediately - user can close browser

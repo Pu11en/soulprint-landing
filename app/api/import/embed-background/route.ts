@@ -134,19 +134,30 @@ async function processAllEmbeddings(userId: string) {
   console.log(`[EmbedBackground] Complete for user ${userId}`);
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Support both normal auth and internal server-to-server calls
+    let userId: string;
     
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    const internalUserId = request.headers.get('X-Internal-User-Id');
+    if (internalUserId) {
+      // Internal call from process-server
+      userId = internalUserId;
+    } else {
+      // Normal authenticated request
+      const supabase = await createClient();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      }
+      userId = user.id;
     }
 
     // Fire and forget - process in background
     // Note: On Vercel, this will run until maxDuration or completion
     // The response returns immediately
-    processAllEmbeddings(user.id).catch(err => {
+    processAllEmbeddings(userId).catch(err => {
       console.error('[EmbedBackground] Background process error:', err);
     });
 

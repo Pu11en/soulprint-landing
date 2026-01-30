@@ -19,7 +19,7 @@ export async function GET() {
     // Check user_profiles for soulprint
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('import_status, total_conversations, total_messages, soulprint_generated_at, soulprint_locked, locked_at, embedding_status, embedding_progress, total_chunks, processed_chunks')
+      .select('import_status, import_error, total_conversations, total_messages, soulprint_generated_at, soulprint_locked, locked_at, embedding_status, embedding_progress, total_chunks, processed_chunks')
       .eq('user_id', user.id)
       .single();
 
@@ -29,8 +29,10 @@ export async function GET() {
 
     const isLocked = profile?.soulprint_locked === true || profile?.import_status === 'locked';
     const hasSoulprint = isLocked || profile?.import_status === 'complete' || profile?.import_status === 'quick_ready';
+    const isFailed = profile?.import_status === 'failed';
     
-    const status = isLocked ? 'ready' :
+    const status = isFailed ? 'failed' :
+                   isLocked ? 'ready' :
                    hasSoulprint ? 'ready' : 
                    profile?.import_status === 'processing' ? 'processing' : 'none';
 
@@ -38,6 +40,8 @@ export async function GET() {
       status,
       hasSoulprint,
       locked: isLocked,
+      failed: isFailed,
+      importError: profile?.import_error || null,
       embeddingStatus: profile?.embedding_status || null,
       embeddingProgress: profile?.embedding_progress || 0,
       totalChunks: profile?.total_chunks || 0,

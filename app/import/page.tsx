@@ -90,6 +90,14 @@ export default function ImportPage() {
       try {
         const res = await fetch('/api/memory/status');
         const data = await res.json();
+        
+        // Allow retry if import failed
+        if (data.status === 'failed' || data.failed) {
+          setIsReturningUser(true);
+          setCheckingExisting(false);
+          return;
+        }
+        
         // Check if user already has a soulprint (locked or complete)
         if (data.status === 'ready' || data.hasSoulprint || data.locked) {
           router.push('/chat');
