@@ -1,7 +1,7 @@
 /**
  * Chunked upload endpoint for mobile devices
- * Accepts small chunks (< 4MB) and appends them server-side
- * This bypasses Vercel's 4.5MB body limit
+ * Each chunk is stored in Supabase Storage (serverless-safe)
+ * Final chunk triggers assembly and cleanup
  */
 
 import { NextResponse } from 'next/server';
@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -18,10 +18,6 @@ function getSupabaseAdmin() {
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 }
-
-// In-memory chunk storage (temporary - cleared after upload completes)
-// In production, you might want Redis or a temp file system
-const chunkStorage = new Map<string, { chunks: Buffer[], totalChunks: number, receivedChunks: Set<number> }>();
 
 export async function POST(request: Request) {
   try {
@@ -42,61 +38,99 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing chunk data' }, { status: 400 });
     }
 
-    const storageKey = `${user.id}:${uploadId}`;
+    const adminSupabase = getSupabaseAdmin();
+    const arrayBuffer = await chunk.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     
-    // Initialize storage for this upload if needed
-    if (!chunkStorage.has(storageKey)) {
-      chunkStorage.set(storageKey, {
-        chunks: new Array(totalChunks),
-        totalChunks,
-        receivedChunks: new Set(),
+    // Store chunk in Supabase (stateless - works with serverless)
+    const chunkPath = `${user.id}/chunks/${uploadId}/chunk-${String(chunkIndex).padStart(4, '0')}`;
+    
+    const { error: chunkError } = await adminSupabase.storage
+      .from('imports')
+      .upload(chunkPath, buffer, { 
+        contentType: 'application/octet-stream',
+        upsert: true,
       });
+
+    if (chunkError) {
+      console.error(`[UploadChunk] Failed to store chunk ${chunkIndex}:`, chunkError);
+      return NextResponse.json({ error: chunkError.message }, { status: 500 });
     }
     
-    const storage = chunkStorage.get(storageKey)!;
+    console.log(`[UploadChunk] User ${user.id}: Stored chunk ${chunkIndex + 1}/${totalChunks}`);
     
-    // Store this chunk
-    const arrayBuffer = await chunk.arrayBuffer();
-    storage.chunks[chunkIndex] = Buffer.from(arrayBuffer);
-    storage.receivedChunks.add(chunkIndex);
-    
-    console.log(`[UploadChunk] User ${user.id}: Received chunk ${chunkIndex + 1}/${totalChunks}`);
-    
-    // Check if all chunks received
-    if (storage.receivedChunks.size === totalChunks) {
-      console.log(`[UploadChunk] All chunks received, assembling file...`);
+    // Check if this is the last chunk (we upload sequentially so this is reliable)
+    if (chunkIndex === totalChunks - 1) {
+      console.log(`[UploadChunk] Last chunk received, assembling file...`);
       
-      // Combine all chunks
-      const fullBuffer = Buffer.concat(storage.chunks);
+      // Small delay to ensure storage is consistent
+      await new Promise(r => setTimeout(r, 500));
+      
+      // Download and combine all chunks
+      const chunks: Buffer[] = [];
+      let retries = 0;
+      const maxRetries = 3;
+      
+      for (let i = 0; i < totalChunks; i++) {
+        const path = `${user.id}/chunks/${uploadId}/chunk-${String(i).padStart(4, '0')}`;
+        let data = null;
+        let error = null;
+        
+        // Retry logic for eventual consistency
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          const result = await adminSupabase.storage
+            .from('imports')
+            .download(path);
+          data = result.data;
+          error = result.error;
+          
+          if (data) break;
+          if (attempt < maxRetries) {
+            console.log(`[UploadChunk] Chunk ${i} not found, retrying (${attempt + 1}/${maxRetries})...`);
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          }
+        }
+        
+        if (error || !data) {
+          console.error(`[UploadChunk] Failed to download chunk ${i} after ${maxRetries} retries:`, error);
+          return NextResponse.json({ error: `Failed to assemble: missing chunk ${i}` }, { status: 500 });
+        }
+        
+        chunks.push(Buffer.from(await data.arrayBuffer()));
+      }
+      
+      const fullBuffer = Buffer.concat(chunks);
       const sizeMB = (fullBuffer.length / 1024 / 1024).toFixed(1);
-      console.log(`[UploadChunk] Assembled ${sizeMB}MB file`);
+      console.log(`[UploadChunk] Assembled ${sizeMB}MB file from ${totalChunks} chunks`);
       
-      // Clean up memory
-      chunkStorage.delete(storageKey);
-      
-      // Upload to Supabase Storage
+      // Upload combined file
       const timestamp = Date.now();
-      const path = `${user.id}/${timestamp}-conversations.json`;
+      const finalPath = `${user.id}/${timestamp}-conversations.json`;
       
-      const adminSupabase = getSupabaseAdmin();
       const { error: uploadError } = await adminSupabase.storage
         .from('imports')
-        .upload(path, fullBuffer, {
+        .upload(finalPath, fullBuffer, {
           contentType: 'application/json',
           upsert: true,
         });
 
       if (uploadError) {
-        console.error('[UploadChunk] Storage error:', uploadError);
+        console.error('[UploadChunk] Final upload error:', uploadError);
         return NextResponse.json({ error: uploadError.message }, { status: 500 });
       }
 
-      console.log(`[UploadChunk] Successfully uploaded to imports/${path}`);
+      // Clean up chunk files (fire and forget)
+      const chunkPaths = Array.from({ length: totalChunks }, (_, i) => 
+        `${user.id}/chunks/${uploadId}/chunk-${String(i).padStart(4, '0')}`
+      );
+      adminSupabase.storage.from('imports').remove(chunkPaths).catch(() => {});
+
+      console.log(`[UploadChunk] Successfully uploaded to imports/${finalPath}`);
 
       return NextResponse.json({
         success: true,
         complete: true,
-        path: `imports/${path}`,
+        path: `imports/${finalPath}`,
         size: fullBuffer.length,
       });
     }
@@ -105,7 +139,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       complete: false,
-      received: storage.receivedChunks.size,
+      chunkIndex,
       total: totalChunks,
     });
 
