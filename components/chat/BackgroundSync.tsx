@@ -41,8 +41,6 @@ export function BackgroundSync({ onComplete }: { onComplete?: () => void }) {
       const chunks = await getAllFromStore(db, 'chunks');
       const raw = await getAllFromStore(db, 'raw');
       
-      console.log(`[BackgroundSync] Found ${chunks.length} chunks, ${raw.length} raw`);
-
       if (chunks.length === 0 && raw.length === 0) {
         // Nothing to sync
         sessionStorage.removeItem('soulprint_pending_chunks');

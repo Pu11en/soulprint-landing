@@ -214,8 +214,6 @@ export default function ImportPage() {
         const db = await openImportDB();
         await storeChunksInDB(db, conversationChunks);
         await storeRawInDB(db, rawConversations);
-        
-        console.log(`[Import] Stored ${conversationChunks.length} chunks and ${rawConversations.length} raw for background sync`);
       } catch (storageError) {
         console.warn('[Import] Failed to store for background sync:', storageError);
         // Continue anyway - user can re-import if needed
