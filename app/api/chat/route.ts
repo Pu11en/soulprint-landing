@@ -4,8 +4,6 @@ import {
   ConverseCommand,
   ContentBlock,
   Message,
-  ToolConfiguration,
-  ToolResultBlock,
 } from '@aws-sdk/client-bedrock-runtime';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
@@ -41,63 +39,8 @@ interface UserProfile {
   ai_name: string | null;
 }
 
-// Define the web search tool for Claude
-const webSearchTool: ToolConfiguration = {
-  tools: [
-    {
-      toolSpec: {
-        name: 'web_search',
-        description: 'Search the web for current information. Use this for news, current events, recent updates, prices, weather, sports scores, or any time-sensitive information. Returns real-time search results with sources.',
-        inputSchema: {
-          json: {
-            type: 'object',
-            properties: {
-              query: {
-                type: 'string',
-                description: 'The search query to look up',
-              },
-              deep_research: {
-                type: 'boolean',
-                description: 'Set to true for comprehensive research on complex topics. Use for in-depth analysis, comparisons, or when the user explicitly asks for thorough research.',
-              },
-            },
-            required: ['query'],
-          },
-        },
-      },
-    },
-  ],
-};
-
-// Execute the web search tool
-async function executeWebSearch(query: string, deepResearch: boolean = false): Promise<string> {
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey) {
-    return 'Web search is not available. Please answer based on your knowledge.';
-  }
-
-  try {
-    const model: PerplexityModel = deepResearch ? 'sonar-deep-research' : 'sonar';
-    console.log(`[Tool] Executing web_search (${model}):`, query.slice(0, 50));
-    
-    const response = await queryPerplexity(query, { model });
-    
-    let result = `Search Results for: "${query}"\n\n${response.answer}`;
-    
-    if (response.citations.length > 0) {
-      result += '\n\nSources:\n';
-      response.citations.slice(0, 6).forEach((url, i) => {
-        result += `${i + 1}. ${url}\n`;
-      });
-    }
-    
-    console.log(`[Tool] web_search returned ${response.citations.length} citations`);
-    return result;
-  } catch (error) {
-    console.error('[Tool] web_search failed:', error);
-    return `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please answer based on your knowledge.`;
-  }
-}
+// Search is user-triggered only via Deep Search toggle
+// No AI tool calling - keeps costs down and behavior predictable
 
 export async function POST(request: NextRequest) {
   try {
@@ -199,86 +142,33 @@ export async function POST(request: NextRequest) {
       },
     ];
 
-    // Agentic loop: keep calling until no more tool use
-    let finalResponse = '';
-    let iterations = 0;
-    const maxIterations = 5; // Prevent infinite loops
+    // Simple call - no tool loop needed (search only via Deep Search toggle)
+    console.log('[Chat] Calling Bedrock...');
+    
+    const command = new ConverseCommand({
+      modelId: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
+      system: [{ text: systemPrompt }],
+      messages: converseMessages,
+      inferenceConfig: {
+        maxTokens: 4096,
+      },
+    });
 
-    while (iterations < maxIterations) {
-      iterations++;
-      console.log(`[Chat] Iteration ${iterations}...`);
+    const response = await bedrockClient.send(command);
+    const outputMessage = response.output?.message;
 
-      const command = new ConverseCommand({
-        modelId: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
-        system: [{ text: systemPrompt }],
-        messages: converseMessages,
-        toolConfig: process.env.PERPLEXITY_API_KEY ? webSearchTool : undefined,
-        inferenceConfig: {
-          maxTokens: 4096,
-        },
-      });
-
-      const response = await bedrockClient.send(command);
-      const stopReason = response.stopReason;
-      const outputMessage = response.output?.message;
-
-      if (!outputMessage) {
-        console.error('[Chat] No output message');
-        break;
-      }
-
-      // Add assistant message to conversation
-      converseMessages.push(outputMessage);
-
-      // Check if Claude wants to use a tool
-      if (stopReason === 'tool_use') {
-        console.log('[Chat] Claude wants to use tools...');
-        
-        const toolUseBlocks = outputMessage.content?.filter(
-          (block): block is ContentBlock.ToolUseMember => 'toolUse' in block
-        ) || [];
-
-        const toolResultBlocks: ContentBlock[] = [];
-
-        for (const block of toolUseBlocks) {
-          const toolUse = block.toolUse;
-          if (!toolUse) continue;
-
-          console.log(`[Chat] Executing tool: ${toolUse.name}`);
-
-          if (toolUse.name === 'web_search') {
-            const input = toolUse.input as { query: string; deep_research?: boolean };
-            const searchResult = await executeWebSearch(input.query, input.deep_research || false);
-            
-            const toolResult: ToolResultBlock = {
-              toolUseId: toolUse.toolUseId!,
-              content: [{ text: searchResult }],
-            };
-            toolResultBlocks.push({ toolResult } as ContentBlock);
-          }
-        }
-
-        // Add tool results as user message
-        if (toolResultBlocks.length > 0) {
-          converseMessages.push({
-            role: 'user',
-            content: toolResultBlocks,
-          });
-        }
-
-        // Continue loop to get Claude's final response
-        continue;
-      }
-
-      // No more tool use - extract final text response
-      const textBlocks = outputMessage.content?.filter(
-        (block): block is ContentBlock.TextMember => 'text' in block
-      ) || [];
-
-      finalResponse = textBlocks.map(b => b.text).join('');
-      console.log('[Chat] Final response length:', finalResponse.length);
-      break;
+    if (!outputMessage) {
+      console.error('[Chat] No output message');
+      throw new Error('No response from model');
     }
+
+    // Extract text response
+    const textBlocks = outputMessage.content?.filter(
+      (block): block is ContentBlock.TextMember => 'text' in block
+    ) || [];
+
+    const finalResponse = textBlocks.map(b => b.text).join('');
+    console.log('[Chat] Response length:', finalResponse.length);
 
     // Learn from this conversation asynchronously
     if (finalResponse.length > 0) {
