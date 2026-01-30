@@ -253,6 +253,13 @@ export default function ImportPage() {
     setDragActive(e.type === 'dragenter' || e.type === 'dragover');
   };
 
+  const handleCancel = () => {
+    setStatus('idle');
+    setProgress(0);
+    setProgressStage('');
+    setCurrentStep('upload');
+  };
+
   const handleRetry = () => {
     setStatus('idle');
     setErrorMessage('');
@@ -510,6 +517,13 @@ export default function ImportPage() {
                   transition={{ duration: 0.3 }}
                 />
               </div>
+              
+              <button
+                onClick={handleCancel}
+                className="mt-6 text-white/40 text-sm hover:text-white/60 transition-colors"
+              >
+                Cancel
+              </button>
             </motion.div>
           )}
 
