@@ -14,6 +14,22 @@ import { createClient } from '@/lib/supabase/client';
 type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
 type Step = 'export' | 'upload' | 'processing' | 'done';
 
+// Safe JSON parsing - handles non-JSON error responses from server
+async function safeJsonParse(response: Response): Promise<{ ok: boolean; data?: any; error?: string }> {
+  try {
+    const text = await response.text();
+    try {
+      const data = JSON.parse(text);
+      return { ok: response.ok, data };
+    } catch {
+      // Response was not JSON (e.g., "Request Entity Too Large")
+      return { ok: false, error: text || `HTTP ${response.status}` };
+    }
+  } catch (e) {
+    return { ok: false, error: 'Failed to read response' };
+  }
+}
+
 export default function ImportPage() {
   const router = useRouter();
   const [status, setStatus] = useState<ImportStatus>('idle');
@@ -72,28 +88,11 @@ export default function ImportPage() {
       });
 
       setStatus('saving');
-      setProgressStage('Backing up raw export...');
       setProgress(82);
 
-      // Step 0: Upload raw conversations.json to storage for backup
-      let rawExportPath: string | undefined;
-      try {
-        const uploadResponse = await fetch('/api/import/upload-raw', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conversationsJson: rawConversationsJson }),
-        });
-        if (uploadResponse.ok) {
-          const uploadResult = await uploadResponse.json();
-          rawExportPath = uploadResult.storagePath;
-          console.log('Raw export backed up to:', rawExportPath);
-        } else {
-          console.warn('Failed to backup raw export, continuing...');
-        }
-      } catch (uploadError) {
-        console.warn('Raw export backup error:', uploadError);
-        // Non-fatal - continue with import
-      }
+      // Skip raw JSON backup for large exports (Vercel has 4.5MB body limit)
+      // Raw conversations are saved via /api/import/save-raw in batches instead
+      const rawExportPath: string | undefined = undefined;
 
       setProgressStage('Saving your profile...');
       setProgress(85);
@@ -105,13 +104,13 @@ export default function ImportPage() {
         body: JSON.stringify({ soulprint: result, rawExportPath }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        if (data.code === 'ALREADY_HAS_SOULPRINT' || data.code === 'ALREADY_IMPORTED') {
+      const soulprintResult = await safeJsonParse(response);
+      if (!soulprintResult.ok) {
+        if (soulprintResult.data?.code === 'ALREADY_HAS_SOULPRINT' || soulprintResult.data?.code === 'ALREADY_IMPORTED') {
           router.push('/chat');
           return;
         }
-        throw new Error(data.error || 'Failed to save');
+        throw new Error(soulprintResult.data?.error || soulprintResult.error || 'Failed to save profile');
       }
 
       // Step 2: Send chunks in batches to avoid body size limits
@@ -135,9 +134,9 @@ export default function ImportPage() {
           }),
         });
 
-        if (!chunkResponse.ok) {
-          const data = await chunkResponse.json();
-          throw new Error(data.error || 'Failed to save memories');
+        const chunkResult = await safeJsonParse(chunkResponse);
+        if (!chunkResult.ok) {
+          throw new Error(chunkResult.data?.error || chunkResult.error || 'Failed to save memories');
         }
       }
 
@@ -187,10 +186,10 @@ export default function ImportPage() {
           body: JSON.stringify({ conversations: sampleForAnalysis }),
         });
 
-        if (personalityResponse.ok) {
-          const personalityResult = await personalityResponse.json();
-          console.log('Personality analysis complete:', personalityResult.profile?.identity?.archetype);
-          setProgressStage(`You are "${personalityResult.profile?.identity?.archetype || 'unique'}"...`);
+        const personalityParsed = await safeJsonParse(personalityResponse);
+        if (personalityParsed.ok && personalityParsed.data) {
+          console.log('Personality analysis complete:', personalityParsed.data.profile?.identity?.archetype);
+          setProgressStage(`You are "${personalityParsed.data.profile?.identity?.archetype || 'unique'}"...`);
         } else {
           console.warn('Personality analysis failed, continuing...');
         }
@@ -214,9 +213,13 @@ export default function ImportPage() {
             body: JSON.stringify({ batchStart }),
           });
           
-          const embedResult = await embedResponse.json();
+          const embedParsed = await safeJsonParse(embedResponse);
+          const embedResult = embedParsed.data || {};
           
-          if (embedResult.done) {
+          if (!embedParsed.ok) {
+            console.warn('Embedding batch failed:', embedParsed.error);
+            embeddingDone = true; // Stop on error
+          } else if (embedResult.done) {
             embeddingDone = true;
           } else {
             batchStart = embedResult.nextBatch || batchStart + 50;
