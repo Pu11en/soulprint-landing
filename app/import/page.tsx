@@ -635,6 +635,12 @@ export default function ImportPage() {
               <h2 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2">Creating your SoulPrint</h2>
               <p className="text-white/50 text-xs sm:text-sm">{progressStage || 'Analyzing your conversations...'}</p>
               
+              {progress < 60 && (
+                <p className="text-orange-400/80 text-xs mt-2">
+                  ⚠️ Don&apos;t close this page until upload completes
+                </p>
+              )}
+              
               <div className="mt-4 sm:mt-6 w-full h-1 sm:h-1.5 bg-white/10 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full"
