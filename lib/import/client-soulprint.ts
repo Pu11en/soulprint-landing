@@ -438,17 +438,46 @@ function sampleArray<T>(arr: T[], size: number): T[] {
 }
 
 /**
- * Semantic chunking for pinpoint memory recall
+ * Multi-layer chunking for pinpoint memory recall
+ * Creates BOTH large (context) and small (precision) chunks
  * Optimized for Cohere Embed v4 (128K context, 1536 dims)
- * Larger chunks preserve context, overlap prevents info loss
  */
 function chunkConversation(
   messages: Array<{ role: string; content: string }>,
   title: string
 ): Array<{ content: string; messageCount: number }> {
-  const MAX_CHUNK_SIZE = 6000;      // ~1500 tokens - optimal for semantic search
-  const OVERLAP_CHARS = 1200;       // ~300 tokens - prevents cross-chunk info loss
+  // LAYER 1: Large chunks for context
+  const LARGE_CHUNK_SIZE = 6000;    // ~1500 tokens - full context
+  const LARGE_OVERLAP = 1200;       // ~300 tokens overlap
+  
+  // LAYER 2: Small chunks for precision  
+  const SMALL_CHUNK_SIZE = 500;     // ~125 tokens - pinpoint retrieval
+  const SMALL_OVERLAP = 100;        // ~25 tokens overlap
+  
   const SUBSTANTIAL_MSG = 2000;     // ~500 tokens - large msgs get own chunk
+  
+  // Generate both layers
+  const largeChunks = generateChunks(messages, title, LARGE_CHUNK_SIZE, LARGE_OVERLAP, SUBSTANTIAL_MSG, 'L');
+  const smallChunks = generateChunks(messages, title, SMALL_CHUNK_SIZE, SMALL_OVERLAP, 300, 'S');
+  
+  // Combine both layers - small chunks enable precision, large chunks provide context
+  return [...largeChunks, ...smallChunks];
+}
+
+/**
+ * Generate chunks at a specific granularity level
+ */
+function generateChunks(
+  messages: Array<{ role: string; content: string }>,
+  title: string,
+  maxChunkSize: number,
+  overlapChars: number,
+  substantialMsg: number,
+  layerPrefix: string
+): Array<{ content: string; messageCount: number }> {
+  const MAX_CHUNK_SIZE = maxChunkSize;
+  const OVERLAP_CHARS = overlapChars;
+  const SUBSTANTIAL_MSG = substantialMsg;
   
   // Format all messages
   const formattedMessages = messages.map(m => ({

@@ -17,11 +17,9 @@ function getSupabaseAdmin() {
   );
 }
 
-// Chunking settings - match client-soulprint.ts
-// Optimized for Cohere Embed v4 (128K context, 1536 dims)
-const MAX_CHUNK_SIZE = 6000;      // ~1500 tokens - optimal for semantic search
-const OVERLAP_CHARS = 1200;       // ~300 tokens - prevents cross-chunk info loss
-const SUBSTANTIAL_MSG = 2000;     // ~500 tokens - large msgs get own chunk
+// Multi-layer chunking settings defined in chunkConversation function
+// Layer 1 (Large): 6000 chars, 1200 overlap - context preservation
+// Layer 2 (Small): 500 chars, 100 overlap - pinpoint precision
 
 interface RawConversation {
   id: string;
@@ -149,11 +147,27 @@ export async function POST(request: Request) {
 }
 
 /**
- * Chunk conversation with current settings (300 char max)
+ * Multi-layer chunking for pinpoint memory recall
+ * Creates BOTH large (context) and small (precision) chunks
  */
 function chunkConversation(
   messages: Array<{ role: string; content: string }>,
   title: string
+): Array<{ content: string; messageCount: number }> {
+  // LAYER 1: Large chunks for context
+  const largeChunks = generateChunks(messages, title, 6000, 1200, 2000);
+  // LAYER 2: Small chunks for precision
+  const smallChunks = generateChunks(messages, title, 500, 100, 300);
+  
+  return [...largeChunks, ...smallChunks];
+}
+
+function generateChunks(
+  messages: Array<{ role: string; content: string }>,
+  title: string,
+  maxSize: number,
+  overlap: number,
+  substantial: number
 ): Array<{ content: string; messageCount: number }> {
   const formattedMessages = messages.map(m => ({
     text: `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`,
@@ -161,51 +175,39 @@ function chunkConversation(
   }));
 
   const chunks: Array<{ content: string; messageCount: number }> = [];
-
-  const makeChunk = (texts: string[], msgCount: number) => {
-    const partNum = chunks.length + 1;
-    const header = `[Conversation: ${title}] [Part ${partNum}]`;
-    chunks.push({
-      content: `${header}\n${texts.join('\n\n')}`,
-      messageCount: msgCount,
-    });
-  };
-
   let overlapText = '';
   let i = 0;
 
   while (i < formattedMessages.length) {
     const msg = formattedMessages[i];
 
-    if (msg.length >= SUBSTANTIAL_MSG) {
-      if (msg.length > MAX_CHUNK_SIZE) {
+    if (msg.length >= substantial) {
+      if (msg.length > maxSize) {
         const words = msg.text.split(' ');
         let subChunk = overlapText ? overlapText + '\n\n' : '';
         let wordIdx = 0;
 
         while (wordIdx < words.length) {
           const word = words[wordIdx];
-          if (subChunk.length + word.length + 1 > MAX_CHUNK_SIZE && subChunk.length > 0) {
-            const partNum = chunks.length + 1;
-            const header = `[Conversation: ${title}] [Part ${partNum}]`;
+          if (subChunk.length + word.length + 1 > maxSize && subChunk.length > 0) {
+            const header = `[Conversation: ${title}] [Part ${chunks.length + 1}]`;
             chunks.push({ content: `${header}\n${subChunk.trim()}`, messageCount: 1 });
-            const overlapWords = subChunk.split(' ').slice(-10).join(' ');
-            subChunk = overlapWords + ' ';
+            subChunk = subChunk.split(' ').slice(-15).join(' ') + ' ';
           }
           subChunk += word + ' ';
           wordIdx++;
         }
 
         if (subChunk.trim()) {
-          const partNum = chunks.length + 1;
-          const header = `[Conversation: ${title}] [Part ${partNum}]`;
+          const header = `[Conversation: ${title}] [Part ${chunks.length + 1}]`;
           chunks.push({ content: `${header}\n${subChunk.trim()}`, messageCount: 1 });
-          overlapText = subChunk.trim().slice(-OVERLAP_CHARS);
+          overlapText = subChunk.trim().slice(-overlap);
         }
       } else {
         const content = overlapText ? overlapText + '\n\n' + msg.text : msg.text;
-        makeChunk([content], 1);
-        overlapText = msg.text.slice(-OVERLAP_CHARS);
+        const header = `[Conversation: ${title}] [Part ${chunks.length + 1}]`;
+        chunks.push({ content: `${header}\n${content}`, messageCount: 1 });
+        overlapText = msg.text.slice(-overlap);
       }
       i++;
       continue;
@@ -217,9 +219,8 @@ function chunkConversation(
 
     while (i < formattedMessages.length) {
       const nextMsg = formattedMessages[i];
-      if (nextMsg.length >= SUBSTANTIAL_MSG) break;
-      if (accumulatedLength + nextMsg.length + 2 > MAX_CHUNK_SIZE && msgCount > 0) break;
-
+      if (nextMsg.length >= substantial) break;
+      if (accumulatedLength + nextMsg.length + 2 > maxSize && msgCount > 0) break;
       accumulated.push(nextMsg.text);
       accumulatedLength += nextMsg.length + 2;
       msgCount++;
@@ -228,10 +229,9 @@ function chunkConversation(
 
     if (msgCount > 0) {
       const fullText = accumulated.join('\n\n');
-      const partNum = chunks.length + 1;
-      const header = `[Conversation: ${title}] [Part ${partNum}]`;
+      const header = `[Conversation: ${title}] [Part ${chunks.length + 1}]`;
       chunks.push({ content: `${header}\n${fullText}`, messageCount: msgCount });
-      overlapText = fullText.slice(-OVERLAP_CHARS);
+      overlapText = fullText.slice(-overlap);
     }
   }
 
