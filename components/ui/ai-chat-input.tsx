@@ -246,36 +246,42 @@ const AIChatInput = ({ onSubmit, onVoiceStart, isLoading, darkMode = true }: AIC
               Think
             </button>
 
-            {/* Deep Search Toggle */}
-            <motion.button
-              className={`flex items-center px-4 gap-1 py-2 rounded-full transition font-medium whitespace-nowrap overflow-hidden justify-start ${
-                deepSearchActive
-                  ? "bg-orange-500/20 outline outline-orange-500/60 text-orange-300"
-                  : darkMode ? "bg-white/10 text-white/70 hover:bg-white/20" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-              title="Deep Search"
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeepSearchActive((a) => !a);
-              }}
-              initial={false}
-              animate={{
-                width: deepSearchActive ? 135 : 40,
-                paddingLeft: deepSearchActive ? 12 : 11,
-              }}
-            >
-              <div className="flex-shrink-0">
-                <Globe size={18} />
-              </div>
-              <motion.span
-                className="pb-[2px] ml-1"
+            {/* Web Search Toggle */}
+            <div className="relative group">
+              <motion.button
+                className={`flex items-center px-4 gap-1 py-2 rounded-full transition font-medium whitespace-nowrap overflow-hidden justify-start ${
+                  deepSearchActive
+                    ? "bg-orange-500/20 outline outline-orange-500/60 text-orange-300"
+                    : darkMode ? "bg-white/10 text-white/70 hover:bg-white/20" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeepSearchActive((a) => !a);
+                }}
                 initial={false}
-                animate={{ opacity: deepSearchActive ? 1 : 0 }}
+                animate={{
+                  width: deepSearchActive ? 145 : 40,
+                  paddingLeft: deepSearchActive ? 12 : 11,
+                }}
               >
-                Memory
-              </motion.span>
-            </motion.button>
+                <div className="flex-shrink-0">
+                  <Globe size={18} />
+                </div>
+                <motion.span
+                  className="pb-[2px] ml-1"
+                  initial={false}
+                  animate={{ opacity: deepSearchActive ? 1 : 0 }}
+                >
+                  Web Search
+                </motion.span>
+              </motion.button>
+              {/* Tooltip */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-zinc-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                Search the web for real-time info like news, prices & current events
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800"></div>
+              </div>
+            </div>
           </div>
         </motion.div>
       </div>
