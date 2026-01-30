@@ -209,15 +209,54 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' });
     
-    // Create chunks for background processing (stored in response for client to handle)
-    const chunks = conversations.slice(0, 200).map(c => ({
-      conversationId: c.id,
+    // Create and SAVE chunks directly to DB (since BackgroundSync won't run for server-side flow)
+    const chunks = conversations.slice(0, 500).map(c => ({
+      user_id: userId,
+      conversation_id: c.id,
       title: c.title,
-      content: c.messages.slice(0, 10).map(m => `${m.role}: ${m.content}`).join('\n').slice(0, 2000),
-      messageCount: c.messages.length,
+      content: c.messages.slice(0, 15).map(m => `${m.role}: ${m.content}`).join('\n').slice(0, 3000),
+      message_count: c.messages.length,
+      created_at: c.createdAt,
+      is_recent: conversations.indexOf(c) < 100,
     }));
     
-    console.log(`[ProcessServer] Complete! Returning ${chunks.length} chunks`);
+    console.log(`[ProcessServer] Saving ${chunks.length} chunks to DB...`);
+    
+    // Insert chunks in batches of 100
+    const CHUNK_BATCH = 100;
+    let insertedCount = 0;
+    for (let i = 0; i < chunks.length; i += CHUNK_BATCH) {
+      const batch = chunks.slice(i, i + CHUNK_BATCH);
+      const { error: insertError } = await adminSupabase
+        .from('conversation_chunks')
+        .insert(batch);
+      
+      if (insertError) {
+        console.error(`[ProcessServer] Chunk insert error (batch ${i}):`, insertError);
+      } else {
+        insertedCount += batch.length;
+      }
+    }
+    
+    console.log(`[ProcessServer] Inserted ${insertedCount}/${chunks.length} chunks`);
+    
+    // Update profile with chunk count and mark ready for embedding
+    await adminSupabase.from('user_profiles').update({
+      total_chunks: insertedCount,
+      embedding_status: 'pending',
+    }).eq('user_id', userId);
+    
+    // Trigger background embedding (fire and forget)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.soulprintengine.ai';
+    fetch(`${baseUrl}/api/import/embed-background`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Internal-User-Id': userId,
+      },
+    }).catch(err => console.error('[ProcessServer] Embed trigger error:', err));
+    
+    console.log(`[ProcessServer] Complete! ${insertedCount} chunks saved`);
     
     return NextResponse.json({
       success: true,
@@ -226,8 +265,7 @@ export async function POST(request: Request) {
         stats,
       },
       archetype,
-      chunks,
-      conversations: conversations.slice(0, 100), // Return subset for client
+      chunksInserted: insertedCount,
       totalConversations: conversations.length,
       totalMessages,
     });
