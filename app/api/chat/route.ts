@@ -114,13 +114,14 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { message, history = [], voiceVerified = true } = body as {
+    const { message, history = [], voiceVerified = true, deepSearch = false } = body as {
       message: string;
       history?: ChatMessage[];
       voiceVerified?: boolean;
+      deepSearch?: boolean;
     };
     
-    console.log('[Chat] Voice verified:', voiceVerified);
+    console.log('[Chat] Voice verified:', voiceVerified, '| Deep Search:', deepSearch);
 
     if (!message || typeof message !== 'string') {
       return new Response(
@@ -160,11 +161,30 @@ export async function POST(request: NextRequest) {
     }
 
     const aiName = userProfile?.ai_name || 'SoulPrint';
+    
+    // If user triggered Deep Search, force Perplexity search upfront
+    let forcedSearchContext = '';
+    let forcedSearchCitations: string[] = [];
+    if (deepSearch && process.env.PERPLEXITY_API_KEY) {
+      try {
+        console.log('[Chat] User triggered Deep Search - forcing Perplexity...');
+        const searchResult = await queryPerplexity(message, { model: 'sonar-deep-research' });
+        forcedSearchContext = `🔍 **Deep Search Results:**\n\n${searchResult.answer}`;
+        forcedSearchCitations = searchResult.citations;
+        console.log('[Chat] Deep Search returned', searchResult.citations.length, 'citations');
+      } catch (error) {
+        console.error('[Chat] Deep Search failed:', error);
+        forcedSearchContext = '(Deep search failed - answering with available knowledge)';
+      }
+    }
+    
     const systemPrompt = buildSystemPrompt(
       userProfile?.soulprint_text || null,
       memoryContext,
       voiceVerified,
-      aiName
+      aiName,
+      forcedSearchContext,
+      forcedSearchCitations
     );
 
     // Build messages for Bedrock Converse API
@@ -298,7 +318,9 @@ function buildSystemPrompt(
   soulprintText: string | null,
   memoryContext?: string,
   isOwner: boolean = true,
-  aiName: string = 'SoulPrint'
+  aiName: string = 'SoulPrint',
+  forcedSearchContext?: string,
+  forcedSearchCitations?: string[]
 ): string {
   const now = new Date();
   const currentDate = now.toLocaleDateString('en-US', {
@@ -358,6 +380,27 @@ ${soulprintText}`;
 
 RELEVANT MEMORIES:
 ${memoryContext}`;
+  }
+
+  // Add forced search results (user triggered Deep Search)
+  if (forcedSearchContext) {
+    prompt += `
+
+DEEP SEARCH RESULTS (User requested comprehensive research):
+${forcedSearchContext}`;
+    
+    if (forcedSearchCitations && forcedSearchCitations.length > 0) {
+      prompt += `
+
+Sources to cite in your response:`;
+      forcedSearchCitations.slice(0, 6).forEach((url, i) => {
+        prompt += `\n${i + 1}. ${url}`;
+      });
+    }
+    
+    prompt += `
+
+IMPORTANT: The user triggered Deep Search mode. Use the search results above to provide a comprehensive, well-researched answer. Cite sources naturally.`;
   }
 
   return prompt;
