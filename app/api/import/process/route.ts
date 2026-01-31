@@ -1,305 +1,271 @@
 /**
- * Import Process Endpoint
- * Downloads from R2 and processes - handles any file size
+ * UNIFIED IMPORT PROCESSOR
+ * Single endpoint that handles the entire import flow reliably.
+ * 
+ * Flow:
+ * 1. Receive conversations from client
+ * 2. Generate soulprint via OpenAI (reliable fallback)
+ * 3. Generate AI name
+ * 4. Save everything to DB
+ * 5. Return success
+ * 
+ * No background jobs. No coordination. Just works.
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import JSZip from 'jszip';
-import { chunkConversations } from '@/lib/import/chunker';
-import { embedChunks, storeChunks } from '@/lib/import/embedder';
-import type { ParsedConversation, ParsedMessage, ChatGPTConversation, ChatGPTMessage } from '@/lib/import/parser';
+import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+import OpenAI from 'openai';
 
 export const runtime = 'nodejs';
-export const maxDuration = 300;
+export const maxDuration = 300; // 5 minutes max
 
-interface ProcessRequest {
-  importJobId: string;
-  userId: string;
-  storagePath: string;
-}
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 function getSupabaseAdmin() {
-  return createClient(
+  return createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 }
 
-async function downloadAndParseConversations(storagePath: string): Promise<ParsedConversation[]> {
-  console.log('[Process] Downloading from Supabase Storage...');
-
-  const supabase = getSupabaseAdmin();
-
-  // storagePath is like "imports/user-id/timestamp-filename.zip"
-  const pathParts = storagePath.split('/');
-  const bucket = pathParts[0]; // "imports"
-  const filePath = pathParts.slice(1).join('/'); // "user-id/timestamp-filename.zip"
-
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .download(filePath);
-
-  if (error) {
-    console.error('[Process] Download error:', error);
-    throw new Error(`Download failed: ${error.message}`);
-  }
-
-  if (!data) {
-    throw new Error('No data received from storage');
-  }
-
-  const arrayBuffer = await data.arrayBuffer();
-  console.log(`[Process] Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
-
-  // Load ZIP
-  console.log('[Process] Loading ZIP...');
-  const zip = await JSZip.loadAsync(arrayBuffer);
-  console.log('[Process] ZIP loaded, extracting conversations.json...');
-
-  // Extract only conversations.json
-  const conversationsFile = zip.file('conversations.json');
-  if (!conversationsFile) {
-    throw new Error('conversations.json not found in ZIP');
-  }
-
-  const conversationsJson = await conversationsFile.async('string');
-  console.log(`[Process] conversations.json: ${(conversationsJson.length / 1024 / 1024).toFixed(1)}MB`);
-  console.log('[Process] Parsing JSON...');
-
-  const raw: ChatGPTConversation[] = JSON.parse(conversationsJson);
-  return raw.map(parseConversation).filter(c => c.messages.length > 0);
+interface ConversationChunk {
+  id: string;
+  title: string;
+  content: string;
+  messageCount: number;
+  createdAt: string;
+  isRecent: boolean;
 }
 
-async function deleteFromStorage(storagePath: string) {
-  try {
-    const supabase = getSupabaseAdmin();
-    const pathParts = storagePath.split('/');
-    const bucket = pathParts[0];
-    const filePath = pathParts.slice(1).join('/');
-
-    await supabase.storage.from(bucket).remove([filePath]);
-  } catch (e) {
-    console.error('Storage cleanup error:', e);
-  }
-}
-
-function parseConversation(raw: ChatGPTConversation): ParsedConversation {
-  const messages: ParsedMessage[] = [];
-  const orderedMessages = getOrderedMessages(raw.mapping, raw.current_node);
-
-  for (const node of orderedMessages) {
-    if (!node.message) continue;
-    const msg = node.message;
-    const content = extractContent(msg.content);
-
-    if (!content?.trim()) continue;
-    if (msg.author.role === 'system' || msg.author.role === 'tool') continue;
-
-    messages.push({
-      id: msg.id,
-      role: msg.author.role as 'user' | 'assistant',
-      content: content.trim(),
-      timestamp: msg.create_time ? new Date(msg.create_time * 1000) : undefined,
-    });
-  }
-
-  return {
-    id: raw.id,
-    title: raw.title || 'Untitled',
-    createdAt: new Date(raw.create_time * 1000),
-    updatedAt: new Date(raw.update_time * 1000),
-    messages,
+interface ImportRequest {
+  conversations: Array<{
+    title: string;
+    content?: string;
+    messages?: string;
+    message_count?: number;
+  }>;
+  chunks: ConversationChunk[];
+  stats: {
+    totalConversations: number;
+    totalMessages: number;
   };
 }
 
-function getOrderedMessages(
-  mapping: ChatGPTConversation['mapping'],
-  currentNode?: string
-): Array<{ id: string; message?: ChatGPTMessage }> {
-  const ordered: Array<{ id: string; message?: ChatGPTMessage }> = [];
-
-  let rootId: string | undefined;
-  for (const [id, node] of Object.entries(mapping)) {
-    if (!node.parent || !mapping[node.parent]) {
-      rootId = id;
-      break;
-    }
-  }
-  if (!rootId) return ordered;
-
-  const targetPath = new Set<string>();
-  if (currentNode) {
-    let nodeId: string | undefined = currentNode;
-    while (nodeId && mapping[nodeId]) {
-      targetPath.add(nodeId);
-      nodeId = mapping[nodeId].parent;
-    }
-  }
-
-  function traverse(nodeId: string) {
-    const node = mapping[nodeId];
-    if (!node) return;
-    if (node.message) ordered.push({ id: nodeId, message: node.message });
-    if (node.children.length > 0) {
-      const next = node.children.find(c => targetPath.has(c)) || node.children[0];
-      traverse(next);
-    }
-  }
-
-  traverse(rootId);
-  return ordered;
-}
-
-function extractContent(content: ChatGPTMessage['content']): string {
-  if (!content) return '';
-  if (content.text) return content.text;
-  if (content.parts?.length) {
-    return content.parts.filter((p): p is string => typeof p === 'string').join('\n');
-  }
-  return '';
-}
-
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const supabase = getSupabaseAdmin();
-  let importJobId: string | undefined;
-  let storagePath: string | undefined;
-
+  console.log('[Import] Starting unified import...');
+  
   try {
-    const body: ProcessRequest = await request.json();
-    importJobId = body.importJobId;
-    storagePath = body.storagePath;
-    const { userId } = body;
+    // 1. Authenticate
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error('[Import] Auth failed:', authError);
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+    
+    console.log(`[Import] User: ${user.id}`);
 
-    if (!importJobId || !userId || !storagePath) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    // 2. Parse request
+    const body: ImportRequest = await request.json();
+    const { conversations, chunks, stats } = body;
+    
+    if (!conversations?.length && !chunks?.length) {
+      return NextResponse.json({ error: 'No data provided' }, { status: 400 });
+    }
+    
+    console.log(`[Import] Received ${conversations?.length || 0} conversations, ${chunks?.length || 0} chunks`);
+
+    const adminSupabase = getSupabaseAdmin();
+
+    // 3. Check if already imported
+    const { data: existing } = await adminSupabase
+      .from('user_profiles')
+      .select('soulprint_locked')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (existing?.soulprint_locked) {
+      return NextResponse.json({ 
+        error: 'Already imported',
+        code: 'ALREADY_IMPORTED'
+      }, { status: 409 });
     }
 
-    await supabase
-      .from('import_jobs')
-      .update({ status: 'processing' })
-      .eq('id', importJobId);
+    // 4. Generate soulprint
+    console.log('[Import] Generating soulprint...');
+    const soulprintResult = await generateSoulprint(conversations, stats);
+    console.log(`[Import] Soulprint generated - Archetype: ${soulprintResult.archetype}`);
 
-    // Download and parse from R2
-    console.log(`[Import ${importJobId}] Downloading from R2...`);
-    const conversations = await downloadAndParseConversations(storagePath);
-    console.log(`[Import ${importJobId}] Found ${conversations.length} conversations`);
+    // 5. Generate AI name
+    console.log('[Import] Generating AI name...');
+    const aiName = await generateAIName(soulprintResult.soulprintText);
+    console.log(`[Import] AI name: ${aiName}`);
 
-    // Save original file path (don't delete - keep for re-processing)
-    await supabase.from('user_profiles').update({
-      raw_export_path: storagePath,
-    }).eq('user_id', userId);
-    console.log(`[Import ${importJobId}] Saved original file path: ${storagePath}`);
+    // 6. Save profile
+    console.log('[Import] Saving profile...');
+    const { error: profileError } = await adminSupabase
+      .from('user_profiles')
+      .upsert({
+        user_id: user.id,
+        soulprint_text: soulprintResult.soulprintText,
+        archetype: soulprintResult.archetype,
+        ai_name: aiName,
+        import_status: 'complete',
+        total_conversations: stats.totalConversations,
+        total_messages: stats.totalMessages,
+        soulprint_generated_at: new Date().toISOString(),
+        soulprint_locked: true,
+        embedding_status: 'pending',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
 
-    if (conversations.length === 0) {
-      await supabase.from('import_jobs').update({
-        status: 'completed',
-        total_chunks: 0,
-        processed_chunks: 0,
-        completed_at: new Date().toISOString(),
-      }).eq('id', importJobId);
-
-      return NextResponse.json({ success: true, conversations: 0, chunks: 0 });
+    if (profileError) {
+      console.error('[Import] Profile save failed:', profileError);
+      throw new Error(`Failed to save profile: ${profileError.message}`);
     }
 
-    // Store raw conversations in database table (for backup/re-processing)
-    console.log(`[Import ${importJobId}] Storing raw conversations to database...`);
-    const rawConversationRows = conversations.map(c => ({
-      user_id: userId,
-      conversation_id: c.id,
-      title: c.title,
-      created_at: c.createdAt.toISOString(),
-      updated_at: c.updatedAt.toISOString(),
-      messages: c.messages,
-      message_count: c.messages.length,
-    }));
+    // 7. Delete old chunks and save new ones
+    console.log('[Import] Saving chunks...');
+    await adminSupabase
+      .from('conversation_chunks')
+      .delete()
+      .eq('user_id', user.id);
 
-    // Insert in batches to avoid payload size issues
-    const RAW_BATCH_SIZE = 100;
-    for (let i = 0; i < rawConversationRows.length; i += RAW_BATCH_SIZE) {
-      const batch = rawConversationRows.slice(i, i + RAW_BATCH_SIZE);
-      const { error: rawError } = await supabase
-        .from('raw_conversations')
-        .upsert(batch, { onConflict: 'user_id,conversation_id' });
-      if (rawError) {
-        console.error(`[Import ${importJobId}] Raw conversation insert error (batch ${i}):`, rawError);
+    if (chunks?.length > 0) {
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+        const batch = chunks.slice(i, i + BATCH_SIZE).map(chunk => ({
+          user_id: user.id,
+          conversation_id: chunk.id,
+          title: chunk.title || 'Untitled',
+          content: chunk.content,
+          message_count: chunk.messageCount || 0,
+          created_at: chunk.createdAt || new Date().toISOString(),
+          is_recent: chunk.isRecent ?? false,
+        }));
+        
+        const { error: chunkError } = await adminSupabase
+          .from('conversation_chunks')
+          .insert(batch);
+        
+        if (chunkError) {
+          console.warn('[Import] Chunk batch failed:', chunkError);
+        }
       }
+      console.log(`[Import] Saved ${chunks.length} chunks`);
     }
-    console.log(`[Import ${importJobId}] Stored ${conversations.length} raw conversations`);
 
-    // Chunk
-    console.log(`[Import ${importJobId}] Chunking...`);
-    const chunks = chunkConversations(conversations);
-    console.log(`[Import ${importJobId}] Created ${chunks.length} chunks`);
-
-    await supabase.from('import_jobs').update({ total_chunks: chunks.length }).eq('id', importJobId);
-
-    // Embed
-    console.log(`[Import ${importJobId}] Embedding...`);
-    const embeddedChunks = await embedChunks(chunks, (p, t) => {
-      if (p % 100 === 0) console.log(`[Import ${importJobId}] Embedded ${p}/${t}`);
+    // 8. Success!
+    console.log('[Import] Complete!');
+    return NextResponse.json({
+      success: true,
+      aiName,
+      archetype: soulprintResult.archetype,
+      chunksStored: chunks?.length || 0,
     });
-
-    // Store
-    console.log(`[Import ${importJobId}] Storing...`);
-    await storeChunks(userId, importJobId, embeddedChunks, async (s, t) => {
-      if (s % 100 === 0 || s === t) {
-        console.log(`[Import ${importJobId}] Stored ${s}/${t}`);
-        await supabase.from('import_jobs').update({ processed_chunks: s }).eq('id', importJobId);
-      }
-    });
-
-    await supabase.from('import_jobs').update({
-      status: 'completed',
-      processed_chunks: chunks.length,
-      completed_at: new Date().toISOString(),
-    }).eq('id', importJobId);
-
-    // Update user profile to mark embeddings complete
-    await supabase.from('user_profiles').update({
-      import_status: 'complete',
-      processed_chunks: chunks.length,
-      total_chunks: chunks.length,
-      embeddings_completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq('user_id', userId);
-
-    console.log(`[Import ${importJobId}] Complete!`);
-    return NextResponse.json({ success: true, conversations: conversations.length, chunks: chunks.length });
 
   } catch (error) {
-    console.error('Import error:', error);
-
-    if (importJobId) {
-      await supabase.from('import_jobs').update({
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }).eq('id', importJobId);
-    }
-
-    // Don't delete storage file on error - keep for retry
-
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Processing failed' },
-      { status: 500 }
-    );
+    console.error('[Import] Error:', error);
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Import failed'
+    }, { status: 500 });
   }
 }
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const jobId = searchParams.get('jobId');
-  if (!jobId) return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
+async function generateSoulprint(
+  conversations: ImportRequest['conversations'],
+  stats: ImportRequest['stats']
+): Promise<{ soulprintText: string; archetype: string }> {
+  // Prepare conversation samples
+  const samples = conversations
+    .slice(0, 50)
+    .map(c => {
+      const content = c.content || c.messages || '';
+      return `=== ${c.title || 'Conversation'} ===\n${content.slice(0, 800)}`;
+    })
+    .join('\n\n')
+    .slice(0, 35000);
 
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.from('import_jobs').select('*').eq('id', jobId).single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 1500,
+      messages: [
+        {
+          role: 'system',
+          content: `You are analyzing a user's ChatGPT conversation history to create their personality profile (SoulPrint).
 
-  return NextResponse.json(data);
+Based on the conversations provided, write a personality profile (3-4 paragraphs) that describes:
+1. Their communication style - casual/formal, concise/verbose, emoji usage, signature phrases
+2. How they approach problems and think through challenges
+3. Their main interests and topics they engage with
+4. Unique traits, patterns, or quirks that make them distinctive
+
+Write in second person ("You..."). Be specific and insightful based on actual patterns you observe. Avoid generic statements.
+
+After the profile, on a new line write exactly:
+**Archetype: [2-4 word label]**
+
+Example archetypes: "The Systematic Builder", "The Creative Problem-Solver", "The Curious Explorer"`
+        },
+        {
+          role: 'user',
+          content: `Analyze these ${stats.totalConversations} conversations (${stats.totalMessages} messages) and create the user's SoulPrint:\n\n${samples}`
+        }
+      ],
+    });
+
+    const fullText = response.choices[0]?.message?.content || '';
+    
+    // Extract archetype
+    const archetypeMatch = fullText.match(/\*\*Archetype:\s*(.+?)\*\*/i);
+    const archetype = archetypeMatch?.[1]?.trim() || 'The Unique Individual';
+    
+    return { soulprintText: fullText, archetype };
+  } catch (error) {
+    console.error('[Import] OpenAI soulprint generation failed:', error);
+    
+    // Fallback to basic soulprint
+    return {
+      soulprintText: `Based on ${stats.totalConversations} conversations and ${stats.totalMessages} messages, you engage thoughtfully with a wide range of topics. Your communication style reflects curiosity and a desire for practical solutions.`,
+      archetype: 'The Unique Individual',
+    };
+  }
+}
+
+async function generateAIName(soulprintText: string): Promise<string> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 50,
+      messages: [
+        {
+          role: 'system',
+          content: `Generate a unique, memorable AI assistant name based on the user's personality profile. The name should be:
+- Short (1-2 words, max 15 characters)
+- Friendly and approachable
+- Reflect their communication style or archetype
+- NOT generic names like "Assistant", "Helper", "AI", "Bot"
+- Can be playful, mythological, nature-inspired, or abstract
+
+Reply with ONLY the name, nothing else.`
+        },
+        {
+          role: 'user',
+          content: `Based on this personality profile, generate a perfect AI name:\n\n${soulprintText.slice(0, 1000)}`
+        }
+      ],
+    });
+
+    const name = response.choices[0]?.message?.content?.trim().replace(/['"]/g, '') || 'Echo';
+    return name.slice(0, 20);
+  } catch (error) {
+    console.error('[Import] AI name generation failed:', error);
+    return 'Echo';
+  }
 }

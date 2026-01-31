@@ -349,110 +349,58 @@ export default function ImportPage() {
       }
 
       setStatus('saving');
-      setProgress(72);
-      setProgressStage('Deep analysis in progress (1-2 min)...');
+      setProgress(75);
+      setProgressStage('Creating your SoulPrint (1-2 min)...');
 
-      // Step 2: Send a SAMPLE to RLM for soulprint generation (fast!)
-      // Sample: 50 recent + 50 oldest + 50 longest = 150 conversations max
-      const recentConvos = rawConversations.slice(0, 50);
-      const oldestConvos = rawConversations.slice(-50);
-      const longestConvos = [...rawConversations]
-        .sort((a, b) => (b.messages?.length || 0) - (a.messages?.length || 0))
-        .slice(0, 50);
-
-      // EXHAUSTIVE: Send ALL conversations for comprehensive analysis
-      // Optimize payload by limiting message length, but include ALL conversations
-      const allConversations = rawConversations.map(c => ({
+      // UNIFIED IMPORT: One API call does everything
+      // Prepare conversation sample for soulprint generation
+      const conversationSample = rawConversations.slice(0, 100).map(c => ({
         title: c.title,
-        messages: (c.messages || []).slice(0, 25).map((m: { role?: string; content?: string }) => ({
-          role: m.role || 'user',
-          content: (m.content || '').slice(0, 400), // Truncate long messages
-        })),
+        content: (c.messages || []).slice(0, 20).map((m: { role?: string; content?: string }) => 
+          `${m.role || 'user'}: ${(m.content || '').slice(0, 300)}`
+        ).join('\n'),
         message_count: c.messages?.length || 0,
-        createdAt: c.createdAt,
       }));
 
-      // For very large exports (>1000), take strategic sample to fit request limits
-      // but much larger than before (500 vs 150)
-      const conversationSample = allConversations.length > 500
-        ? [
-          ...allConversations.slice(0, 200),  // Recent
-          ...allConversations.slice(-100),     // Oldest  
-          ...allConversations.sort((a, b) => b.message_count - a.message_count).slice(0, 200), // Longest
-        ].filter((v, i, a) => a.findIndex(t => t.title === v.title) === i).slice(0, 500)
-        : allConversations;
-
-      // Use client-generated soulprint for now - full analysis happens in background
-      const finalSoulprint = result;
+      setProgress(80);
       
-      setProgress(85);
-      setProgressStage('Saving your profile...');
-      
-      // Kick off background soulprint generation (fire & forget)
-      // This will update soulprint_text async while user chats
-      fetch('/api/import/create-soulprint', {
+      // Single API call handles: soulprint generation, AI naming, DB save, chunks
+      const response = await fetch('/api/import/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           conversations: conversationSample,
+          chunks: conversationChunks.slice(0, 500), // Limit chunks to avoid payload size issues
           stats: result.stats,
-          saveToDb: true, // Tell API to save directly to DB when done
         }),
-      }).catch(err => console.warn('[Import] Background soulprint generation started:', err));
-
-      // Step 3: Save soulprint to DB (quick - just metadata)
-      const response = await fetch('/api/import/save-soulprint', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Ensure auth cookies are sent
-        body: JSON.stringify({ soulprint: finalSoulprint }),
       });
 
-      const soulprintResult = await safeJsonParse(response);
-      if (!soulprintResult.ok) {
-        if (soulprintResult.data?.code === 'ALREADY_HAS_SOULPRINT' || soulprintResult.data?.code === 'ALREADY_IMPORTED') {
+      const importResult = await safeJsonParse(response);
+      
+      if (!importResult.ok) {
+        if (importResult.data?.code === 'ALREADY_IMPORTED') {
           router.push('/chat');
           return;
         }
-        throw new Error(soulprintResult.data?.error || soulprintResult.error || 'Failed to save profile');
+        throw new Error(importResult.data?.error || importResult.error || 'Import failed');
       }
 
-      setProgress(90);
-      setProgressStage('Preparing memory sync...');
+      setProgress(95);
+      setProgressStage(`Meet ${importResult.data?.aiName || 'your AI'}...`);
 
-      // Step 4: Store chunks in sessionStorage for background sync in chat page
-      // This avoids hitting Vercel's body size limits
-      try {
-        // Store metadata for the chat page to pick up
-        sessionStorage.setItem('soulprint_pending_chunks', JSON.stringify({
-          totalChunks: conversationChunks.length,
-          totalRaw: rawConversations.length,
-        }));
-
-        // Store actual data in IndexedDB for large datasets
-        const db = await openImportDB();
-        await storeChunksInDB(db, conversationChunks);
-        await storeRawInDB(db, rawConversations);
-      } catch (storageError) {
-        console.warn('[Import] Failed to store for background sync:', storageError);
-        // Continue anyway - user can re-import if needed
+      // Store remaining chunks in IndexedDB for background sync (optional, non-blocking)
+      if (conversationChunks.length > 500) {
+        try {
+          const db = await openImportDB();
+          await storeChunksInDB(db, conversationChunks.slice(500));
+          sessionStorage.setItem('soulprint_pending_chunks', JSON.stringify({
+            totalChunks: conversationChunks.length - 500,
+          }));
+        } catch (e) {
+          console.warn('[Import] Extra chunk storage failed:', e);
+        }
       }
-
-      // Mark user as having pending sync (non-blocking)
-      fetch('/api/import/mark-pending', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          totalChunks: conversationChunks.length,
-          totalRaw: rawConversations.length,
-        }),
-      })
-        .then(res => {
-          if (!res.ok) console.warn('[Import] Mark pending returned:', res.status);
-        })
-        .catch(err => console.warn('[Import] Mark pending failed:', err));
 
       setProgress(100);
       setProgressStage('Complete! Starting chat...');
