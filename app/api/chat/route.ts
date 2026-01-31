@@ -34,6 +34,39 @@ interface ChatMessage {
   content: string;
 }
 
+// Generate a unique AI name based on user's soulprint
+async function generateAIName(soulprintText: string): Promise<string> {
+  try {
+    const command = new ConverseCommand({
+      modelId: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
+      system: [{ text: `You are a creative naming assistant. Generate a unique, memorable AI assistant name based on the user's personality profile. The name should be:
+- Short (1-2 words, max 15 characters)
+- Friendly and approachable
+- Reflect their communication style or archetype
+- NOT generic names like "Assistant", "Helper", "AI", "Bot"
+- Can be playful, mythological, nature-inspired, or abstract
+
+Reply with ONLY the name, nothing else.` }],
+      messages: [{
+        role: 'user',
+        content: [{ text: `Based on this personality profile, generate a perfect AI name:\n\n${soulprintText.slice(0, 1000)}` }],
+      }],
+      inferenceConfig: { maxTokens: 50 },
+    });
+
+    const response = await bedrockClient.send(command);
+    const textBlock = response.output?.message?.content?.find(
+      (block): block is ContentBlock.TextMember => 'text' in block
+    );
+    
+    const name = textBlock?.text?.trim().replace(/['"]/g, '') || 'Echo';
+    return name.slice(0, 20); // Safety limit
+  } catch (error) {
+    console.error('[Chat] Name generation failed:', error);
+    return 'Echo'; // Fallback name
+  }
+}
+
 interface UserProfile {
   soulprint_text: string | null;
   import_status: 'none' | 'quick_ready' | 'processing' | 'complete';
@@ -150,7 +183,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const aiName = userProfile?.ai_name || 'SoulPrint';
+    // Auto-name the AI if not set
+    let aiName = userProfile?.ai_name;
+    if (!aiName && userProfile?.soulprint_text) {
+      console.log('[Chat] No AI name set, auto-generating...');
+      aiName = await generateAIName(userProfile.soulprint_text);
+      
+      // Save the generated name
+      await adminSupabase
+        .from('user_profiles')
+        .update({ ai_name: aiName })
+        .eq('user_id', user.id);
+      
+      console.log('[Chat] Auto-named AI:', aiName);
+    }
+    aiName = aiName || 'SoulPrint';
 
     // Step 1: If Web Search ON, call Perplexity (with Tavily fallback)
     let webSearchContext = '';
