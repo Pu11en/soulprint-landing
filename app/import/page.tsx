@@ -10,6 +10,7 @@ import { BackgroundBeams } from '@/components/ui/background-beams';
 import { RingProgress } from '@/components/ui/ring-progress';
 import { generateClientSoulprint, type ClientSoulprint } from '@/lib/import/client-soulprint';
 import { createClient } from '@/lib/supabase/client';
+import JSZip from 'jszip';
 
 type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
 type Step = 'export' | 'upload' | 'processing' | 'done';
@@ -166,21 +167,48 @@ export default function ImportPage() {
 
       // For large files (>100MB), use server-side processing
       if (file.size > FILE_SIZE_THRESHOLD) {
-        // Upload raw ZIP directly - server will extract conversations.json
-        // This avoids mobile browser crashes from JSZip.loadAsync loading entire file into memory
-        setProgressStage('Preparing upload...');
+        // OPTIMIZATION: Extract conversations.json from ZIP on client
+        // This avoids uploading 500MB-2GB ZIP when we only need the ~50-100MB JSON
+        // Server then processes the smaller JSON file directly (no timeout!)
+        setProgressStage('Extracting conversations...');
         setProgress(5);
 
-        // Get signed upload URL
+        // Extract conversations.json from ZIP
+        let conversationsJson: string;
+        try {
+          const zip = await JSZip.loadAsync(file);
+          const conversationsFile = zip.file('conversations.json');
+
+          if (!conversationsFile) {
+            throw new Error('conversations.json not found in ZIP. Make sure you exported from ChatGPT correctly.');
+          }
+
+          conversationsJson = await conversationsFile.async('string');
+          console.log(`[Import] Extracted conversations.json: ${(conversationsJson.length / 1024 / 1024).toFixed(1)}MB from ${(file.size / 1024 / 1024).toFixed(1)}MB ZIP`);
+        } catch (zipError) {
+          if (zipError instanceof Error && zipError.message.includes('conversations.json')) {
+            throw zipError;
+          }
+          throw new Error('Failed to read ZIP file. Please ensure it\'s a valid ChatGPT export.');
+        }
+
+        setProgressStage('Preparing upload...');
+        setProgress(8);
+
+        // Create a JSON file from the extracted content
+        const jsonBlob = new Blob([conversationsJson], { type: 'application/json' });
+        const jsonFile = new File([jsonBlob], 'conversations.json', { type: 'application/json' });
+
+        // Get signed upload URL for JSON file (not ZIP)
         const urlRes = await fetch('/api/import/get-upload-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ filename: file.name }),
+          body: JSON.stringify({ filename: 'conversations.json' }),
         });
 
         const urlData = await urlRes.json().catch(() => ({ error: 'Failed to parse response' }));
-        
+
         if (!urlRes.ok) {
           throw new Error(urlData.error || 'Failed to get upload URL');
         }
@@ -188,14 +216,15 @@ export default function ImportPage() {
         const { uploadUrl, path: urlPath } = urlData;
         const storagePath = urlPath;
 
-        setProgressStage('Uploading ZIP file...');
+        setProgressStage('Uploading conversations...');
         setProgress(10);
 
         // Use XMLHttpRequest for progress tracking and mobile compatibility
+        // Upload the extracted JSON file (much smaller than the ZIP!)
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('PUT', uploadUrl, true);
-          xhr.setRequestHeader('Content-Type', 'application/zip');
+          xhr.setRequestHeader('Content-Type', 'application/json');
 
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
@@ -213,14 +242,14 @@ export default function ImportPage() {
               // Upload progress: 10-50%
               const pct = Math.round((e.loaded / e.total) * 40) + 10;
               setProgress(pct);
-              const uploadedMB = (e.loaded / 1024 / 1024).toFixed(0);
-              const totalMB = (e.total / 1024 / 1024).toFixed(0);
+              const uploadedMB = (e.loaded / 1024 / 1024).toFixed(1);
+              const totalMB = (e.total / 1024 / 1024).toFixed(1);
               setProgressStage(`Uploading... ${uploadedMB}/${totalMB} MB`);
             }
           };
 
-          xhr.timeout = 600000; // 10 min timeout for large files
-          xhr.send(file);
+          xhr.timeout = 300000; // 5 min timeout (JSON is much smaller)
+          xhr.send(jsonFile);
         });
         
         setProgressStage('Upload complete! Analyzing your conversations...');
@@ -239,9 +268,9 @@ export default function ImportPage() {
           
           // Update stage text based on progress
           if (currentProgress < 65) {
-            setProgressStage('Downloading and extracting...');
+            setProgressStage('Processing conversations...');
           } else if (currentProgress < 75) {
-            setProgressStage('Parsing conversations...');
+            setProgressStage('Analyzing patterns...');
           } else if (currentProgress < 85) {
             setProgressStage('Creating your SoulPrint...');
           } else {
