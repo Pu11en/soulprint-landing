@@ -53,24 +53,14 @@ export default function ChatPage() {
           return;
         }
 
-        // Check if AI has a name
+        // Check if AI has a name (if not, will be auto-generated on first chat)
         const nameRes = await fetch('/api/profile/ai-name');
         if (nameRes.ok) {
           const nameData = await nameRes.json();
           if (nameData.aiName) {
             setAiName(nameData.aiName);
-          } else {
-            // No name yet - start naming flow
-            setIsNamingMode(true);
-            setMessages([{
-              id: 'intro',
-              role: 'assistant',
-              content: "Hey! I'm your new AI — built from your memories and conversations. Before we get started, I need a name. What would you like to call me?",
-              timestamp: new Date(),
-            }]);
-            setLoadingHistory(false);
-            return;
           }
+          // If no name yet, keep default "SoulPrint" - API will auto-name on first message
         }
 
         // Load avatar
@@ -407,6 +397,21 @@ export default function ChatPage() {
 
       if (responseContent) {
         saveMessage('assistant', responseContent);
+        
+        // If AI name was default, refresh it (may have been auto-generated)
+        if (aiName === 'SoulPrint') {
+          try {
+            const nameRes = await fetch('/api/profile/ai-name');
+            if (nameRes.ok) {
+              const nameData = await nameRes.json();
+              if (nameData.aiName && nameData.aiName !== 'SoulPrint') {
+                setAiName(nameData.aiName);
+              }
+            }
+          } catch (e) {
+            console.error('Failed to refresh AI name:', e);
+          }
+        }
       }
     } catch (error) {
       console.error('Chat error:', error);
