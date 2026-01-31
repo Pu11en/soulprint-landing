@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { sendSoulprintReadyEmail } from '@/lib/email/send';
 import {
   BedrockRuntimeClient,
   ConverseCommand,
@@ -114,17 +115,32 @@ export async function POST(request: Request) {
         || soulprintResult.soulprint.aiPersona?.soulMd 
         || '';
       
+      // Generate AI name from soulprint
+      let aiName = 'SoulPrint';
+      try {
+        aiName = await generateAIName(soulprintText);
+      } catch (e) {
+        console.warn('[CreateSoulprint] AI name generation failed:', e);
+      }
+      
       await adminSupabase
         .from('user_profiles')
         .update({
           soulprint_text: soulprintText,
           archetype: soulprintResult.archetype,
+          ai_name: aiName,
           soulprint_generated_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', user.id);
       
-      console.log(`[CreateSoulprint] Saved to DB - archetype: ${soulprintResult.archetype}`);
+      console.log(`[CreateSoulprint] Saved to DB - archetype: ${soulprintResult.archetype}, aiName: ${aiName}`);
+      
+      // Send email notification
+      if (user.email) {
+        sendSoulprintReadyEmail(user.email, aiName, soulprintResult.archetype)
+          .catch(err => console.warn('[CreateSoulprint] Email send failed:', err));
+      }
     }
 
     return NextResponse.json({
@@ -137,6 +153,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ 
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
+  }
+}
+
+// Generate a unique AI name based on user's soulprint
+async function generateAIName(soulprintText: string): Promise<string> {
+  try {
+    const command = new ConverseCommand({
+      modelId: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
+      system: [{ text: `You are a creative naming assistant. Generate a unique, memorable AI assistant name based on the user's personality profile. The name should be:
+- Short (1-2 words, max 15 characters)
+- Friendly and approachable
+- Reflect their communication style or archetype
+- NOT generic names like "Assistant", "Helper", "AI", "Bot"
+- Can be playful, mythological, nature-inspired, or abstract
+
+Reply with ONLY the name, nothing else.` }],
+      messages: [{
+        role: 'user',
+        content: [{ text: `Based on this personality profile, generate a perfect AI name:\n\n${soulprintText.slice(0, 1000)}` }],
+      }],
+      inferenceConfig: { maxTokens: 50 },
+    });
+
+    const response = await bedrockClient.send(command);
+    const textBlock = response.output?.message?.content?.find(
+      (block): block is ContentBlock.TextMember => 'text' in block
+    );
+    
+    const name = textBlock?.text?.trim().replace(/['"]/g, '') || 'Echo';
+    return name.slice(0, 20); // Safety limit
+  } catch (error) {
+    console.error('[CreateSoulprint] Name generation failed:', error);
+    return 'Echo'; // Fallback name
   }
 }
 
