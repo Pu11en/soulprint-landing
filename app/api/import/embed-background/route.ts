@@ -16,13 +16,20 @@ import {
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 min max for Vercel
 
-const bedrockClient = new BedrockRuntimeClient({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
+// Lazy initialization to avoid build-time errors
+let _bedrockClient: BedrockRuntimeClient | null = null;
+function getBedrockClient(): BedrockRuntimeClient {
+  if (!_bedrockClient) {
+    _bedrockClient = new BedrockRuntimeClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+  }
+  return _bedrockClient;
+}
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -45,7 +52,7 @@ async function embedBatch(texts: string[]): Promise<number[][]> {
     }),
   });
 
-  const response = await bedrockClient.send(command);
+  const response = await getBedrockClient().send(command);
   const result = JSON.parse(new TextDecoder().decode(response.body));
   return result.embeddings.float;
 }
