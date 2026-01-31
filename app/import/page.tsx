@@ -79,11 +79,36 @@ export default function ImportPage() {
   const [checkingExisting, setCheckingExisting] = useState(true);
   const [isReturningUser, setIsReturningUser] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStage, setProgressStage] = useState('');
   const [currentStep, setCurrentStep] = useState<Step>('export');
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleReset = async () => {
+    if (!confirm('This will delete all your imported data. Are you sure?')) return;
+    
+    setIsResetting(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not logged in');
+      
+      const res = await fetch(`/api/admin/reset-user?userId=${user.id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) throw new Error('Reset failed');
+      
+      // Refresh the page to start fresh
+      window.location.reload();
+    } catch (err) {
+      alert('Reset failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   useEffect(() => {
     const checkExisting = async () => {
@@ -198,20 +223,36 @@ export default function ImportPage() {
           xhr.send(file);
         });
         
-        setProgressStage('Upload complete! Starting processing...');
-        setProgress(60);
+        setProgressStage('Upload complete! Analyzing your conversations...');
+        setProgress(55);
         
         // Small delay to let browser settle after large upload
         await new Promise(r => setTimeout(r, 500));
         
-        // Queue background processing with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        // Start progress animation for server processing (55% -> 95%)
+        let progressInterval: NodeJS.Timeout | null = null;
+        let currentProgress = 55;
+        progressInterval = setInterval(() => {
+          // Slow progress that never quite reaches 100%
+          currentProgress = Math.min(currentProgress + 0.5, 95);
+          setProgress(Math.round(currentProgress));
+          
+          // Update stage text based on progress
+          if (currentProgress < 65) {
+            setProgressStage('Downloading and extracting...');
+          } else if (currentProgress < 75) {
+            setProgressStage('Parsing conversations...');
+          } else if (currentProgress < 85) {
+            setProgressStage('Creating your SoulPrint...');
+          } else {
+            setProgressStage('Almost done...');
+          }
+        }, 1000);
         
+        // Process on server - NO timeout, let it complete (up to 5 min)
         let queueRes;
         try {
           queueRes = await fetch('/api/import/queue-processing', {
-            signal: controller.signal,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -221,12 +262,13 @@ export default function ImportPage() {
               fileSize: file.size,
             }),
           });
-          clearTimeout(timeoutId);
         } catch (e) {
-          clearTimeout(timeoutId);
+          if (progressInterval) clearInterval(progressInterval);
           console.error('[Import] queue-processing failed:', e);
           throw new Error('Processing failed. Please try again.');
         }
+        
+        if (progressInterval) clearInterval(progressInterval);
         
         if (!queueRes.ok) {
           const err = await queueRes.json().catch(() => ({}));
@@ -234,14 +276,19 @@ export default function ImportPage() {
           throw new Error(err.error || 'Processing failed. Please try again.');
         }
         
-        // Processing started in background - redirect to chat
-        setProgressStage('Upload complete! Processing in background...');
-        setProgress(100);
+        const result = await queueRes.json();
+        console.log('[Import] Processing complete:', result);
         
-        // Show success briefly, then redirect
-        await new Promise(r => setTimeout(r, 1500));
-        router.push('/chat?processing=true');
-        return; // Exit - background handles the rest
+        // Success! Show completion
+        setProgressStage('Complete! Starting chat...');
+        setProgress(100);
+        setStatus('success');
+        setCurrentStep('done');
+        
+        // Brief delay then redirect
+        await new Promise(r => setTimeout(r, 1000));
+        router.push('/chat');
+        return;
       } else {
         // For smaller files, use client-side parsing (faster for small files)
         const clientResult = await generateClientSoulprint(file, (stage, percent) => {
@@ -467,6 +514,13 @@ export default function ImportPage() {
                 <div className="mb-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/30">
                   <p className="text-orange-400 text-sm text-center font-medium">Welcome back! 👋</p>
                   <p className="text-white/70 text-xs text-center mt-1">We&apos;ve upgraded our memory system. Please re-import your data for the best experience.</p>
+                  <button
+                    onClick={handleReset}
+                    disabled={isResetting}
+                    className="mt-2 w-full text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+                  >
+                    {isResetting ? 'Resetting...' : '🗑️ Start Fresh (Clear All Data)'}
+                  </button>
                 </div>
               )}
               <h1 className="text-lg sm:text-xl font-bold text-white mb-0.5 text-center">Export Your ChatGPT Data</h1>

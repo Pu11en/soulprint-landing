@@ -1,6 +1,9 @@
 /**
  * Server-side import processing for large files (mobile-friendly)
  * Downloads from storage, parses, creates soulprint via RLM
+ * 
+ * Memory limit: ~500MB practical for Vercel (1GB RAM, need headroom)
+ * Files >500MB will fail gracefully with a clear error message
  */
 
 import { NextResponse } from 'next/server';
@@ -10,6 +13,8 @@ import JSZip from 'jszip';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
+
+const MAX_FILE_SIZE_MB = 500; // Vercel memory constraint
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -32,16 +37,15 @@ interface ParsedConversation {
 }
 
 export async function POST(request: Request) {
+  const adminSupabase = getSupabaseAdmin();
+  let userId: string | null = null;
+  
   try {
     // Auth check - support both normal auth and internal server-to-server calls
-    let userId: string;
-    
     const internalUserId = request.headers.get('X-Internal-User-Id');
     if (internalUserId) {
-      // Internal call from queue-processing
       userId = internalUserId;
     } else {
-      // Normal authenticated request
       const supabase = await createClient();
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
@@ -60,7 +64,13 @@ export async function POST(request: Request) {
 
     console.log(`[ProcessServer] Starting for user ${userId}, path: ${storagePath}`);
     
-    const adminSupabase = getSupabaseAdmin();
+    // Update status to processing
+    await adminSupabase.from('user_profiles').upsert({
+      user_id: userId,
+      import_status: 'processing',
+      import_error: null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
     
     // Download from storage
     const pathParts = storagePath.split('/');
@@ -75,30 +85,35 @@ export async function POST(request: Request) {
     
     if (downloadError || !fileData) {
       console.error('[ProcessServer] Download error:', downloadError);
-      return NextResponse.json({ error: 'Failed to download file' }, { status: 500 });
+      throw new Error('Failed to download file from storage');
     }
     
     const arrayBuffer = await fileData.arrayBuffer();
-    const sizeMB = (arrayBuffer.byteLength / 1024 / 1024).toFixed(1);
-    console.log(`[ProcessServer] Downloaded ${sizeMB}MB`);
+    const sizeMB = arrayBuffer.byteLength / 1024 / 1024;
+    console.log(`[ProcessServer] Downloaded ${sizeMB.toFixed(1)}MB`);
+    
+    // Check file size limit
+    if (sizeMB > MAX_FILE_SIZE_MB) {
+      // Clean up storage
+      adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {});
+      throw new Error(`File too large (${sizeMB.toFixed(0)}MB). Maximum is ${MAX_FILE_SIZE_MB}MB. Please export fewer conversations or contact support.`);
+    }
     
     let rawConversations: any[];
     
     // Check if it's JSON directly or a ZIP
     if (filePath.endsWith('.json')) {
-      // Direct JSON file (extracted on client)
       console.log('[ProcessServer] Parsing JSON directly...');
       const text = new TextDecoder().decode(arrayBuffer);
       rawConversations = JSON.parse(text);
     } else {
-      // ZIP file - extract conversations.json
       console.log('[ProcessServer] Extracting from ZIP...');
       const zip = await JSZip.loadAsync(arrayBuffer);
       const conversationsFile = zip.file('conversations.json');
       
       if (!conversationsFile) {
-        adminSupabase.storage.from(bucket).remove([filePath]);
-        return NextResponse.json({ error: 'conversations.json not found in ZIP' }, { status: 400 });
+        adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {});
+        throw new Error('conversations.json not found in ZIP. Make sure you exported from ChatGPT correctly.');
       }
       
       const conversationsJson = await conversationsFile.async('string');
@@ -115,7 +130,7 @@ export async function POST(request: Request) {
       const messages: ConversationMessage[] = [];
       
       if (conv.mapping) {
-        // ChatGPT format
+        // ChatGPT format - traverse the mapping properly
         const nodes = Object.values(conv.mapping) as any[];
         for (const node of nodes) {
           if (node?.message?.content?.parts?.[0]) {
@@ -137,6 +152,10 @@ export async function POST(request: Request) {
     }).filter((c: ParsedConversation) => c.messages.length > 0);
     
     console.log(`[ProcessServer] Extracted ${conversations.length} conversations with messages`);
+    
+    if (conversations.length === 0) {
+      throw new Error('No valid conversations found in export. The file may be empty or in an unsupported format.');
+    }
     
     // Calculate stats
     const totalMessages = conversations.reduce((sum, c) => sum + c.messages.length, 0);
@@ -166,6 +185,9 @@ export async function POST(request: Request) {
       }));
       
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for RLM
+        
         const rlmResponse = await fetch(`${rlmUrl}/create-soulprint`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -174,16 +196,25 @@ export async function POST(request: Request) {
             conversations: rlmConversations,
             stats,
           }),
+          signal: controller.signal,
         });
+        
+        clearTimeout(timeoutId);
         
         if (rlmResponse.ok) {
           const rlmData = await rlmResponse.json();
           soulprint = rlmData.soulprint;
           archetype = rlmData.archetype || 'Unique Individual';
           console.log(`[ProcessServer] RLM soulprint created: ${archetype}`);
+        } else {
+          console.warn(`[ProcessServer] RLM returned ${rlmResponse.status}`);
         }
-      } catch (rlmError) {
-        console.warn('[ProcessServer] RLM failed:', rlmError);
+      } catch (rlmError: any) {
+        if (rlmError.name === 'AbortError') {
+          console.warn('[ProcessServer] RLM timed out');
+        } else {
+          console.warn('[ProcessServer] RLM failed:', rlmError.message);
+        }
       }
     }
     
@@ -191,9 +222,10 @@ export async function POST(request: Request) {
     if (!soulprint) {
       soulprint = {
         archetype: 'The Explorer',
-        soulprint_text: `You've had ${totalMessages} messages across ${conversations.length} conversations. Your SoulPrint will evolve as you continue chatting.`,
+        soulprint_text: `You've had ${totalMessages.toLocaleString()} messages across ${conversations.length.toLocaleString()} conversations. Your SoulPrint will evolve as you continue chatting.`,
         stats,
       };
+      archetype = 'The Explorer';
     }
     
     // Save soulprint to user profile
@@ -203,21 +235,22 @@ export async function POST(request: Request) {
       soulprint_text: soulprint.soulprint_text || '',
       archetype,
       import_status: 'quick_ready',
+      import_error: null,
       total_conversations: conversations.length,
       total_messages: totalMessages,
       soulprint_generated_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' });
     
-    // Create and SAVE chunks directly to DB (since BackgroundSync won't run for server-side flow)
-    const chunks = conversations.slice(0, 500).map(c => ({
+    // Create chunks (limit to 500 for now, can expand later)
+    const chunks = conversations.slice(0, 500).map((c, idx) => ({
       user_id: userId,
       conversation_id: c.id,
       title: c.title,
       content: c.messages.slice(0, 15).map(m => `${m.role}: ${m.content}`).join('\n').slice(0, 3000),
       message_count: c.messages.length,
       created_at: c.createdAt,
-      is_recent: conversations.indexOf(c) < 100,
+      is_recent: idx < 100,
     }));
     
     console.log(`[ProcessServer] Saving ${chunks.length} chunks to DB...`);
@@ -232,7 +265,7 @@ export async function POST(request: Request) {
         .insert(batch);
       
       if (insertError) {
-        console.error(`[ProcessServer] Chunk insert error (batch ${i}):`, insertError);
+        console.error(`[ProcessServer] Chunk insert error (batch ${i}):`, insertError.message);
       } else {
         insertedCount += batch.length;
       }
@@ -240,13 +273,16 @@ export async function POST(request: Request) {
     
     console.log(`[ProcessServer] Inserted ${insertedCount}/${chunks.length} chunks`);
     
-    // Update profile with chunk count and mark ready for embedding
+    // Update profile to ready status
     await adminSupabase.from('user_profiles').update({
+      import_status: 'complete',
       total_chunks: insertedCount,
       embedding_status: 'pending',
+      updated_at: new Date().toISOString(),
     }).eq('user_id', userId);
     
-    // Trigger background embedding (fire and forget)
+    // Start background embedding - but don't await it
+    // This will run in a separate request
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.soulprintengine.ai';
     fetch(`${baseUrl}/api/import/embed-background`, {
       method: 'POST',
@@ -254,9 +290,9 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
         'X-Internal-User-Id': userId,
       },
-    }).catch(err => console.error('[ProcessServer] Embed trigger error:', err));
+    }).catch(err => console.error('[ProcessServer] Embed trigger error:', err.message));
     
-    console.log(`[ProcessServer] Complete! ${insertedCount} chunks saved`);
+    console.log(`[ProcessServer] Complete! ${insertedCount} chunks saved for user ${userId}`);
     
     return NextResponse.json({
       success: true,
@@ -271,9 +307,18 @@ export async function POST(request: Request) {
     });
     
   } catch (error) {
-    console.error('[ProcessServer] Error:', error);
-    return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Processing failed' 
-    }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Processing failed';
+    console.error('[ProcessServer] Error:', errorMessage);
+    
+    // Update status to failed with error message
+    if (userId) {
+      await adminSupabase.from('user_profiles').update({
+        import_status: 'failed',
+        import_error: errorMessage,
+        updated_at: new Date().toISOString(),
+      }).eq('user_id', userId).catch(e => console.error('[ProcessServer] Failed to update status:', e));
+    }
+    
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

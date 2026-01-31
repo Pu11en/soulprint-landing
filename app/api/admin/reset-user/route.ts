@@ -51,14 +51,14 @@ export async function DELETE(request: Request) {
       .eq('user_id', userId);
     results.raw_conversations = rawError ? rawError.message : `${rawCount ?? 0} deleted`;
     
-    // 4. Delete user profile
+    // 5. Delete user profile
     const { error: profileError, count: profileCount } = await adminSupabase
       .from('user_profiles')
       .delete({ count: 'exact' })
       .eq('user_id', userId);
-    results.user_profiles = profileError ? profileError.message : `${profileCount} deleted`;
+    results.user_profiles = profileError ? profileError.message : `${profileCount ?? 0} deleted`;
     
-    // 4. Delete storage files
+    // 6. Delete storage files
     const { data: files } = await adminSupabase.storage
       .from('imports')
       .list(userId);
