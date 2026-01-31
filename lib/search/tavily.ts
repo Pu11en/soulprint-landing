@@ -3,9 +3,16 @@
  * Provides real-time web search capabilities for the chat AI
  */
 
-import { tavily } from '@tavily/core';
+import { tavily, TavilyClient } from '@tavily/core';
 
-const client = tavily({ apiKey: process.env.TAVILY_API_KEY! });
+// Lazy initialization to avoid build-time errors
+let _client: TavilyClient | null = null;
+function getClient(): TavilyClient {
+  if (!_client) {
+    _client = tavily({ apiKey: process.env.TAVILY_API_KEY! });
+  }
+  return _client;
+}
 
 export interface SearchResult {
   title: string;
@@ -34,7 +41,7 @@ export async function searchWeb(
   const { maxResults = 5, searchDepth = 'basic', includeAnswer = true } = options;
 
   try {
-    const response = await client.search(query, {
+    const response = await getClient().search(query, {
       maxResults,
       searchDepth,
       includeAnswer,

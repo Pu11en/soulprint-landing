@@ -4,12 +4,19 @@
  * Stores embeddings directly in the conversation_chunks table
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
 
 // Configuration
 const BATCH_SIZE = 50;       // Chunks to embed per batch (OpenAI limit is 2048)
@@ -73,7 +80,7 @@ async function processBatch(chunks: ConversationChunk[]): Promise<{ success: num
 
     // Update each chunk with its embedding
     for (let i = 0; i < chunks.length; i++) {
-      const { error } = await supabase
+      const { error } = await getSupabase()
         .from('conversation_chunks')
         .update({ embedding: embeddings[i] })
         .eq('id', chunks[i].id);
@@ -98,7 +105,7 @@ async function processBatch(chunks: ConversationChunk[]): Promise<{ success: num
  */
 async function processUserChunks(userId: string, limit: number): Promise<{ processed: number; failed: number; total: number }> {
   // Get chunks without embeddings
-  const { data: chunks, error: fetchError } = await supabase
+  const { data: chunks, error: fetchError } = await getSupabase()
     .from('conversation_chunks')
     .select('id, user_id, content')
     .eq('user_id', userId)
@@ -114,7 +121,7 @@ async function processUserChunks(userId: string, limit: number): Promise<{ proce
     // All done! Update user status
     // NOTE: soulprint_locked=true means "initial import complete", NOT "no more updates"
     // The soulprint will continue to learn and evolve from conversations
-    await supabase
+    await getSupabase()
       .from('user_profiles')
       .update({ 
         embedding_status: 'complete',
@@ -154,12 +161,12 @@ async function processUserChunks(userId: string, limit: number): Promise<{ proce
   }
 
   // Update progress
-  const { count: totalCount } = await supabase
+  const { count: totalCount } = await getSupabase()
     .from('conversation_chunks')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId);
 
-  const { count: embeddedCount } = await supabase
+  const { count: embeddedCount } = await getSupabase()
     .from('conversation_chunks')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
@@ -172,7 +179,7 @@ async function processUserChunks(userId: string, limit: number): Promise<{ proce
 
   // NOTE: soulprint_locked=true means "initial import complete", NOT "no more updates"
   // The soulprint will continue to learn and evolve from conversations
-  await supabase
+  await getSupabase()
     .from('user_profiles')
     .update({
       embedding_status: isComplete ? 'complete' : 'processing',
@@ -214,7 +221,7 @@ export async function POST(request: NextRequest) {
 
     // Process all users with pending embeddings
     // Skip 'importing' status - that means save-soulprint is still writing chunks
-    const { data: pendingUsers } = await supabase
+    const { data: pendingUsers } = await getSupabase()
       .from('user_profiles')
       .select('user_id')
       .or('embedding_status.eq.pending,embedding_status.eq.processing')

@@ -5,24 +5,37 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from '@aws-sdk/client-bedrock-runtime';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
 
-const bedrockClient = new BedrockRuntimeClient({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
+let _bedrockClient: BedrockRuntimeClient | null = null;
+function getBedrockClient(): BedrockRuntimeClient {
+  if (!_bedrockClient) {
+    _bedrockClient = new BedrockRuntimeClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+  }
+  return _bedrockClient;
+}
 
 interface LearnedFact {
   id: string;
@@ -87,7 +100,7 @@ Return ONLY the updated soulprint text, no explanations.`;
     }),
   });
 
-  const response = await bedrockClient.send(command);
+  const response = await getBedrockClient().send(command);
   const responseBody = JSON.parse(new TextDecoder().decode(response.body));
   return responseBody.content[0]?.text || existingSoulprint;
 }
@@ -97,7 +110,7 @@ Return ONLY the updated soulprint text, no explanations.`;
  */
 async function synthesizeUserSoulprint(userId: string): Promise<{ updated: boolean; factsProcessed: number }> {
   // Get user's current soulprint
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await getSupabase()
     .from('user_profiles')
     .select('soulprint_text, soulprint_updated_at')
     .eq('user_id', userId)
@@ -111,7 +124,7 @@ async function synthesizeUserSoulprint(userId: string): Promise<{ updated: boole
   // Get learned facts since last synthesis (or all if never synthesized)
   const sinceDate = profile.soulprint_updated_at || '2020-01-01';
   
-  const { data: newFacts, error: factsError } = await supabase
+  const { data: newFacts, error: factsError } = await getSupabase()
     .from('learned_facts')
     .select('id, fact, category, confidence, created_at')
     .eq('user_id', userId)
@@ -136,7 +149,7 @@ async function synthesizeUserSoulprint(userId: string): Promise<{ updated: boole
   const updatedSoulprint = await synthesizeFacts(profile.soulprint_text, newFacts);
 
   // Update the profile
-  const { error: updateError } = await supabase
+  const { error: updateError } = await getSupabase()
     .from('user_profiles')
     .update({
       soulprint_text: updatedSoulprint,
@@ -167,7 +180,7 @@ export async function POST(request: NextRequest) {
 
     // Process all users with new facts (called by cron)
     // Find users with learned_facts newer than their soulprint_updated_at
-    const { data: usersWithNewFacts } = await supabase
+    const { data: usersWithNewFacts } = await getSupabase()
       .from('learned_facts')
       .select('user_id')
       .eq('status', 'active')

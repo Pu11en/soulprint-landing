@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { searchMemory } from '@/lib/memory/query';
+import { searchMemoryLayered as searchMemory } from '@/lib/memory/query';
 import { extractFacts } from '@/lib/memory/facts';
 
 export async function POST(request: NextRequest) {

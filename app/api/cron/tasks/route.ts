@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail, formatTaskEmail } from '@/lib/email';
 import { searchWeb, SearchResult } from '@/lib/search/tavily';
 
 // This runs via Vercel Cron - check every 15 minutes
 // vercel.json: { "crons": [{ "path": "/api/cron/tasks", "schedule": "*/15 * * * *" }] }
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialization to avoid build-time errors
+let _supabaseAdmin: SupabaseClient | null = null;
+function getSupabaseAdmin(): SupabaseClient {
+  if (!_supabaseAdmin) {
+    _supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabaseAdmin;
+}
 
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 
@@ -256,7 +263,7 @@ export async function GET(req: NextRequest) {
   
   try {
     // Find tasks due to run
-    const { data: dueTasks, error: fetchError } = await supabaseAdmin
+    const { data: dueTasks, error: fetchError } = await getSupabaseAdmin()
       .from('recurring_tasks')
       .select('*, user:user_id(email)')
       .eq('is_active', true)
@@ -272,7 +279,7 @@ export async function GET(req: NextRequest) {
     for (const task of dueTasks) {
       try {
         // Get user's AI name
-        const { data: profile } = await supabaseAdmin
+        const { data: profile } = await getSupabaseAdmin()
           .from('user_profiles')
           .select('ai_name')
           .eq('id', task.user_id)
@@ -287,7 +294,7 @@ export async function GET(req: NextRequest) {
         }
         
         // Create task run record
-        const { data: taskRun } = await supabaseAdmin
+        const { data: taskRun } = await getSupabaseAdmin()
           .from('task_runs')
           .insert({
             task_id: task.id,
@@ -327,7 +334,7 @@ export async function GET(req: NextRequest) {
         });
         
         // Update task run
-        await supabaseAdmin
+        await getSupabaseAdmin()
           .from('task_runs')
           .update({
             completed_at: new Date().toISOString(),
@@ -343,7 +350,7 @@ export async function GET(req: NextRequest) {
         nextRun.setDate(nextRun.getDate() + 1);
         
         // Update task
-        await supabaseAdmin
+        await getSupabaseAdmin()
           .from('recurring_tasks')
           .update({
             last_run_at: now.toISOString(),
