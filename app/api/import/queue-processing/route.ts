@@ -33,11 +33,13 @@ export async function POST(request: Request) {
     }
     userId = user.id;
 
-    const { storagePath, filename, fileSize } = await request.json();
+    const { storagePath, filename, fileSize, isExtracted } = await request.json();
     
     if (!storagePath) {
       return NextResponse.json({ error: 'storagePath required' }, { status: 400 });
     }
+    
+    console.log(`[QueueProcessing] isExtracted: ${isExtracted}, filename: ${filename}`);
 
     // Update user profile to show processing started
     await adminSupabase.from('user_profiles').upsert({
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
           'X-Internal-User-Id': user.id,
         },
-        body: JSON.stringify({ storagePath, userId: user.id, filename }),
+        body: JSON.stringify({ storagePath, userId: user.id, filename, isExtracted }),
         signal: controller.signal,
       });
       

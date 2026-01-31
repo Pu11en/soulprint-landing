@@ -10,6 +10,14 @@ import { BackgroundBeams } from '@/components/ui/background-beams';
 import { RingProgress } from '@/components/ui/ring-progress';
 import { generateClientSoulprint, type ClientSoulprint } from '@/lib/import/client-soulprint';
 import { createClient } from '@/lib/supabase/client';
+import JSZip from 'jszip';
+
+// Detect mobile devices (conservative - if unsure, treat as mobile)
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return true;
+  const ua = navigator.userAgent.toLowerCase();
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
+}
 
 type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
 type Step = 'export' | 'upload' | 'processing' | 'done';
@@ -158,6 +166,7 @@ export default function ImportPage() {
     setProgress(0);
 
     const FILE_SIZE_THRESHOLD = 0; // ALL imports go server-side for consistency
+    const isMobile = isMobileDevice();
     
     try {
       let result: ClientSoulprint;
@@ -166,17 +175,53 @@ export default function ImportPage() {
 
       // For large files (>100MB), use server-side processing
       if (file.size > FILE_SIZE_THRESHOLD) {
-        // Upload raw ZIP directly - server will extract conversations.json
-        // This avoids mobile browser crashes from JSZip.loadAsync loading entire file into memory
+        let uploadBlob: Blob;
+        let uploadFilename: string;
+        
+        // DESKTOP: Extract conversations.json from ZIP client-side (much smaller upload!)
+        // MOBILE: Upload full ZIP (JSZip crashes mobile browsers on large files)
+        if (!isMobile) {
+          setProgressStage('Extracting conversations...');
+          setProgress(5);
+          
+          try {
+            console.log('[Import] Desktop: extracting conversations.json from ZIP...');
+            const zip = await JSZip.loadAsync(file);
+            const conversationsFile = zip.file('conversations.json');
+            
+            if (!conversationsFile) {
+              throw new Error('No conversations.json found in ZIP. Make sure you uploaded the correct ChatGPT export.');
+            }
+            
+            const jsonContent = await conversationsFile.async('blob');
+            uploadBlob = jsonContent;
+            uploadFilename = 'conversations.json';
+            
+            const originalMB = (file.size / 1024 / 1024).toFixed(1);
+            const extractedMB = (jsonContent.size / 1024 / 1024).toFixed(1);
+            console.log(`[Import] Extracted conversations.json: ${extractedMB}MB (original ZIP: ${originalMB}MB)`);
+            setProgressStage(`Extracted ${extractedMB}MB (was ${originalMB}MB ZIP)`);
+          } catch (extractErr) {
+            console.error('[Import] Desktop extraction failed, falling back to ZIP upload:', extractErr);
+            // Fall back to ZIP upload if extraction fails
+            uploadBlob = file;
+            uploadFilename = file.name;
+          }
+        } else {
+          // Mobile: upload full ZIP
+          uploadBlob = file;
+          uploadFilename = file.name;
+        }
+        
         setProgressStage('Preparing upload...');
-        setProgress(5);
+        setProgress(8);
 
         // Get signed upload URL
         const urlRes = await fetch('/api/import/get-upload-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ filename: file.name }),
+          body: JSON.stringify({ filename: uploadFilename }),
         });
 
         const urlData = await urlRes.json().catch(() => ({ error: 'Failed to parse response' }));
@@ -195,7 +240,9 @@ export default function ImportPage() {
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('PUT', uploadUrl, true);
-          xhr.setRequestHeader('Content-Type', 'application/zip');
+          // Set content type based on what we're uploading
+          const contentType = uploadFilename.endsWith('.json') ? 'application/json' : 'application/zip';
+          xhr.setRequestHeader('Content-Type', contentType);
 
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
@@ -220,7 +267,7 @@ export default function ImportPage() {
           };
 
           xhr.timeout = 600000; // 10 min timeout for large files
-          xhr.send(file);
+          xhr.send(uploadBlob);
         });
         
         setProgressStage('Upload complete! Analyzing your conversations...');
@@ -258,8 +305,9 @@ export default function ImportPage() {
             credentials: 'include',
             body: JSON.stringify({ 
               storagePath,
-              filename: file.name,
-              fileSize: file.size,
+              filename: uploadFilename,
+              fileSize: uploadBlob.size,
+              isExtracted: uploadFilename.endsWith('.json'), // Tell server if we pre-extracted
             }),
           });
         } catch (e) {
