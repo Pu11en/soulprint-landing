@@ -218,7 +218,7 @@ const soulprintText = soulprintToContext(soulprint);
     │ Cohere Embed v3 via AWS Bedrock       │
     │ Model: cohere.embed-english-v3        │
     │ Input type: search_document           │
-    │ Output: 1024-dim float vectors        │
+    │ Output: 1536-dim float vectors        │
     └───────────────────────────────────────┘
         │
         ▼

@@ -237,7 +237,7 @@ const modelId = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
 
 // Cohere Embed v3 for embeddings
 const embedModelId = 'cohere.embed-english-v3';
-// Returns 1024-dimensional vectors
+// Returns 1536-dimensional vectors
 // input_type: 'search_document' for chunks, 'search_query' for queries
 ```
 
@@ -245,7 +245,7 @@ const embedModelId = 'cohere.embed-english-v3';
 
 ```sql
 -- Vector column
-embedding vector(1024)
+embedding vector(1536)
 
 -- IVFFlat index for similarity search
 CREATE INDEX idx_chunks_embedding 
@@ -255,7 +255,7 @@ WITH (lists = 100);
 
 -- Similarity search RPC
 CREATE FUNCTION match_conversation_chunks_layered(
-  query_embedding vector(1024),
+  query_embedding vector(1536),
   match_user_id uuid,
   match_layer int,
   match_count int DEFAULT 5,
