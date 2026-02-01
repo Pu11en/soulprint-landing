@@ -246,10 +246,10 @@ async function processUserChunks(userId: string, limit: number): Promise<{ proce
 
 export async function POST(request: NextRequest) {
   try {
-    // Check for OpenAI API key
-    if (!process.env.OPENAI_API_KEY) {
+    // Check for AWS Bedrock credentials
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
       return NextResponse.json(
-        { error: 'OPENAI_API_KEY not configured' },
+        { error: 'AWS credentials not configured for Bedrock Titan embeddings' },
         { status: 500 }
       );
     }

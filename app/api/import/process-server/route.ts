@@ -225,102 +225,38 @@ export async function POST(request: Request) {
       raw_export_path: rawExportPath, // Store path to compressed original JSON
     }, { onConflict: 'user_id' });
     
-    // Create multi-tier chunks for different precision levels
-    // Tier 1: 200 chars (micro - precise facts, names, dates)
-    // Tier 2: 2000 chars (medium - conversation context)
-    // Tier 3: 5000 chars (macro - themes, relationships)
-    const allChunks: any[] = [];
-
-    conversations.slice(0, 500).forEach((c, idx) => {
-      const fullContent = c.messages.slice(0, 20).map(m => `${m.role}: ${m.content}`).join('\n');
-      const isRecent = idx < 100;
-
-      // Tier 1: Micro chunks (200 chars) - for precise fact retrieval
-      const microChunkSize = 200;
-      for (let i = 0; i < fullContent.length && i < 2000; i += microChunkSize) {
-        const chunk = fullContent.slice(i, i + microChunkSize);
-        if (chunk.trim().length > 50) { // Only keep meaningful chunks
-          allChunks.push({
-            user_id: userId,
-            conversation_id: c.id,
-            title: c.title,
-            content: chunk,
-            chunk_tier: 'micro',
-            message_count: c.messages.length,
-            created_at: c.createdAt,
-            is_recent: isRecent,
-          });
-        }
-      }
-
-      // Tier 2: Medium chunks (2000 chars) - conversation context
-      const mediumContent = fullContent.slice(0, 2000);
-      if (mediumContent.length > 100) {
-        allChunks.push({
-          user_id: userId,
-          conversation_id: c.id,
-          title: c.title,
-          content: mediumContent,
-          chunk_tier: 'medium',
-          message_count: c.messages.length,
-          created_at: c.createdAt,
-          is_recent: isRecent,
-        });
-      }
-
-      // Tier 3: Macro chunks (5000 chars) - themes and relationships
-      const macroContent = fullContent.slice(0, 5000);
-      if (macroContent.length > 500) {
-        allChunks.push({
-          user_id: userId,
-          conversation_id: c.id,
-          title: c.title,
-          content: macroContent,
-          chunk_tier: 'macro',
-          message_count: c.messages.length,
-          created_at: c.createdAt,
-          is_recent: isRecent,
-        });
-      }
-    });
-
-    // Limit total chunks to prevent DB bloat (prioritize macro + medium + recent micro)
-    const macroChunks = allChunks.filter(c => c.chunk_tier === 'macro');
-    const mediumChunks = allChunks.filter(c => c.chunk_tier === 'medium');
-    const microChunks = allChunks.filter(c => c.chunk_tier === 'micro' && c.is_recent).slice(0, 500);
-
-    const chunks = [...macroChunks, ...mediumChunks, ...microChunks];
-
-    console.log(`[ProcessServer] Created ${chunks.length} multi-tier chunks (macro: ${macroChunks.length}, medium: ${mediumChunks.length}, micro: ${microChunks.length})...`);
-    
-    // Insert chunks in batches of 100
-    const CHUNK_BATCH = 100;
-    let insertedCount = 0;
-    for (let i = 0; i < chunks.length; i += CHUNK_BATCH) {
-      const batch = chunks.slice(i, i + CHUNK_BATCH);
-      const { error: insertError } = await adminSupabase
-        .from('conversation_chunks')
-        .insert(batch);
-      
-      if (insertError) {
-        console.error(`[ProcessServer] Chunk insert error (batch ${i}):`, insertError.message);
-      } else {
-        insertedCount += batch.length;
-      }
-    }
-    
-    console.log(`[ProcessServer] Inserted ${insertedCount}/${chunks.length} chunks`);
-    
-    // Update profile to ready status with pending embeddings
-    // The cron job at /api/embeddings/process will pick this up every 5 minutes
+    // Update profile status - RLM will do chunking + embedding + soulprint
     await adminSupabase.from('user_profiles').update({
-      import_status: 'complete',
-      total_chunks: insertedCount,
-      embedding_status: 'pending', // Cron will process this
+      import_status: 'processing',
+      embedding_status: 'pending',
+      total_conversations: conversations.length,
+      total_messages: totalMessages,
       updated_at: new Date().toISOString(),
     }).eq('user_id', userId);
-    
-    console.log(`[ProcessServer] Complete! ${insertedCount} chunks saved for user ${userId}. Embeddings will be processed by cron.`);
+
+    console.log(`[ProcessServer] Sending ${conversations.length} conversations to RLM for full processing...`);
+
+    // Call RLM to handle everything: chunking → embedding → soulprint (no timeout on Render)
+    const rlmUrl = process.env.RLM_API_URL || 'https://soulprint-rlm.onrender.com';
+    try {
+      const rlmResponse = await fetch(`${rlmUrl}/process-full`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          conversations: conversations.slice(0, 500), // Send parsed conversations
+        }),
+      });
+
+      if (!rlmResponse.ok) {
+        console.warn(`[ProcessServer] RLM returned ${rlmResponse.status}`);
+      } else {
+        console.log(`[ProcessServer] RLM full processing started for user ${userId}`);
+      }
+    } catch (e) {
+      console.error(`[ProcessServer] Failed to call RLM:`, e);
+      throw new Error('Failed to start background processing. Please try again.');
+    }
     
     return NextResponse.json({
       success: true,

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "mcp__sequential-thinking__sequentialthinking",
-      "Skill(gsd:new-project)"
+      "Skill(gsd:new-project)",
+      "Bash(type \"C:\\\\Users\\\\drewp\\\\Downloads\\\\logs_result \\(28\\).json\")"
     ]
   }
 }
