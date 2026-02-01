@@ -193,6 +193,7 @@ function ImportPageContent() {
       let result: ClientSoulprint;
       let conversationChunks: Array<{ id?: string; content: string; conversationId?: string; title: string; messageCount: number; createdAt?: string; isRecent?: boolean }>;
       let rawConversations: Array<{ id: string; title: string; messages: Array<{ role: string; content: string }>; createdAt: string }>;
+      let rawJson: string = '';
 
       // For large files (>100MB), use server-side processing
       if (file.size > FILE_SIZE_THRESHOLD) {
@@ -355,6 +356,7 @@ function ImportPageContent() {
         result = clientResult.soulprint;
         conversationChunks = clientResult.conversationChunks;
         rawConversations = clientResult.rawConversations;
+        rawJson = clientResult.rawConversationsJson;
       }
 
       setStatus('saving');
@@ -395,8 +397,26 @@ function ImportPageContent() {
         throw new Error(importResult.data?.error || importResult.error || 'Import failed');
       }
 
-      setProgress(95);
+      setProgress(90);
       setProgressStage(`Meet ${importResult.data?.aiName || 'your AI'}...`);
+
+      // Store original JSON (compressed) for future use
+      if (rawJson && rawJson.length > 0) {
+        setProgressStage('Backing up your data...');
+        try {
+          await fetch('/api/import/upload-raw', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            credentials: 'include',
+            body: rawJson,
+          });
+          console.log('[Import] Raw JSON backed up');
+        } catch (e) {
+          console.warn('[Import] Raw JSON backup failed:', e);
+        }
+      }
+
+      setProgress(95);
 
       // Store remaining chunks in IndexedDB for background sync (optional, non-blocking)
       if (conversationChunks.length > 500) {

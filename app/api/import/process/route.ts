@@ -16,13 +16,17 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+import { gzipSync } from 'zlib';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes max
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy-load OpenAI client to avoid build-time errors
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -53,6 +57,7 @@ interface ImportRequest {
     totalConversations: number;
     totalMessages: number;
   };
+  rawJson?: string; // Original conversations.json for storage
 }
 
 export async function POST(request: Request) {
@@ -160,13 +165,50 @@ export async function POST(request: Request) {
       console.log(`[Import] Saved ${chunks.length} chunks`);
     }
 
-    // 8. Success!
+    // 8. Store raw JSON (compressed) if provided
+    let rawExportPath: string | null = null;
+    if (body.rawJson) {
+      try {
+        console.log(`[Import] Compressing raw JSON (${body.rawJson.length} chars)...`);
+        const compressed = gzipSync(Buffer.from(body.rawJson, 'utf-8'));
+        const compressionRatio = ((1 - compressed.length / body.rawJson.length) * 100).toFixed(1);
+        console.log(`[Import] Compressed to ${compressed.length} bytes (${compressionRatio}% reduction)`);
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        rawExportPath = `${user.id}/conversations-${timestamp}.json.gz`;
+
+        const { error: uploadError } = await adminSupabase.storage
+          .from('user-exports')
+          .upload(rawExportPath, compressed, {
+            contentType: 'application/gzip',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.warn('[Import] Raw JSON upload failed:', uploadError);
+          rawExportPath = null;
+        } else {
+          console.log(`[Import] Raw JSON stored at: ${rawExportPath}`);
+          
+          // Update profile with storage path
+          await adminSupabase
+            .from('user_profiles')
+            .update({ raw_export_path: rawExportPath })
+            .eq('user_id', user.id);
+        }
+      } catch (storageError) {
+        console.warn('[Import] Raw JSON storage failed:', storageError);
+      }
+    }
+
+    // 9. Success!
     console.log('[Import] Complete!');
     return NextResponse.json({
       success: true,
       aiName,
       archetype: soulprintResult.archetype,
       chunksStored: chunks?.length || 0,
+      rawExportStored: !!rawExportPath,
     });
 
   } catch (error) {
@@ -192,7 +234,7 @@ async function generateSoulprint(
     .slice(0, 35000);
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       max_tokens: 1500,
       messages: [
@@ -240,7 +282,7 @@ Example archetypes: "The Systematic Builder", "The Creative Problem-Solver", "Th
 
 async function generateAIName(soulprintText: string): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       max_tokens: 50,
       messages: [

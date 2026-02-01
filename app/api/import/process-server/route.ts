@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
+import { gzipSync } from 'zlib';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
@@ -100,11 +101,13 @@ export async function POST(request: Request) {
     }
     
     let rawConversations: any[];
+    let rawJsonString: string = '';
     
     // Check if it's JSON directly or a ZIP
     if (filePath.endsWith('.json')) {
       console.log('[ProcessServer] Parsing JSON directly...');
       const text = new TextDecoder().decode(arrayBuffer);
+      rawJsonString = text;
       rawConversations = JSON.parse(text);
     } else {
       console.log('[ProcessServer] Extracting from ZIP...');
@@ -116,13 +119,43 @@ export async function POST(request: Request) {
         throw new Error('conversations.json not found in ZIP. Make sure you exported from ChatGPT correctly.');
       }
       
-      const conversationsJson = await conversationsFile.async('string');
-      rawConversations = JSON.parse(conversationsJson);
+      rawJsonString = await conversationsFile.async('string');
+      rawConversations = JSON.parse(rawJsonString);
     }
     
     console.log(`[ProcessServer] Parsed ${rawConversations.length} conversations`);
     
-    // Clean up storage (don't need the ZIP anymore)
+    // Store raw JSON (compressed) to user-exports before deleting from imports
+    let rawExportPath: string | null = null;
+    if (rawJsonString && userId) {
+      try {
+        console.log(`[ProcessServer] Compressing raw JSON (${rawJsonString.length} chars)...`);
+        const compressed = gzipSync(Buffer.from(rawJsonString, 'utf-8'));
+        const compressionRatio = ((1 - compressed.length / rawJsonString.length) * 100).toFixed(1);
+        console.log(`[ProcessServer] Compressed to ${compressed.length} bytes (${compressionRatio}% reduction)`);
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        rawExportPath = `${userId}/conversations-${timestamp}.json.gz`;
+
+        const { error: uploadError } = await adminSupabase.storage
+          .from('user-exports')
+          .upload(rawExportPath, compressed, {
+            contentType: 'application/gzip',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.warn('[ProcessServer] Raw export storage failed:', uploadError);
+          rawExportPath = null;
+        } else {
+          console.log(`[ProcessServer] Raw JSON stored at: ${rawExportPath}`);
+        }
+      } catch (e) {
+        console.warn('[ProcessServer] Raw export compression failed:', e);
+      }
+    }
+    
+    // Clean up original upload from imports bucket
     adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {});
     
     // Parse conversations into our format
@@ -189,6 +222,7 @@ export async function POST(request: Request) {
       total_messages: totalMessages,
       soulprint_generated_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      raw_export_path: rawExportPath, // Store path to compressed original JSON
     }, { onConflict: 'user_id' });
     
     // Create chunks (limit to 500 for now, can expand later)

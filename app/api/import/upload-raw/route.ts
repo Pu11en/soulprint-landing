@@ -1,14 +1,18 @@
 /**
  * Upload raw conversations.json to Supabase Storage
- * Stores the original export for future re-processing
+ * Handles large files by streaming and compressing
  */
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { gzipSync } from 'zlib';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 120; // 2 minutes for large uploads
+
+// Increase body size limit
+export const fetchCache = 'force-no-store';
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -27,40 +31,51 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const adminSupabase = getSupabaseAdmin();
+    // Get raw text from request
+    const rawJson = await request.text();
     
-    // Get the raw JSON from request body
-    const body = await request.json();
-    const { conversationsJson } = body;
-
-    if (!conversationsJson) {
-      return NextResponse.json({ error: 'conversationsJson required' }, { status: 400 });
+    if (!rawJson || rawJson.length < 10) {
+      return NextResponse.json({ error: 'No data provided' }, { status: 400 });
     }
 
-    // Generate storage path with timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const storagePath = `${user.id}/conversations-${timestamp}.json`;
+    console.log(`[UploadRaw] Received ${rawJson.length} chars from user ${user.id}`);
 
-    console.log(`[UploadRaw] Uploading to user-exports/${storagePath} (${conversationsJson.length} chars)`);
+    // Compress with gzip
+    const compressed = gzipSync(Buffer.from(rawJson, 'utf-8'));
+    const compressionRatio = ((1 - compressed.length / rawJson.length) * 100).toFixed(1);
+    console.log(`[UploadRaw] Compressed: ${rawJson.length} → ${compressed.length} bytes (${compressionRatio}% reduction)`);
+
+    // Generate storage path
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const storagePath = `${user.id}/conversations-${timestamp}.json.gz`;
 
     // Upload to Supabase Storage
+    const adminSupabase = getSupabaseAdmin();
     const { error: uploadError } = await adminSupabase.storage
       .from('user-exports')
-      .upload(storagePath, conversationsJson, {
-        contentType: 'application/json',
-        upsert: false, // Don't overwrite existing files
+      .upload(storagePath, compressed, {
+        contentType: 'application/gzip',
+        upsert: false,
       });
 
     if (uploadError) {
-      console.error('[UploadRaw] Upload error:', uploadError);
+      console.error('[UploadRaw] Upload failed:', uploadError);
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
-    console.log(`[UploadRaw] Success! Path: ${storagePath}`);
+    // Update user profile with path
+    await adminSupabase
+      .from('user_profiles')
+      .update({ raw_export_path: storagePath })
+      .eq('user_id', user.id);
+
+    console.log(`[UploadRaw] Success! Stored at: ${storagePath}`);
 
     return NextResponse.json({ 
       success: true,
       storagePath,
+      originalSize: rawJson.length,
+      compressedSize: compressed.length,
     });
 
   } catch (error) {
