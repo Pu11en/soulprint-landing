@@ -225,18 +225,73 @@ export async function POST(request: Request) {
       raw_export_path: rawExportPath, // Store path to compressed original JSON
     }, { onConflict: 'user_id' });
     
-    // Create chunks (limit to 500 for now, can expand later)
-    const chunks = conversations.slice(0, 500).map((c, idx) => ({
-      user_id: userId,
-      conversation_id: c.id,
-      title: c.title,
-      content: c.messages.slice(0, 15).map(m => `${m.role}: ${m.content}`).join('\n').slice(0, 3000),
-      message_count: c.messages.length,
-      created_at: c.createdAt,
-      is_recent: idx < 100,
-    }));
-    
-    console.log(`[ProcessServer] Saving ${chunks.length} chunks to DB...`);
+    // Create multi-tier chunks for different precision levels
+    // Tier 1: 200 chars (micro - precise facts, names, dates)
+    // Tier 2: 2000 chars (medium - conversation context)
+    // Tier 3: 5000 chars (macro - themes, relationships)
+    const allChunks: any[] = [];
+
+    conversations.slice(0, 500).forEach((c, idx) => {
+      const fullContent = c.messages.slice(0, 20).map(m => `${m.role}: ${m.content}`).join('\n');
+      const isRecent = idx < 100;
+
+      // Tier 1: Micro chunks (200 chars) - for precise fact retrieval
+      const microChunkSize = 200;
+      for (let i = 0; i < fullContent.length && i < 2000; i += microChunkSize) {
+        const chunk = fullContent.slice(i, i + microChunkSize);
+        if (chunk.trim().length > 50) { // Only keep meaningful chunks
+          allChunks.push({
+            user_id: userId,
+            conversation_id: c.id,
+            title: c.title,
+            content: chunk,
+            chunk_tier: 'micro',
+            message_count: c.messages.length,
+            created_at: c.createdAt,
+            is_recent: isRecent,
+          });
+        }
+      }
+
+      // Tier 2: Medium chunks (2000 chars) - conversation context
+      const mediumContent = fullContent.slice(0, 2000);
+      if (mediumContent.length > 100) {
+        allChunks.push({
+          user_id: userId,
+          conversation_id: c.id,
+          title: c.title,
+          content: mediumContent,
+          chunk_tier: 'medium',
+          message_count: c.messages.length,
+          created_at: c.createdAt,
+          is_recent: isRecent,
+        });
+      }
+
+      // Tier 3: Macro chunks (5000 chars) - themes and relationships
+      const macroContent = fullContent.slice(0, 5000);
+      if (macroContent.length > 500) {
+        allChunks.push({
+          user_id: userId,
+          conversation_id: c.id,
+          title: c.title,
+          content: macroContent,
+          chunk_tier: 'macro',
+          message_count: c.messages.length,
+          created_at: c.createdAt,
+          is_recent: isRecent,
+        });
+      }
+    });
+
+    // Limit total chunks to prevent DB bloat (prioritize macro + medium + recent micro)
+    const macroChunks = allChunks.filter(c => c.chunk_tier === 'macro');
+    const mediumChunks = allChunks.filter(c => c.chunk_tier === 'medium');
+    const microChunks = allChunks.filter(c => c.chunk_tier === 'micro' && c.is_recent).slice(0, 500);
+
+    const chunks = [...macroChunks, ...mediumChunks, ...microChunks];
+
+    console.log(`[ProcessServer] Created ${chunks.length} multi-tier chunks (macro: ${macroChunks.length}, medium: ${mediumChunks.length}, micro: ${microChunks.length})...`);
     
     // Insert chunks in batches of 100
     const CHUNK_BATCH = 100;
