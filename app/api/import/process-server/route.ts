@@ -260,12 +260,13 @@ export async function POST(request: Request) {
     
     return NextResponse.json({
       success: true,
+      status: 'processing',
+      message: 'Processing started on RLM. Chunking, embedding, and soulprint generation in progress.',
       soulprint: {
         ...soulprint,
         stats,
       },
       archetype,
-      chunksInserted: insertedCount,
       totalConversations: conversations.length,
       totalMessages,
     });
