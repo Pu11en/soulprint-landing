@@ -122,13 +122,29 @@ export async function POST(request: NextRequest) {
     // Use core_essence as soulprint_text for display, fallback to archetype
     const soulprintText = soulprint.core_essence || archetype;
 
-    // Save to user profile
+    // Extract SoulPrint files from RLM response
+    const soulMd = rlmData.soul_md || null;
+    const identityMd = rlmData.identity_md || null;
+    const agentsMd = rlmData.agents_md || null;
+    const userMd = rlmData.user_md || null;
+    const memoryLog = rlmData.memory_log || null;
+
+    console.log(`[GenerateSoulprint] Got SoulPrint files: soul_md=${!!soulMd}, identity_md=${!!identityMd}, agents_md=${!!agentsMd}, user_md=${!!userMd}`);
+
+    // Save to user profile with full SoulPrint files
     const { error: updateError } = await adminSupabase
       .from('user_profiles')
       .update({
         soulprint: soulprint,
         soulprint_text: soulprintText,
         archetype: archetype,
+        // Full SoulPrint spec files
+        soul_md: soulMd,
+        identity_md: identityMd,
+        agents_md: agentsMd,
+        user_md: userMd,
+        memory_log: memoryLog,
+        memory_log_date: new Date().toISOString().split('T')[0],
         soulprint_generated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -142,12 +158,16 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log(`[GenerateSoulprint] Saved soulprint for user ${userId}: ${archetype}`);
+    console.log(`[GenerateSoulprint] Saved full SoulPrint for user ${userId}: ${archetype}`);
 
     return NextResponse.json({
       success: true,
       archetype,
       soulprint_preview: soulprintText.slice(0, 200) + '...',
+      has_soul_md: !!soulMd,
+      has_identity_md: !!identityMd,
+      has_agents_md: !!agentsMd,
+      has_user_md: !!userMd,
     });
 
   } catch (error: any) {
