@@ -4,285 +4,255 @@
 
 ## Test Framework
 
-**Runner:**
-- Not detected - no test framework configured in `package.json`
-- No jest.config.js, vitest.config.ts, or similar found in codebase
-- No test dependencies listed (no `@testing-library/react`, `jest`, `vitest`, etc.)
+**Status:** Not detected
 
-**Assertion Library:**
-- Not applicable - no test framework installed
+**Current State:**
+- No test framework is configured (Jest, Vitest, or others)
+- No test files exist in source tree (`app/`, `lib/`, `components/`)
+- `package.json` contains no testing dependencies
+- No test configuration files found (`jest.config.js`, `vitest.config.ts`, etc.)
+- Test output files present (`test-output.txt`, `test-output-final.txt`) but represent manual/exploratory testing, not automated suites
 
-**Run Commands:**
-```bash
-npm run lint              # Lint code (ESLint)
-npm run build             # Build project (Next.js)
-npm run dev               # Development mode
-```
+**Development Testing:**
+- Manual testing through `npm run dev` (Next.js dev server)
+- Browser/UI testing during development
+- No automated test runners currently in place
 
-**Current Status:** Production code tested manually. No automated test suite present.
+## Why Testing is Currently Missing
 
-## Test File Organization
+The codebase shows signs of rapid iteration and feature development:
+- Recent commits focused on feature additions (mobile chat redesign, app simplification)
+- Complex async operations (LLM analysis, embeddings, Supabase queries) currently tested manually
+- No infrastructure for automated testing set up
+- Focus has been on feature delivery rather than test infrastructure
 
-**Location:**
-- No test files found in project source tree (`app/`, `components/`, `lib/`)
-- Only node_modules contains test files (from dependencies like `zod`, `jimp`)
-
-**Naming:**
-- Not applicable - no custom tests
-
-**Structure:**
-- Not applicable - no test framework in use
-
-## Testing Gaps & Recommendations
-
-**Critical Areas Without Tests:**
-
-### Server Actions (app/actions/auth.ts)
-- Sign-up flow: form validation, error handling, referral code processing
-- Sign-in flow: credential validation, session creation
-- Sign-out flow: cookie cleanup, session termination
-- Google OAuth: callback handling, token refresh
-
-**Recommendation:** Add integration tests for auth flows with mocked Supabase client
-
-### API Routes - Chat (app/api/chat/route.ts)
-- User authentication and authorization
-- RLM service fallback logic (try RLM, fall back to Bedrock)
-- Web search integration (Perplexity + Tavily fallback)
-- Memory context retrieval and usage
-- System prompt generation based on user profile
-- Error handling for external service failures
-- SSE (Server-Sent Events) response format
-
-**Recommendation:** Unit tests for `buildSystemPrompt()`, integration tests for POST handler with mocked services
-
-### Import Processing (app/import/page.tsx, lib/import/*)
-- File upload and validation
-- ZIP extraction and parsing
-- Soulprint generation with LLM
-- Embedding creation and storage
-- Error handling for large files
-- Progress tracking simulation
-- Client-side vs server-side processing logic
-
-**Recommendation:** Unit tests for parser/chunker, integration tests for end-to-end import with fixtures
-
-### Memory System (lib/memory/*)
-- Query embedding and similarity search
-- Memory context retrieval
-- Learning from conversations
-- Vector storage operations
-
-**Recommendation:** Unit tests with mocked Supabase vectors
-
-### Email Service (lib/email.ts, lib/email/send.ts)
-- Email composition and formatting
-- Nodemailer transporter setup
-- HTML template rendering
-- Resend fallback behavior
-
-**Recommendation:** Unit tests with mocked transporter, snapshot tests for email HTML
-
-## Mocking
-
-**Framework:** Not established - no test framework means no mocking library in use
-
-**What Would Need Mocking (if tests were added):**
-- `@supabase/supabase-js` - all database/auth operations
-- `@aws-sdk/client-bedrock-runtime` - LLM inference
-- `fetch()` - external API calls (Perplexity, Tavily, RLM service)
-- `nodemailer` - email sending
-- `next/cache`, `next/navigation` - Next.js internals
-- File system operations (JSZip, storage uploads)
-
-**Recommended Approach:**
-```typescript
-// Example structure if tests were added
-import { vi } from 'vitest'; // or jest
-
-// Mock Supabase
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({
-    auth: {
-      getUser: vi.fn(),
-      signUp: vi.fn(),
-      signOut: vi.fn(),
-    },
-    from: vi.fn(),
-  })),
-}));
-
-// Mock AWS Bedrock
-vi.mock('@aws-sdk/client-bedrock-runtime', () => ({
-  BedrockRuntimeClient: vi.fn(),
-  ConverseCommand: vi.fn(),
-}));
-
-// Mock fetch for API calls
-global.fetch = vi.fn();
-```
-
-## Fixtures and Factories
-
-**Test Data:**
-- Not applicable - no test framework active
-
-**What Fixtures Would Be Needed:**
-- Sample ChatGPT export ZIP files (small, medium, large)
-- Sample parsed conversation data
-- Sample user profiles with various personality types
-- Sample memory embeddings and search results
-- Mock API responses from Perplexity, Tavily, RLM
-- Mock Bedrock model responses
-
-**Suggested Location (if tests added):**
-- `tests/fixtures/` - raw test data (ZIP files, JSON samples)
-- `tests/factories/` - factory functions to generate test objects
-- `tests/mocks/` - mock implementations of services
-
-## Coverage
-
-**Requirements:** Not enforced - no test infrastructure
-
-**Target (Recommended):**
-- Server actions: 80%+ (critical auth paths)
-- API routes: 80%+ (core business logic)
-- Utility functions: 90%+ (parsing, chunking, formatting)
-- Components: 70%+ (UI rendering, event handling)
-- Overall: 75%+
-
-## Test Types
+## Recommended Testing Strategy
 
 **Unit Tests:**
-- **Scope:** Individual functions in `lib/` directory
-- **Examples to test:**
-  - `parseExportZip()` - ZIP parsing logic
-  - `chunkConversations()` - text chunking algorithm
-  - `sampleConversations()` - sampling logic
-  - `buildSystemPrompt()` - prompt generation
-  - `cn()` utility - classname merging
-  - Email formatters - HTML generation
-- **Approach:** Mock external dependencies, test pure logic
+- Utility functions: `lib/utils.ts` (cn function)
+- Gamification logic: `lib/gamification/xp.ts` (calculations, level progression)
+- Data parsing: `lib/import/parser.ts` (ChatGPT export parsing)
+- Fact extraction: `lib/memory/facts.ts` (JSON parsing, filtering)
 
 **Integration Tests:**
-- **Scope:** API routes, auth actions, full workflows
-- **Examples to test:**
-  - `/api/chat` POST - full request/response cycle
-  - Sign-up flow - form submission through session creation
-  - Import flow - file upload through soulprint generation
-  - Memory queries - embedding through context retrieval
-- **Approach:** Mock external services but preserve internal flow
+- API routes with Supabase: `app/api/admin/health/route.ts`, `app/api/admin/metrics/route.ts`
+- Server actions: `app/actions/auth.ts` (sign up, sign in, OAuth flow)
+- File operations: `app/api/branch/route.ts` (create, read, write branches)
 
-**E2E Tests:**
-- **Framework:** Not implemented
-- **Approach (if added):** Use Playwright or Cypress for real browser testing
-- **Key flows to automate:**
-  - Auth signup/signin/signout cycle
-  - Import process (start to completion)
-  - Chat interaction with memory integration
-  - UI state transitions
+**Component Tests (if added):**
+- Form components: `components/auth/login-form.tsx`, `components/auth/signup-modal.tsx`
+- Chat components: `components/chat/ChatInput.tsx`, `components/chat/ChatMessage.tsx`
+- Toast system: `components/AchievementToast.tsx` (rendering, auto-dismiss, queue)
 
-## Common Patterns to Test (When Framework Added)
+## Critical Areas Without Tests
 
-**Async Testing:**
-```typescript
-// Pattern observed in codebase - if tests were added:
-describe('Chat API', () => {
-  it('should retrieve memory context before calling Bedrock', async () => {
-    // Mock getMemoryContext to return test data
-    vi.mocked(getMemoryContext).mockResolvedValue({
-      contextText: 'relevant memories',
-      chunks: [{ id: '1', content: 'memory' }],
-      method: 'similarity'
-    });
+**High Priority for Testing:**
 
-    // Call POST handler
-    const response = await POST(mockRequest);
+**Authentication Flow** (`app/actions/auth.ts`):
+- User sign-up with referral code recording
+- Sign-in with password
+- OAuth sign-in with Google
+- Sign-out with cookie cleanup
+- Session persistence checks
 
-    // Assert getMemoryContext was called
-    expect(getMemoryContext).toHaveBeenCalledWith(userId, message, 5);
-  });
-});
-```
+**Import & Analysis Pipeline** (`lib/import/`):
+- `parser.ts`: Parsing ChatGPT export ZIPs, message ordering
+- `soulprint.ts`: LLM-based personality analysis, sampling logic
+- `embedder.ts`: OpenAI embedding batching, vector storage
+- `personality-analysis.ts`: JSON extraction from LLM responses
 
-**Error Testing:**
-```typescript
-// Based on error handling pattern in codebase
-describe('API Error Handling', () => {
-  it('should return 401 for unauthorized requests', async () => {
-    // Mock auth to return no user
-    vi.mocked(createClient).mockReturnValue({
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null } }) }
-    });
+**Memory System** (`lib/memory/`):
+- `facts.ts`: Fact extraction confidence filtering
+- `learning.ts`: Fact storage, deduplication
+- `query.ts`: Semantic search over embeddings
 
-    const response = await POST(mockRequest);
+**Gamification** (`lib/gamification/xp.ts`):
+- Level calculation from XP
+- Progress percentage calculation
+- Achievement unlocking logic
 
-    expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: 'Unauthorized' });
-  });
+**Data Sync** (`components/chat/BackgroundSync.tsx`):
+- IndexedDB operations
+- Batch upload logic
+- State management during sync
 
-  it('should fall back to Bedrock if RLM service fails', async () => {
-    // Mock RLM to return null (service unavailable)
-    vi.mocked(tryRLMService).mockResolvedValue(null);
+## Manual Testing Observations
 
-    // Mock Bedrock to return response
-    vi.mocked(bedrockClient.send).mockResolvedValue({ ... });
+**Test Output Files** (exploratory):
+- `test-output.txt`, `test-output-2.txt`, etc. present in root
+- Indicate manual testing/verification was performed
+- Not part of automated pipeline
 
-    const response = await POST(mockRequest);
+**Testing During Development:**
+- Developers use `npm run dev` and browser to test
+- Changes verified manually before commits
+- Recent commits show feature-focused testing
 
-    expect(response.ok).toBe(true);
-  });
-});
-```
+## Testing Infrastructure Requirements
 
-## Manual Testing Approach (Current)
+**To Implement Testing:**
 
-**Testing Currently Performed:**
-1. **Development mode** (`npm run dev`) - manual browser testing
-2. **Production deployment** - manual testing in staging/preview environments (Vercel)
-3. **Linting** - `npm run lint` for code quality
-4. **Build verification** - `npm run build` before deployment
-
-**Testing Checklist for New Features:**
-- Lint passes (`npm run lint`)
-- Build succeeds (`npm run build`)
-- Manual browser testing in dev mode
-- Edge cases tested manually (large files, network errors, edge auth states)
-- API responses validated in browser DevTools
-
-## Recommended Next Steps
-
-1. **Install test framework:**
+1. **Install testing framework:**
    ```bash
-   npm install -D vitest @testing-library/react @testing-library/jest-dom @vitest/ui
+   npm install --save-dev vitest @vitest/ui
+   # Or
+   npm install --save-dev jest @testing-library/react @testing-library/dom
    ```
 
-2. **Create test structure:**
-   ```
-   tests/
-   ├── unit/
-   │   ├── lib/
-   │   │   ├── parser.test.ts
-   │   │   ├── chunker.test.ts
-   │   │   └── utils.test.ts
-   │   └── actions/
-   │       └── auth.test.ts
-   ├── integration/
-   │   ├── api/
-   │   │   ├── chat.test.ts
-   │   │   └── import.test.ts
-   │   └── workflows/
-   │       └── auth-flow.test.ts
-   ├── fixtures/
-   │   └── chatgpt-export.zip
-   └── mocks/
-       ├── supabase.ts
-       └── bedrock.ts
-   ```
+2. **Testing utilities for this stack:**
+   - Supabase mocking: `supabase/supabase-js` has testing support
+   - OpenAI mocking: Mock HTTP responses or use test API keys
+   - Next.js testing: Use `next/experimental/testing/library` or standalone test runners
 
-3. **Start with highest-impact tests:** Auth actions, API routes, parser logic
+3. **Configuration needs:**
+   - TypeScript support (both frameworks support `tsconfig.json`)
+   - Path alias support (`@/*`) must be configured in test setup
+   - Environment variable handling for tests
 
-4. **Configure coverage:** Set up coverage reporting with target of 75%+
+4. **Recommended approach for this codebase:**
+   - Start with Vitest (smaller, faster, TypeScript-first)
+   - Add @vitest/ui for visual feedback
+   - Use MSW (Mock Service Worker) for API mocking
+   - Co-locate tests with source files using `.test.ts` or `.spec.ts` suffix
+
+## Test Data Considerations
+
+**API Mocking Needed:**
+- Supabase Auth API (sign-up, sign-in, OAuth)
+- Supabase Database (profiles, conversations, memories, chunks)
+- OpenAI API (embeddings)
+- Bedrock API (LLM calls for analysis)
+- Resend Email API
+
+**Fixtures Directory Structure** (recommended):
+```
+lib/
+  __tests__/
+    fixtures/
+      chatgpt-export.json
+      parsed-conversation.json
+      memory-chunks.json
+      embeddings.json
+    mocks/
+      supabase.ts
+      openai.ts
+      bedrock.ts
+```
+
+**Sample Test Data Format:**
+- ChatGPT conversations: `lib/import/client-soulprint.ts` shows expected structure
+- Parsed conversations: `lib/import/parser.ts` defines `ParsedConversation` interface
+- Memory chunks: `lib/import/chunker.ts` defines `Chunk` interface
+- Embeddings: Arrays of numbers matching OpenAI embedding dimensions
+
+## Current Code Structure for Testing
+
+**Testable Utilities** (already modular, easy to test):
+- `lib/utils.ts`: Simple `cn()` utility
+- `lib/gamification/xp.ts`: Pure functions for calculations
+- `lib/import/parser.ts`: Pure parsing logic
+- `lib/import/chunker.ts`: Chunking algorithms
+- `lib/memory/facts.ts`: Fact filtering and grouping
+
+**Testable API Routes** (with mocked services):
+- `app/api/admin/health/route.ts`: Service health checks
+- `app/api/admin/metrics/route.ts`: Data aggregation
+- `app/api/branch/route.ts`: File operations
+
+**Testable Server Actions** (with mocked Supabase):
+- `app/actions/auth.ts`: All auth flows
+- `app/actions/referral.ts`: Referral recording
+
+**Untestable Without Major Refactoring** (tightly coupled to external services):
+- Components with side effects: `components/chat/BackgroundSync.tsx`
+- IndexedDB operations in components
+
+## Testing Best Practices for This Codebase
+
+**Pattern 1: Pure Function Testing**
+```typescript
+// lib/gamification/xp.ts - Already testable
+import { XP_CONFIG } from '@/lib/gamification/xp';
+
+describe('XP Calculation', () => {
+  it('should calculate correct level from XP', () => {
+    expect(XP_CONFIG.calculateLevel(0)).toBe(1);
+    expect(XP_CONFIG.calculateLevel(110)).toBe(2);
+  });
+
+  it('should calculate progress to next level', () => {
+    const progress = XP_CONFIG.getLevelProgress(55);
+    expect(progress.current).toBe(55);
+    expect(progress.needed).toBe(100);
+  });
+});
+```
+
+**Pattern 2: Async Service Function Testing**
+```typescript
+// lib/memory/facts.ts - Requires Bedrock mocking
+import { extractFacts } from '@/lib/memory/facts';
+import { vi } from 'vitest';
+
+vi.mock('@aws-sdk/client-bedrock-runtime', () => ({
+  BedrockRuntimeClient: vi.fn(),
+  InvokeModelCommand: vi.fn(),
+}));
+
+describe('Fact Extraction', () => {
+  it('should extract facts from memory chunks', async () => {
+    const mockResponse = {
+      facts: [{
+        category: 'preferences',
+        fact: 'Likes coffee',
+        confidence: 0.9,
+        sourceChunkId: 'chunk-1',
+        evidence: 'I love coffee'
+      }]
+    };
+
+    const facts = await extractFacts([...]);
+    expect(facts.length).toBeGreaterThan(0);
+  });
+});
+```
+
+**Pattern 3: API Route Testing**
+```typescript
+// app/api/branch/route.ts - Requires Supabase mocking
+import { POST } from '@/app/api/branch/route';
+
+describe('Branch API', () => {
+  it('should create branch on POST', async () => {
+    const request = new Request('http://localhost:3000/api/branch', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'create', files: [] })
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+  });
+});
+```
+
+## Environment for Tests
+
+**Required Environment Variables** (for integration tests):
+```
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+AWS_REGION
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+BEDROCK_MODEL_ID
+OPENAI_API_KEY
+```
+
+**Test Environment Setup** (recommended):
+- Use `.env.test` with mock/test credentials
+- Mock all external API calls with MSW or vi.mock()
+- Use test database or in-memory SQLite for Supabase
+- Never make real API calls from test suite
 
 ---
 

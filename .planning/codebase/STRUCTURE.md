@@ -6,249 +6,285 @@
 
 ```
 soulprint-landing/
-├── app/                    # Next.js App Router - pages, API routes, server actions
-│   ├── page.tsx            # Landing page (/) with hero and feature sections
-│   ├── layout.tsx          # Root layout with global providers and fonts
-│   ├── globals.css         # Global styles
-│   ├── actions/            # Server actions for auth and data mutations
-│   ├── api/                # API routes for backend logic
-│   │   ├── chat/           # Chat message handling and responses
-│   │   ├── import/         # ChatGPT export processing
-│   │   ├── admin/          # Admin utilities (health, metrics, migrations)
-│   │   ├── auth/           # Authentication endpoints
-│   │   ├── gamification/   # User achievements and XP
-│   │   ├── memory/         # Memory status queries
-│   │   └── profile/        # User profile management
-│   ├── chat/               # Chat interface page
-│   ├── import/             # Import workflow page
-│   ├── login/              # Login form page
-│   ├── signup/             # Signup form page
-│   ├── auth/               # OAuth callback handler
-│   ├── admin/              # Admin dashboard pages
-│   ├── achievements/       # User achievements display
-│   ├── memory/             # Memory browser (if implemented)
-│   └── [other-pages]/      # Test pages, demo pages, whitepaper
+├── app/                           # Next.js App Router (pages, API routes, layouts)
+│   ├── layout.tsx                 # Root layout with theme/font setup
+│   ├── page.tsx                   # Home page (landing + auth)
+│   ├── globals.css                # Global styles (Tailwind)
+│   ├── api/                       # Route handlers (HTTP endpoints)
+│   │   ├── auth/                  # Auth endpoints
+│   │   ├── chat/                  # Chat functionality
+│   │   ├── import/                # Import/upload processing
+│   │   ├── embeddings/            # Embedding generation
+│   │   ├── memory/                # Memory retrieval and management
+│   │   ├── profile/               # User profile (AI name, avatar)
+│   │   ├── gamification/          # Achievements and XP
+│   │   ├── admin/                 # Admin utilities (health, migration, reset)
+│   │   ├── cron/                  # Scheduled tasks
+│   │   └── ...                    # Other specialized endpoints
+│   ├── chat/                      # Chat page
+│   ├── import/                    # Import page (file upload flow)
+│   ├── dashboard/                 # User dashboard (not actively used)
+│   ├── memory/                    # Memory management page
+│   ├── achievements/              # Achievements page
+│   ├── admin/                     # Admin panel
+│   ├── login/                     # Login redirect (auth on home)
+│   ├── signup/                    # Signup redirect (auth on home)
+│   ├── test/                      # Test pages (chat variants, upload testing)
+│   └── actions/                   # Server actions (email, referral)
 │
-├── components/             # Reusable React components
-│   ├── chat/               # Chat UI components
-│   │   ├── telegram-chat-v2.tsx    # Main chat interface (Telegram-style)
-│   │   ├── ChatMessage.tsx          # Individual message display
-│   │   ├── ChatInput.tsx            # Message input box
-│   │   ├── BackgroundSync.tsx       # Background import sync
-│   │   └── message-content.tsx      # Message content rendering
-│   ├── auth/               # Authentication components
-│   │   ├── login-form.tsx           # Email/password login
-│   │   ├── signup-modal.tsx         # Registration form
+├── components/                    # React components (reusable UI)
+│   ├── ui/                        # Base UI components (Radix UI + custom)
+│   │   ├── button.tsx             # Button component
+│   │   ├── card.tsx               # Card component
+│   │   ├── dialog.tsx             # Modal dialog
+│   │   ├── accordion.tsx          # Accordion
+│   │   ├── ai-chat-input.tsx      # AI chat input field
+│   │   ├── ai-chat-card.tsx       # Chat message card
+│   │   ├── ring-progress.tsx      # Circular progress indicator
+│   │   ├── AddToHomeScreen.tsx    # iOS PWA prompt
+│   │   ├── theme-toggle.tsx       # Dark/light mode toggle
+│   │   └── ...                    # ~60 UI components (mostly Radix-based)
+│   │
+│   ├── chat/                      # Chat-specific components
+│   │   ├── telegram-chat-v2.tsx   # Main chat UI (Telegram-like style)
+│   │   ├── ChatInput.tsx          # Chat message input
+│   │   ├── ChatMessage.tsx        # Message display
+│   │   ├── message-content.tsx    # Message content rendering
+│   │   ├── BackgroundSync.tsx     # Background import sync
+│   │   └── telegram-chat.tsx      # Old chat UI variant
+│   │
+│   ├── sections/                  # Landing page sections
+│   │   ├── hero.tsx               # Hero banner
+│   │   ├── features.tsx           # Features section
+│   │   ├── memory-section.tsx     # Memory highlight
+│   │   ├── pricing.tsx            # Pricing table
+│   │   ├── faq-section.tsx        # FAQ
+│   │   ├── footer.tsx             # Footer
+│   │   └── ...                    # ~10 landing sections
+│   │
+│   ├── auth/                      # Auth components
+│   │   ├── login-form.tsx         # Login form
+│   │   ├── signup-modal.tsx       # Signup modal
 │   │   └── security-access-modal.tsx
-│   ├── sections/           # Landing page sections
-│   │   ├── hero.tsx                 # Hero section
-│   │   ├── features.tsx             # Feature showcase
-│   │   ├── pricing.tsx              # Pricing section
-│   │   ├── faq-section.tsx          # FAQ
-│   │   ├── footer.tsx               # Footer
-│   │   └── [other-sections]/
-│   ├── ui/                 # Shadcn/ui and custom UI components
-│   │   ├── button.tsx               # Button component
-│   │   ├── accordion.tsx            # Accordion
-│   │   ├── dialog.tsx               # Modal dialog
-│   │   ├── ring-progress.tsx        # Circular progress indicator
-│   │   ├── AddToHomeScreen.tsx      # iOS A2HS prompt
-│   │   └── [other-ui]/
-│   ├── AchievementToast.tsx # Achievement notification component
-│   ├── Navbar.tsx          # Navigation bar
-│   └── auth-modal.tsx      # Auth modal for modal-based login
+│   │
+│   ├── auth-modal.tsx             # Main auth modal (home page)
+│   ├── Navbar.tsx                 # Navigation bar
+│   ├── AchievementToast.tsx       # Toast notifications
+│   └── ...                        # ~5-10 other top-level components
 │
-├── lib/                    # Core business logic and utilities
-│   ├── supabase/           # Supabase integration
-│   │   ├── client.ts       # Client-side Supabase initialization
-│   │   ├── server.ts       # Server-side Supabase with SSR
-│   │   └── middleware.ts   # Session refresh middleware
-│   ├── import/             # ChatGPT export import pipeline
-│   │   ├── parser.ts       # Parse ChatGPT export JSON/ZIP
-│   │   ├── chunker.ts      # Split conversations into hierarchical chunks
-│   │   ├── embedder.ts     # Generate embeddings via Bedrock
-│   │   ├── soulprint.ts    # Generate user profile/personality analysis
-│   │   ├── client-soulprint.ts     # Quick client-side soulprint generation
-│   │   ├── personality-analysis.ts # LLM-based personality extraction
-│   │   └── utilities
-│   ├── memory/             # Memory retrieval and learning
-│   │   ├── query.ts        # Vector search and hierarchical context retrieval
-│   │   ├── learning.ts     # Extract and store learned facts
-│   │   ├── facts.ts        # Fact extraction patterns
-│   │   └── utilities
-│   ├── search/             # Web search integrations
-│   │   ├── perplexity.ts   # Perplexity AI search
-│   │   ├── tavily.ts       # Tavily search (fallback)
-│   │   └── utilities
-│   ├── gamification/       # Achievement and XP system
-│   │   ├── xp.ts           # XP calculation and leveling
-│   │   └── achievements.ts # Achievement tracking
-│   ├── email/              # Email sending
-│   │   ├── send.ts         # Resend.com integration
-│   │   └── templates.ts
-│   ├── versioning/         # Git branch management for A/B testing
-│   │   └── branch-manager.ts
-│   └── utils.ts            # General utilities (clsx, cn)
+├── lib/                           # Business logic and utilities
+│   ├── supabase/                  # Supabase client/server setup
+│   │   ├── client.ts              # Browser Supabase client
+│   │   ├── server.ts              # Server Supabase client
+│   │   └── middleware.ts          # Auth middleware
+│   │
+│   ├── import/                    # Import pipeline (core logic)
+│   │   ├── parser.ts              # Parse ChatGPT JSON
+│   │   ├── chunker.ts             # Split conversations into chunks
+│   │   ├── soulprint.ts           # Generate personality profile
+│   │   ├── embedder.ts            # Create embeddings (Bedrock Cohere)
+│   │   ├── personality-analysis.ts # Analyze communication style
+│   │   └── client-soulprint.ts    # Client-side soulprint generation
+│   │
+│   ├── memory/                    # Memory/fact extraction
+│   │   ├── query.ts               # Semantic search + retrieval
+│   │   ├── facts.ts               # Fact extraction logic
+│   │   ├── learning.ts            # Learn from new conversations
+│   │   └── synthesize.ts          # Combine facts for context
+│   │
+│   ├── search/                    # Web search integrations
+│   │   ├── perplexity.ts          # Perplexity API client
+│   │   └── tavily.ts              # Tavily API client
+│   │
+│   ├── gamification/              # Achievements and rewards
+│   │   └── xp.ts                  # XP calculation
+│   │
+│   ├── email/                     # Email sending
+│   │   ├── send.ts                # Email service (Resend/Nodemailer)
+│   │   └── email.ts               # Email template builder
+│   │
+│   ├── versioning/                # Version management
+│   │   └── branch-manager.ts      # Branch/deployment tracking
+│   │
+│   └── utils.ts                   # Utility functions (cn, classname helpers)
 │
-├── public/                 # Static assets
-│   ├── logo.svg            # SoulPrint logo
-│   ├── apple-touch-icon.png
-│   ├── manifest.json       # PWA manifest
-│   └── [other-assets]/
+├── public/                        # Static assets
+│   ├── logo.svg                   # App logo
+│   ├── favicon.ico                # Favicon
+│   └── manifest.json              # PWA manifest
 │
-├── middleware.ts           # Next.js middleware for session refresh
-├── next.config.ts          # Next.js configuration
-├── tsconfig.json           # TypeScript configuration
-├── tailwind.config.ts      # Tailwind CSS configuration
-├── components.json         # Shadcn/ui component registry
-├── package.json            # Dependencies
-└── supabase/               # Supabase configuration and migrations
-    └── migrations/         # Database migrations
+├── supabase/                      # Supabase configuration
+│   └── migrations/                # Database migrations
+│
+├── scripts/                       # Utility scripts
+│   └── enable-bedrock.sh          # AWS Bedrock setup
+│
+├── package.json                   # Dependencies and scripts
+├── tsconfig.json                  # TypeScript configuration
+├── tailwind.config.ts             # Tailwind CSS config
+├── next.config.mjs                # Next.js configuration
+├── .eslintrc.json                 # ESLint config
+├── .env.example                   # Environment variables template
+└── .env.local                     # Secrets (not committed)
 ```
 
 ## Directory Purposes
 
-**app/**
-- Purpose: Next.js App Router structure with all pages, API routes, and server actions
-- Contains: Page components (.tsx), layout components, API endpoint handlers, server functions
-- Key files: `page.tsx` (landing), `api/chat/route.ts` (main chat logic), `import/page.tsx` (import UI)
+**`app/` - Next.js App Router:**
+- Purpose: Pages, layouts, API routes using Next.js 16 App Router
+- Contains: Page components (`.tsx`), route handlers (`.ts`), server components/actions
+- Structure follows file-based routing: `app/chat/page.tsx` → `/chat` route
+- API routes: `app/api/*/route.ts` → `/api/*` endpoints
 
-**components/**
-- Purpose: Reusable React components organized by feature/type
-- Contains: Chat UI, auth forms, landing page sections, shadcn/ui components
-- Key files: `chat/telegram-chat-v2.tsx` (main chat interface), `auth/login-form.tsx`, `sections/hero.tsx`
+**`components/` - React Components:**
+- Purpose: Reusable UI components and feature-specific components
+- Organized by type: `ui/` (primitives), `chat/` (chat UI), `sections/` (landing), `auth/` (auth)
+- Most use Radix UI as headless component base
+- Styled with Tailwind CSS inline classes
 
-**lib/**
-- Purpose: Core business logic, utilities, and third-party integrations
-- Contains: Supabase setup, ChatGPT import pipeline, vector search, LLM interactions, email service
-- Key files: `memory/query.ts` (vector search), `import/soulprint.ts` (profile generation), `supabase/server.ts` (auth)
+**`lib/` - Business Logic:**
+- Purpose: Core services, data processing, external integrations
+- No dependencies on React; pure Node.js/JavaScript
+- Used by API routes and client-side components
+- Each subdirectory handles a feature domain: import, memory, search, email
 
-**public/**
-- Purpose: Static assets served directly by Next.js
-- Contains: Logo, favicon, PWA manifest, images
-- Key files: `logo.svg`, `manifest.json`
+**`public/` - Static Assets:**
+- Purpose: Serve static files (logos, favicons, PWA manifest)
+- Accessed via root-relative paths: `/logo.svg`, `/manifest.json`
 
-**supabase/**
-- Purpose: Supabase backend configuration and migrations
-- Contains: SQL migrations, RPC functions, schema definitions
-- Key files: Migration files in `migrations/` directory
+**`supabase/` - Database:**
+- Purpose: Store migrations, configuration, schema
+- `migrations/` contains SQL files for schema setup
+- Tables managed here: users, profiles, conversations, embeddings, memories
+
+**`scripts/` - Automation:**
+- Purpose: One-off utilities for setup, testing, deployment
+- Example: `enable-bedrock.sh` sets up AWS Bedrock credentials
 
 ## Key File Locations
 
 **Entry Points:**
-- `app/layout.tsx`: Root layout with providers and fonts
-- `app/page.tsx`: Landing page - checks auth and shows hero
-- `app/chat/page.tsx`: Chat interface - main authenticated experience
-- `middleware.ts`: Intercepts all requests to refresh Supabase session
-
-**Authentication:**
-- `app/actions/auth.ts`: Server actions for sign up, sign in, sign out
-- `lib/supabase/server.ts`: Server-side Supabase client with cookie handling
-- `lib/supabase/client.ts`: Client-side Supabase instance
-- `app/auth/callback/route.ts`: OAuth callback handler
-
-**Chat & Memory:**
-- `app/api/chat/route.ts`: Main chat endpoint - calls RLM or Bedrock
-- `lib/memory/query.ts`: Vector search with hierarchical layers
-- `lib/import/soulprint.ts`: Generate user soulprint (personality profile)
-- `components/chat/telegram-chat-v2.tsx`: Chat UI component
-
-**Import Pipeline:**
-- `app/import/page.tsx`: Import UI - file upload and progress
-- `lib/import/parser.ts`: Parse ChatGPT export (JSON/ZIP)
-- `lib/import/chunker.ts`: Split into hierarchical layers (MICRO, THEMATIC, MACRO)
-- `lib/import/embedder.ts`: Generate embeddings via Bedrock
-- `app/api/import/process/route.ts`: Process uploaded export asynchronously
+- `app/layout.tsx`: Root layout, applies global fonts/providers
+- `app/page.tsx`: Home page (authenticated check + landing/auth)
+- `app/chat/page.tsx`: Main chat interface (authenticated)
+- `app/import/page.tsx`: Data import flow (unauthenticated redirects here)
 
 **Configuration:**
-- `tsconfig.json`: TypeScript with path alias `@/` for imports
-- `next.config.ts`: Next.js settings (domains, redirects)
-- `tailwind.config.ts`: Tailwind CSS setup with custom colors (orange #EA580C)
-- `components.json`: Shadcn/ui configuration
+- `package.json`: Dependencies, build scripts, version
+- `tsconfig.json`: TypeScript compiler options
+- `tailwind.config.ts`: Tailwind CSS theme and plugins
+- `next.config.mjs`: Next.js build/runtime options
+
+**Core Logic:**
+- `lib/import/soulprint.ts`: Personality profile generation
+- `lib/import/embedder.ts`: Vector embedding creation (Bedrock)
+- `lib/memory/query.ts`: Semantic search for user memories
+- `app/api/chat/route.ts`: Main chat endpoint (LLM + search integration)
+- `app/api/import/queue-processing/route.ts`: Import orchestration
+
+**Testing:**
+- `app/api/debug/test-import/route.ts`: Test import processing
+- `app/test/page.tsx`: Chat UI test page
+- `app/test-upload/page.tsx`: File upload test
 
 ## Naming Conventions
 
 **Files:**
-- Page components: `page.tsx` (Next.js convention)
-- Route handlers: `route.ts` (Next.js convention)
-- Reusable components: PascalCase (`ChatMessage.tsx`, `Hero.tsx`)
-- Utilities/functions: camelCase (`utils.ts`, `embedder.ts`)
-- Server actions: camelCase (`auth.ts`, `referral.ts`)
-- Types: Inline in files with PascalCase (`ChatMessage` interface)
+- Pages: `page.tsx` (Next.js convention)
+- API routes: `route.ts` (Next.js convention)
+- Components: PascalCase (e.g., `ChatInput.tsx`, `HeroSection.tsx`)
+- Utilities: camelCase (e.g., `chunker.ts`, `parser.ts`)
+- Styles: Inline Tailwind or camelCase class names (e.g., `bg-slate-900`, `rounded-lg`)
 
 **Directories:**
-- Feature modules: kebab-case (`chat/`, `import/`, `memory/`)
-- UI components: `ui/` for design system components
-- API routes: Follow path structure (`api/chat/messages/route.ts` → `POST /api/chat/messages`)
+- Feature directories: lowercase (e.g., `import/`, `memory/`, `chat/`)
+- UI component directory: `ui/` (centralized Radix-based components)
+- Section components: `sections/` (landing page areas)
+- Feature-specific components: matching feature name (e.g., `chat/` for chat, `auth/` for auth)
 
-**Functions & Variables:**
-- Async API calls: `fetch()` wrapped in try-catch
-- Event handlers: `handle*` prefix (`handleSendMessage`, `handleRename`)
-- Server functions: `use server` directive; snake_case for database operations
-- Component state: `useState` hooks with descriptive names (`messages`, `isLoading`)
+**Variables/Functions:**
+- camelCase for variables, functions, methods
+- PascalCase for components, types, interfaces, classes
+- SCREAMING_SNAKE_CASE for constants (e.g., `EMBEDDING_BATCH_SIZE`, `DB_NAME`)
 
-**Type Naming:**
-- API request/response types: PascalCase with suffix (`ChatMessage`, `SoulprintResponse`)
-- Database row types: `*Row` suffix (`ChunkRpcRow`, `ChunkTableRow`)
-- Interfaces: PascalCase (`UserProfile`, `MemoryChunk`)
+**Types/Interfaces:**
+- Prefixed with I or suffixed with Type for clarity (not enforced, convention)
+- Examples: `ChatMessage`, `ParsedConversation`, `LLMExtraction`, `EmbeddedChunk`
+- Exported from function files or dedicated `.d.ts` files
 
 ## Where to Add New Code
 
-**New Feature (e.g., new chat capability):**
-- Frontend UI: `components/chat/[feature-name].tsx`
-- API endpoint: `app/api/chat/[feature]/route.ts`
-- Core logic: `lib/[domain]/[feature].ts`
-- Tests: Co-located in same directory if test structure existed
+**New Feature Endpoint:**
+- Primary code: `app/api/feature-name/route.ts`
+- Business logic: `lib/feature-name/` directory with modules
+- Tests: Co-locate with logic in `lib/feature-name/*.test.ts` (if tests exist)
+- Example: Adding notifications → `app/api/notifications/route.ts` + `lib/notifications/send.ts`
 
-**New Component/Module:**
-- Presentation: `components/[feature]/Component.tsx`
-- Business logic: `lib/[feature]/index.ts` or `lib/[feature]/utility.ts`
-- API: `app/api/[feature]/route.ts`
+**New UI Component:**
+- If reusable primitive: `components/ui/component-name.tsx`
+- If feature-specific: `components/feature-name/component-name.tsx`
+- Style with Tailwind inline classes
+- Export from component file; optionally add to barrel file if in `components/ui/`
 
-**Utilities & Helpers:**
-- Shared helpers: `lib/utils.ts` (for small utilities like `cn()`)
-- Feature-specific: `lib/[feature]/utilities.ts` or `lib/[feature]/helpers.ts`
-- Type helpers: Define inline in files where used, or in `lib/types/` if shared across multiple features
+**New Landing Page Section:**
+- Location: `components/sections/new-section.tsx`
+- Import in `app/page.tsx` to add to landing
+- Name consistently: `*-section.tsx` suffix
 
-**Styling:**
-- Global styles: `app/globals.css`
-- Component scoping: Use Tailwind classes directly in components (no separate CSS)
-- Design tokens: Defined in `tailwind.config.ts`
+**New Feature Page:**
+- Location: `app/feature-name/page.tsx`
+- Create `app/feature-name/` directory for route
+- If complex, create `app/feature-name/layout.tsx` for nested layouts
+- Wrap with auth check using Supabase client: `createClient().auth.getSession()`
+
+**Utilities/Helpers:**
+- Shared helpers: `lib/utils.ts` (e.g., `cn()` classname merger)
+- Domain-specific utilities: `lib/feature-name/utility.ts`
+- Type definitions: Inline in same file or `lib/types.ts` if global
+
+**Database Queries:**
+- Migration files: `supabase/migrations/[timestamp]_description.sql`
+- Query logic: `lib/` modules with Supabase client calls
+- Don't create separate DAL layer; queries inline in service functions
 
 ## Special Directories
 
-**app/api/admin/**
-- Purpose: Admin utilities for maintenance and debugging
-- Generated: No (manually created routes)
+**`app/api/`:**
+- Purpose: HTTP route handlers (REST API)
+- Generated: No (source files)
 - Committed: Yes
-- Contains: Health checks, metrics, migrations, user resets
+- Pattern: Each folder has a `route.ts` file exporting `GET`, `POST`, `PUT`, `DELETE`
+- Auth: Check `session` in handler, return 401 if unauthorized
 
-**app/test*, app/chat-demo, app/chat-preview**
-- Purpose: Testing and demo pages for development
-- Generated: No
-- Committed: Yes
-- Note: Some may be unused and could be removed in cleanup phase
-
-**rlm-service/**
-- Purpose: External Python service for advanced memory retrieval
-- Generated: No
-- Committed: Yes
-- Note: Not integrated into main codebase; separate deployment
-
-**moodboard/**
-- Purpose: Design and visual asset references
-- Generated: No
-- Committed: Yes
-
-**.next/**
+**`.next/`:**
 - Purpose: Next.js build output
-- Generated: Yes (built during `npm run build`)
-- Committed: No (in .gitignore)
+- Generated: Yes (created by `npm run build`)
+- Committed: No (.gitignored)
+- Contains: Compiled JavaScript, server functions, static exports
 
-**node_modules/**
-- Purpose: Installed dependencies
-- Generated: Yes (from package-lock.json)
-- Committed: No (in .gitignore)
+**`node_modules/`:**
+- Purpose: Installed npm dependencies
+- Generated: Yes (created by `npm install`)
+- Committed: No (.gitignored)
+- Lock file: `package-lock.json` (committed for reproducibility)
+
+**`public/`:**
+- Purpose: Static assets served at root
+- Generated: No (source files)
+- Committed: Yes
+- Access: `/filename` in HTML/CSS/code
+
+**`supabase/migrations/`:**
+- Purpose: Database schema migrations
+- Generated: No (manually created)
+- Committed: Yes (essential for schema)
+- Pattern: `[timestamp]_description.sql` files executed in order
+
+**`.env.local`:**
+- Purpose: Environment variables (development)
+- Generated: No (manually created)
+- Committed: No (.gitignored for secrets)
+- Required vars: See `.env.example` or docs
 
 ---
 

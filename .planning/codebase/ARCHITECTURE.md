@@ -4,186 +4,215 @@
 
 ## Pattern Overview
 
-**Overall:** Next.js 16 full-stack application with client-server architecture using Server Actions, API routes, and middleware for authentication. The system implements a layered memory retrieval architecture with hierarchical context building.
+**Overall:** Next.js 16 Full-Stack Application with Modular Service Architecture
 
 **Key Characteristics:**
-- Next.js App Router with client components for interactive UI and server actions for mutations
-- Supabase for authentication, database, and vector similarity search
-- AWS Bedrock (Claude 3.5 Haiku) for LLM inference and embeddings
-- Multi-layer memory system with vector embeddings (RLM - Retrieval Layered Memory)
-- Event-streaming responses with SSE (Server-Sent Events)
-- Background sync for async processing of large imports
-- User authentication with PKCE OAuth flow
+- Client-server separation using Next.js App Router with SSR/SSG support
+- Multi-layer service architecture: Presentation (React Components) → API Routes (Route Handlers) → Backend Services (Node.js libraries) → External Services
+- Real-time data flow orchestrated through API endpoints with streaming support
+- Asynchronous background processing for long-running operations (imports, embeddings)
+- External service integration: AWS Bedrock (LLM/embeddings), Supabase (database/auth), RLM Service (memory retrieval)
 
 ## Layers
 
 **Presentation Layer:**
-- Purpose: User-facing React components with real-time chat interface and import workflows
-- Location: `components/` and `app/*/page.tsx`
-- Contains: Chat UI (`components/chat/telegram-chat-v2.tsx`), import forms, settings modals, landing page sections
-- Depends on: Supabase client, API routes, state management (React hooks, refs)
-- Used by: Browsers, PWA clients
+- Purpose: Render UI, handle user interactions, manage client-side state
+- Location: `app/` (pages), `components/`
+- Contains: React components (TSX), page components, layout definitions
+- Depends on: API routes, Supabase client SDK
+- Used by: Browser/client applications
 
-**API & Route Layer:**
-- Purpose: RESTful endpoints and server actions handling business logic
-- Location: `app/api/*/route.ts` and `app/actions/*.ts`
-- Contains: Chat processing, import analysis, profile updates, memory querying, admin operations
-- Depends on: External services (AWS Bedrock, Supabase), utility functions in `lib/`
-- Used by: Frontend components, cron jobs, background tasks
+**API/Route Handler Layer:**
+- Purpose: Handle HTTP requests, orchestrate business logic, manage auth/permissions
+- Location: `app/api/*/route.ts`
+- Contains: Route handlers using Next.js App Router patterns
+- Depends on: Service libraries (`lib/`), Supabase admin client, external APIs
+- Used by: Client-side fetch calls, external webhooks
 
-**Core Logic Layer:**
-- Purpose: Reusable business logic for data transformation, analysis, and retrieval
-- Location: `lib/` subdirectories (import/, memory/, search/, gamification/, email/)
-- Contains: ChatGPT export parsing, soulprint generation, embedding/vector search, memory retrieval, web search integration
-- Depends on: AWS SDK, Supabase SDK, external APIs (Perplexity, Tavily)
-- Used by: API routes and server actions
+**Service/Business Logic Layer:**
+- Purpose: Core business operations: import processing, embeddings, memory queries, LLM interactions
+- Location: `lib/`
+- Contains: Modules for import pipeline, embeddings, memory, search, email, gamification
+- Depends on: SDK clients (Bedrock, Supabase, OpenAI), data parsing utilities
+- Used by: API routes, other services
 
 **Data Layer:**
-- Purpose: Database access, authentication, and external service integration
-- Location: `lib/supabase/`, AWS SDK usage in routes and utilities
-- Contains: Supabase client setup (server/client variants), middleware for session management, vector similarity RPCs
-- Depends on: Supabase backend, AWS services
-- Used by: All other layers
+- Purpose: Manage data persistence and retrieval
+- Location: Supabase (PostgreSQL) + Storage buckets
+- Contains: User profiles, conversations, embeddings, raw imports, profile data
+- Technologies: PostgreSQL (database), pgvector (vector search), Supabase Storage (file storage)
+- Used by: Service layer through Supabase client
+
+**External Services Integration:**
+- Purpose: Outsource specialized functionality
+- Services: AWS Bedrock (Claude LLM, Cohere embeddings), Supabase Auth, RLM Service (memory retrieval), Perplexity API (web search), Tavily API (web search), Resend (email), Nodemailer (email)
+- Used by: Service layer, API routes
 
 ## Data Flow
 
-**Chat Message Flow (Primary):**
+**User Authentication Flow:**
 
-1. User submits message via `components/chat/telegram-chat-v2.tsx`
-2. `app/chat/page.tsx` queues message and calls `POST /api/chat`
-3. `app/api/chat/route.ts`:
-   - Authenticates user via Supabase
-   - Fetches user profile (soulprint, ai_name)
-   - Calls `getMemoryContext()` to search vector database for relevant memories
-   - If deepSearch enabled: calls Perplexity or Tavily for web search context
-   - Attempts RLM Service (external Python service) via `/query` endpoint
-   - Falls back to Bedrock if RLM unavailable
-   - Returns SSE stream with response chunks
-4. Response is streamed to client in real-time
-5. `learnFromChat()` saves interaction asynchronously for future retrieval
+1. User arrives at `/` (home page)
+2. Auth modal or signup/login page prompts credentials
+3. Client calls Supabase auth endpoints
+4. Session stored in cookies/local storage
+5. Route handlers check auth via Supabase server client
+6. Authenticated requests include credentials in headers
 
-**Memory Retrieval Flow (RLM):**
+**Import Flow (ChatGPT Data → Personalized AI):**
 
-1. Query comes from chat endpoint or search requests
-2. `lib/memory/query.ts` receives user query
-3. Query is embedded using Cohere Embed v3 via Bedrock
-4. Vector embedding calls `match_conversation_chunks_layered` RPC on Supabase
-5. Returns chunks from 3 layers: Macro (layer 5), Thematic (layer 3), Micro (layer 1)
-6. Also searches learned_facts table for extracted key information
-7. Formats context with layer information for LLM consumption
-8. Falls back to keyword search if vector search fails
+1. User navigates to `/import` page
+2. User exports ChatGPT data (ZIP file)
+3. Client extracts conversations.json (desktop) or uploads full ZIP (mobile)
+4. Client uploads to Supabase Storage (`imports/` bucket)
+5. Client calls `/api/import/queue-processing` with storage path
+6. Queue processing endpoint:
+   - Downloads file from storage
+   - Extracts and parses conversations
+   - Chunks conversations into segments
+   - Calls `/api/soulprint/generate` to create personality profile
+   - Stores chunks in database
+7. Background embedding job triggered:
+   - `/api/embeddings/process` embeds all chunks using AWS Bedrock (Cohere Embed v3)
+   - Stores embeddings in Supabase with pgvector
+8. AI name auto-generated from soulprint on first chat
+9. Email notification sent when ready
 
-**Import & Soulprint Generation Flow:**
+**Chat Flow (User Question → AI Response):**
 
-1. User uploads ChatGPT export (JSON or ZIP) via `app/import/page.tsx`
-2. Frontend parses export using `lib/import/parser.ts`
-3. Conversations are chunked into hierarchical layers (MICRO, THEMATIC, MACRO) via `lib/import/chunker.ts`
-4. Client generates quick soulprint via `lib/import/client-soulprint.ts`
-5. Chunks sent to `POST /api/import/process` (batch processing)
-6. Server embeds chunks using Bedrock Cohere v3
-7. Embeddings inserted into `conversation_chunks` table with layer indices
-8. LLM analysis via `lib/import/personality-analysis.ts` extracts facts
-9. Results displayed via progress polling
-
-**Authentication Flow:**
-
-1. User signs up/logs in via `components/auth/` forms
-2. Form submission calls `signUp()` or `signIn()` server action in `app/actions/auth.ts`
-3. Supabase handles credential validation and session creation
-4. Session stored in secure cookies via `lib/supabase/middleware.ts`
-5. Middleware refreshes token on every request
-6. Routes protected by checking `supabase.auth.getUser()`
+1. User sends message in `/chat` page
+2. Message queued locally (handle concurrent requests)
+3. Client calls `/api/chat` POST endpoint with message + history
+4. Server-side (route handler `/api/chat/route.ts`):
+   - Verifies user authentication
+   - Calls RLM Service if available (memory retrieval + response generation)
+   - Fallback to Bedrock Claude if RLM unavailable
+   - Optionally calls web search APIs if "deep search" enabled
+   - Streams response back to client as SSE (Server-Sent Events)
+5. Client displays streamed response token-by-token
+6. Message saved to database for history
+7. Memory learning triggered: `/api/memory/learning` extracts facts from conversation
 
 **State Management:**
 
-- Local component state via `useState` for UI control (messages, loading, modals)
-- Message queue pattern in `app/chat/page.tsx` using refs to handle concurrent messages
-- Supabase session persisted via cookies (30-day max age)
-- IndexedDB (browser storage) used temporarily during import for large datasets
-- No global state management library; all state is local or session-based
+- **Client-side State:** React hooks (useState, useRef) for UI state, message queue management
+- **Server-side State:** Route handlers manage request/response lifecycle; no persistent request state
+- **Persistent State:** Supabase database (conversations, embeddings, user profiles, memories)
+- **Session State:** Supabase auth via cookies (30-day expiration)
+- **Cache:** Query results cached in memory during request lifecycle; no cross-request caching
 
 ## Key Abstractions
 
-**SoulPrint (User Identity Model):**
-- Purpose: Captures user personality, writing style, interests, and communication preferences from ChatGPT history
-- Examples: `lib/import/soulprint.ts`, `lib/import/client-soulprint.ts`
-- Pattern: Extract from conversations → Analyze with LLM → Generate AI persona (SOUL.md) → Use in system prompts
+**Soulprint:**
+- Purpose: Represents extracted personality profile from user's ChatGPT history
+- Examples: `lib/import/soulprint.ts`, `app/api/soulprint/generate/route.ts`
+- Pattern: Structured data object containing identity, professional, relationships, interests, beliefs, communication style
+- Flow: Generated from conversation sample → stored as text summary → used to generate AI name, inform responses
 
-**Memory Chunks (Conversation Context):**
-- Purpose: Split conversations into semantic pieces at 3 scales for efficient retrieval
-- Examples: `conversation_chunks` table, `lib/memory/query.ts`
-- Pattern: Store with embeddings and layer_index → Search by similarity → Combine by layer for hierarchical context
+**Chunk:**
+- Purpose: Atomic unit of conversation data for embedding and retrieval
+- Examples: `lib/import/chunker.ts`
+- Pattern: Extracted segments of conversations with metadata (source conversation ID, title, message count)
+- Usage: Chunked conversations embedded → stored with vectors → retrieved via semantic search
 
-**AI Name & Persona:**
-- Purpose: User-customizable AI identity generated from soulprint
-- Examples: Auto-generated in `app/api/chat/route.ts`, user-named in chat via pattern matching
-- Pattern: Generate once on first message → Store in `user_profiles.ai_name` → Refresh from database
+**Embedding:**
+- Purpose: Vector representation of text for semantic search
+- Examples: `lib/import/embedder.ts`
+- Pattern: Text → AWS Bedrock Cohere Embed v3 → 1024-dim vector → stored in Supabase pgvector column
+- Flow: Conversation chunks → embeddings → stored in `conversation_embeddings` table → queried by RLM for context
 
-**Search Adapters:**
-- Purpose: Flexible search backends (Perplexity, Tavily, keyword)
-- Examples: `lib/search/perplexity.ts`, `lib/search/tavily.ts`
-- Pattern: User toggles Deep Search → Try primary provider → Fallback to secondary → Continue without if both fail
+**Memory:**
+- Purpose: Extracted facts/insights learned from conversations
+- Examples: `lib/memory/facts.ts`, `lib/memory/learning.ts`
+- Pattern: Short factual statements about user (name, job, interests, preferences)
+- Flow: Chat messages → learning module extracts facts → stored in `user_facts` table → used for personalization
+
+**RLM Service:**
+- Purpose: External memory retrieval and response generation
+- Examples: Integration in `app/api/chat/route.ts`
+- Pattern: Remote service called via HTTP POST with user_id, message, soulprint, history
+- Returns: Generated response + metadata (chunks used, method, latency)
 
 ## Entry Points
 
-**Landing Page:**
+**Home Page:**
 - Location: `app/page.tsx`
-- Triggers: Initial visit or unauthenticated request
-- Responsibilities: Check auth status, redirect authenticated users to chat, render marketing hero and feature sections
+- Triggers: Initial load or root navigation
+- Responsibilities: Auth check (redirect to chat if authenticated), render landing page with sections, auth modal for signup/login
 
 **Chat Page:**
 - Location: `app/chat/page.tsx`
-- Triggers: Authenticated user navigates to /chat or redirects after successful import
-- Responsibilities: Load message history, manage message queue, poll memory status, display chat interface, handle AI naming
+- Triggers: User clicks "Start" after auth or navigates to `/chat`
+- Responsibilities: Load chat history, display messages, handle user input, manage message queue, poll memory status, display settings modal
 
 **Import Page:**
 - Location: `app/import/page.tsx`
-- Triggers: New user after signup or existing user manually visiting /import
-- Responsibilities: Handle ChatGPT export upload, parse conversations client-side, generate quick soulprint, submit for embedding
+- Triggers: User hasn't imported data yet (auth check in `/api/memory/status`)
+- Responsibilities: Guide export process, handle file upload, show progress, call import API, display success/error
 
-**Chat API Endpoint:**
+**API Route: `/api/chat`:**
 - Location: `app/api/chat/route.ts`
-- Triggers: User sends message via chat UI
-- Responsibilities: Authenticate, retrieve memories, search web if requested, call RLM or Bedrock, stream response
+- Triggers: POST request from chat page
+- Responsibilities: Auth verification, memory retrieval, LLM invocation, web search (optional), response streaming
 
-**Import Processing Endpoints:**
-- Location: `app/api/import/*/route.ts`
-- Triggers: Frontend submissions during import workflow
-- Responsibilities: Parse export formats, generate soulprints, create embeddings, update import status
+**API Route: `/api/import/queue-processing`:**
+- Location: `app/api/import/queue-processing/route.ts`
+- Triggers: POST from import page after upload
+- Responsibilities: Download file from storage, parse conversations, chunk data, generate soulprint, queue embeddings
 
 ## Error Handling
 
-**Strategy:** Graceful degradation with fallbacks and non-blocking async operations. Errors logged to console, user-friendly messages shown in UI.
+**Strategy:** Multi-layer error handling with user-friendly fallbacks
 
 **Patterns:**
 
-1. **Chat Errors:** If RLM fails → Use Bedrock. If Bedrock fails → Return error message to user. If embedding fails → Skip memory context.
+**Client-side Error Handling:**
+- Try-catch blocks around fetch calls
+- Display user-friendly error messages
+- Network errors show retry buttons
+- Large file errors suggest reducing file size
+- Session errors redirect to login
 
-2. **Memory Errors:** If vector search fails (error code 42883: undefined function) → Fallback to keyword search. If all fail → Return empty context (chat still works).
+**Server-side Error Handling:**
+- Route handlers wrap async logic in try-catch
+- Return structured error responses with `error` and optional `code` fields
+- Log errors to console for debugging
+- Return 401 for auth failures, 400 for validation, 500 for server errors
+- Example: `app/api/chat/route.ts` catches RLM failures and falls back to Bedrock
 
-3. **Search Errors:** If Perplexity fails → Try Tavily. If both fail → Continue without web search. Log errors for monitoring.
-
-4. **Import Errors:** If import fails → Mark as `status: 'failed'` in database. User sees error banner. Can retry from import page.
-
-5. **Auth Errors:** If session invalid → Redirect to login. If OAuth fails → Show error message, user can retry.
+**Service Layer Error Handling:**
+- Libraries throw descriptive errors with context
+- Callers decide whether to retry, fallback, or propagate
+- Example: `lib/import/embedder.ts` throws on batch embedding failures
+- Example: `lib/memory/query.ts` returns empty results on query failures (graceful degradation)
 
 ## Cross-Cutting Concerns
 
-**Logging:** Console logging throughout with prefixes like `[Chat]`, `[RLM]`, `[SoulPrint]` for debugging. Server logs go to stderr/stdout. No structured logging framework.
+**Logging:**
+- Pattern: `console.log/error` with context prefixes like `[Chat]`, `[Import]`, `[Memory]`
+- Examples: `console.log('[Chat] Calling RLM service...')`, `console.error('[Import] Upload error:', error)`
+- Not centralized; scattered through route handlers and services
 
 **Validation:**
-- Frontend: Form validation on inputs (name length, email format) before submission
-- Backend: Type checking via TypeScript, Supabase row validation, JSON schema validation in imports
-- Database: Constraints on user_id foreign keys, unique indexes on user_profiles
+- Pattern: Manual validation in route handlers (check auth, validate input shape)
+- Example: `/api/import/queue-processing` validates storagePath, filename
+- No centralized validation schema (no Zod/Yup); type safety via TypeScript
 
 **Authentication:**
-- Middleware-based: `lib/supabase/middleware.ts` runs on every request to refresh sessions
-- Protected routes: Check `auth.getUser()` at start of protected endpoints
-- Token rotation: Supabase handles via cookies
+- Pattern: Supabase JWT in cookies (httpOnly, 30-day expiration)
+- Checked via: `createClient().auth.getSession()` on client, `createServerComponentClient()` on server
+- Protected routes check session in page components or route handlers
+- Redirect to login on unauthorized access
 
-**Rate Limiting:** Not explicitly implemented; relies on API provider limits (Bedrock, Perplexity, Tavily) and implicit request throttling.
+**Authorization:**
+- Pattern: User isolation via user_id in route handlers
+- Example: `/api/chat` uses `user.id` to query user's memories and embeddings
+- Admin routes check user role (if implemented)
 
-**Privacy:** User messages stored in database. No logs of embeddings. Imports marked as complete to prevent re-processing. Users can sign out to clear sessions.
+**Rate Limiting:**
+- Not explicitly implemented; relies on external services' rate limits
+- Supabase, Bedrock, Perplexity, Tavily all have limits
+- No client-side request throttling
 
 ---
 

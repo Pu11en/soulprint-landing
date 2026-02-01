@@ -2,335 +2,660 @@
 
 **Analysis Date:** 2026-02-01
 
-## Critical Security Issues
+## Security Concerns
 
-### Exposed Secrets in Version Control
+### Exposed Secrets in Environment File
+**Risk:** Critical - All API keys, credentials, and sensitive tokens are stored in plaintext in `.env.local`
 
-**Issue:** `.env.local` file contains plaintext credentials committed to repository
-- **Files:** `.env.local`
-- **Exposed secrets:**
-  - AWS access keys: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
-  - Database tokens: `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  - API keys: `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, `TAVILY_API_KEY`, `GEMINI_API_KEY`
-  - OAuth tokens: `GMAIL_REFRESH_TOKEN`
-  - Third-party credentials: `ASSEMBLYAI_API_KEY`, `KIE_API_KEY`, `SLACK_BOT_TOKEN`
-- **Impact:** Anyone with repository access can access all external services, databases, and user data
-- **Recommendations:**
-  1. Immediately rotate ALL exposed keys and credentials
-  2. Remove `.env.local` from git history (use `git filter-branch` or BFG Repo-Cleaner)
-  3. Add `.env.local` to `.gitignore`
-  4. Use Vercel environment variables or GitHub Secrets exclusively
-  5. Audit logs for any unauthorized access using these credentials
+**Files:**
+- `C:\Users\drewp\soulprint-landing\.env.local`
 
-### Hardcoded Admin Emails
+**Current mitigation:**
+- `.env.local` is in `.gitignore`
+- Local development only
 
-**Issue:** Admin authorization relies on hardcoded email addresses
-- **Files:** `app/api/admin/reset-user/route.ts` (lines 12-15)
-- **Code:**
-  ```typescript
-  const ADMIN_EMAILS = [
-    'drew@archeforge.com',
-    'drewspatterson@gmail.com',
-  ];
-  ```
-- **Risk:** Admin emails exposed in codebase; anyone with repository access knows who admins are
-- **Recommendations:**
-  1. Move to database-backed role system with proper authorization middleware
-  2. Use environment variables for authorized user IDs instead of emails
-  3. Implement proper RBAC (Role-Based Access Control)
+**What's exposed:**
+- AWS credentials (ACCESS_KEY_ID, SECRET_ACCESS_KEY)
+- Supabase keys (ANON_KEY, SERVICE_ROLE_KEY)
+- OpenAI API keys
+- Perplexity, Tavily, Gmail, R2, Stripe API keys
+- OAuth tokens and refresh tokens
+- Slack bot tokens
 
-### Service-to-Service Authentication Issues
+**Recommendations:**
+- Never commit `.env.local` to version control (already done)
+- Use Vercel environment variables for production secrets
+- Rotate all exposed keys immediately if repository becomes public
+- Consider using AWS Secrets Manager or similar for production
+- Implement secret scanning in CI/CD pipeline
 
-**Issue:** Bearer token authentication using SUPABASE_SERVICE_ROLE_KEY
-- **Files:** `app/api/import/upload/route.ts` (line 76)
-- **Code:**
-  ```typescript
-  'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-  ```
-- **Risk:** Service role key transmitted over network; if intercepted, provides full database access
-- **Recommendation:** Use internal service-to-service auth or avoid transmitting secrets in request bodies; prefer environment-based auth
+### Hardcoded Admin Email Checks
+**Risk:** Medium - Admin endpoints are protected by email string matching
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\admin\health\route.ts` (line 6-9)
+
+**Current approach:**
+```typescript
+const ADMIN_EMAILS = [
+  'drew@archeforge.com',
+  'drewspatterson@gmail.com',
+]
+```
+
+**Issue:**
+- Email-based auth is insufficient for sensitive admin endpoints
+- No rate limiting on admin endpoints
+- No audit logging of admin actions
+
+**Recommendation:**
+- Implement proper admin role in database schema
+- Use role-based access control (RBAC) with JWT claims
+- Add audit logging for all admin operations
+- Rate-limit admin endpoints
+- Require multi-factor authentication for admin access
+
+### RLM Service URL Not Validated
+**Risk:** Medium - External RLM service URL is called without validation
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts` (lines 84-121)
+
+**Issue:**
+- RLM service URL from environment is used directly in fetch calls
+- No HTTPS validation enforced
+- No request signing/authentication shown
+- Potential for man-in-the-middle attacks if URL compromised
+
+**Recommendations:**
+- Validate RLM URL is HTTPS before using
+- Implement service-to-service authentication (API key, mTLS, or JWT)
+- Add request signing for RLM calls
+- Monitor for unexpected RLM failures
+
+---
 
 ## Tech Debt
 
-### Excessive API Endpoint Proliferation
+### Multiple API Endpoints for Same Functionality
+**Issue:** Multiple overlapping import processing endpoints with unclear coordination
 
-**Issue:** 58 API endpoints across `/app/api/` with unclear organization
-- **Files:** `app/api/` directory (58 route files)
-- **Examples:**
-  - Multiple import endpoints: `upload`, `quick`, `process`, `process-background`, `process-server`
-  - Multiple embedding endpoints: `embed-all`, `embed-background`
-  - Duplicate/overlapping admin endpoints: `reset-user` supports GET, POST, DELETE
-- **Impact:** Difficult to maintain; unclear which endpoint to use; risk of logic duplication
-- **Fix approach:**
-  1. Consolidate overlapping import endpoints into single `/api/import` handler
-  2. Combine embedding logic into `/api/embeddings` with operation type parameter
-  3. Create `/api/admin` middleware wrapper to handle all admin operations
-  4. Document endpoint contract and deprecate unused endpoints
+**Files affected:**
+- `C:\Users\drewp\soulprint-landing\app\api\import\process\route.ts` (unified processor)
+- `C:\Users\drewp\soulprint-landing\app\api\import\upload\route.ts` (triggers two-phase)
+- `C:\Users\drewp\soulprint-landing\app\api\import\quick\route.ts` (phase 1)
+- `C:\Users\drewp\soulprint-landing\app\api\import\process-background\route.ts` (phase 2)
+- `C:\Users\drewp\soulprint-landing\app\api\import\embed-all\route.ts`
+- `C:\Users\drewp\soulprint-landing\app\api\import\process-server\route.ts`
 
-### Missing Error Handling Standardization
+**Impact:**
+- Confusing which endpoint to call
+- High risk of duplicate work
+- Difficult to debug failures
+- Inconsistent error handling between endpoints
 
-**Issue:** Inconsistent error handling across routes
-- **Files:** Multiple routes (`app/api/**/*.ts`)
-- **Patterns observed:**
-  - Some routes throw errors, others return null silently
-  - Inconsistent HTTP status codes (some use 500 for all errors)
-  - Logging is verbose but inconsistent (`[Chat]`, `[Import]`, etc. prefixes)
-  - Some errors silently fall back without informing user: `app/api/chat/route.ts` lines 217-234
-- **Impact:** Frontend cannot reliably distinguish error types; debugging is harder
-- **Fix approach:**
-  1. Create standardized error response format
-  2. Use consistent HTTP status codes per error type
-  3. Build error middleware wrapper for API routes
-  4. Implement error boundary in frontend for user-facing messages
+**Fix approach:**
+- Consolidate to single primary endpoint with clear phases
+- Remove redundant endpoints or mark as deprecated
+- Document endpoint contract clearly
+- Consider state machine pattern for import lifecycle
 
-### Type Safety Gaps
+### Bedrock Client Initialization Scattered Across Codebase
+**Issue:** Multiple manual Bedrock client initializations
 
-**Issue:** Widespread use of `any` type and missing type definitions
-- **Files:** Multiple files including:
-  - `app/api/admin/reset-user/route.ts` (line 56): `Record<string, any>`
-  - `app/api/gamification/xp/route.ts`: disabled `@typescript-eslint/no-explicit-any`
-  - `app/api/import/create-soulprint/route.ts`: multiple `any` types in functions
-  - `app/api/import/process-background/route.ts`: cast results as `any`
-- **Impact:** No compile-time type checking; harder to refactor; easier to introduce bugs
-- **Fix approach:**
-  1. Create proper type definitions for all API request/response payloads
-  2. Create shared types for Supabase row types (`User`, `Profile`, `Chunk`, etc.)
-  3. Replace `any` with specific types; only allow where absolutely necessary
-  4. Enable strict TypeScript checking in `tsconfig.json`
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts` (line 16-22)
+- `C:\Users\drewp\soulprint-landing\lib\memory\query.ts` (line 49-57)
+- `C:\Users\drewp\soulprint-landing\lib\memory\learning.ts` (line 14-20)
+
+**Impact:**
+- Code duplication (credentials config repeated 3+ times)
+- Harder to change AWS region or configuration
+- Risk of inconsistent client setup
+- Higher memory footprint (multiple client instances)
+
+**Fix approach:**
+- Create singleton factory in `lib/bedrock/client.ts`
+- Export consistent client instance from factory
+- Document configuration and retry logic centrally
+
+### Import Page is Very Large (801 lines)
+**Issue:** Single component handling too many concerns
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\import\page.tsx` (801 lines)
+
+**Impact:**
+- Hard to test
+- Hard to modify without affecting other features
+- High cognitive load
+- IndexedDB, file parsing, progress tracking, reset logic all mixed
+
+**Fix approach:**
+- Extract file parsing to separate module (`lib/import/file-handler.ts`)
+- Extract IndexedDB logic to separate module (`lib/import/db-client.ts`)
+- Extract progress tracking to custom hook (`hooks/useImportProgress.ts`)
+- Create reusable components for each step
+- Reduce component to < 300 lines
+
+### Chat Route is Complex (449 lines)
+**Issue:** Single endpoint handles multiple LLM backends and fallbacks
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts` (449 lines)
+
+**Impact:**
+- Hard to understand request path (RLM vs Bedrock vs Perplexity vs Tavily)
+- Difficult to modify LLM configuration
+- Too many responsibilities in one endpoint
+- Error handling is tangled
+
+**Fix approach:**
+- Create strategy pattern for LLM providers (`lib/llm/providers/`)
+- Extract search logic to separate module (`lib/search/handler.ts`)
+- Extract system prompt building to separate file (`lib/chat/system-prompt.ts`)
+- Use composition to chain providers with fallbacks
+- Reduce route handler to orchestration only
+
+### Type Safety Issues with `any`
+**Issue:** 37 instances of `any` type in app code
+
+**Files:**
+- Most prevalent in `C:\Users\drewp\soulprint-landing\app\import\page.tsx`
+
+**Impact:**
+- Loss of type checking at compile time
+- Harder to refactor safely
+- Runtime errors more likely
+- IDE autocomplete unreliable
+
+**Fix approach:**
+- Create proper interfaces for all API responses
+- Use TypeScript strict mode (`strict: true` in tsconfig - already enabled)
+- Create factory functions that return properly typed data
+- Type all IndexedDB operations: `IDBDatabase | null` instead of `any`
+
+---
 
 ## Performance Bottlenecks
 
-### Synchronous Embedding Processing During Import
+### Memory Search Uses Two Methods Sequentially
+**Risk:** Medium - Query falls back to keyword search if embedding fails
 
-**Issue:** Large embedding operations block request handling
-- **Files:** `app/api/import/embed-all/route.ts`, `lib/import/embedder.ts`
-- **Problem:**
-  - Bedrock embedding calls not paginated efficiently
-  - 50-chunk batches may cause timeouts on Vercel (5min max)
-  - No queue system for large imports (>500 chunks)
-- **Impact:** Imports fail for users with large conversation histories; poor user experience
-- **Improvement path:**
-  1. Use queue system (Bull/BullMQ) for background embedding jobs
-  2. Implement streaming responses for long-running imports
-  3. Add progress polling endpoint so UI can show real-time status
-  4. Batch embeddings into smaller chunks (20-30 per request)
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts` (lines 174-183)
 
-### Vector Search Performance
+**Current approach:**
+```typescript
+const { contextText, chunks, method } = await getMemoryContext(user.id, message, 5);
+```
 
-**Issue:** Multiple vector searches executed sequentially per chat message
-- **Files:** `lib/memory/query.ts` (lines 282-318)
-- **Code:** Calls `searchMemoryLayered()` 4 times in sequence for MACRO, THEMATIC, MICRO layers
-- **Impact:** ~200-400ms latency added to every chat message when memory context needed
-- **Improvement path:**
-  1. Cache query embeddings (don't re-embed per search)
-  2. Parallelize layer searches using `Promise.all()`
-  3. Implement connection pooling for Bedrock client
-  4. Add Redis caching layer for frequently accessed chunks
+**Issue:**
+- If embedding fails, falls back to keyword search automatically
+- No timing information on fallback trigger
+- Could mask performance issues
 
-### Unoptimized Database Queries
+**Improvement path:**
+- Add metrics for embedding vs keyword search ratio
+- Implement parallel search (embeddings + keyword simultaneously)
+- Cache recent embeddings to avoid recomputation
+- Add observability to understand when fallback triggers
 
-**Issue:** N+1 queries and inefficient patterns
-- **Files:** `app/api/admin/reset-user/route.ts` (lines 160-174)
-- **Pattern:** Separate count queries for total chunks, embedded chunks - should use single query with aggregation
-- **Impact:** Multiple database round trips; slower admin operations
-- **Fix:** Use database aggregations; batch related queries
+### Large Payload Chunks Transferred to Client
+**Issue:** Full conversation chunks and raw JSON compressed with gzip but still large
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\import\page.tsx` (IndexedDB storage)
+- `C:\Users\drewp\soulprint-landing\app\api\import\process\route.ts` (line 60 - rawJson)
+
+**Impact:**
+- Network transfer time on slow connections
+- IndexedDB storage quota concerns on mobile
+- Serialization/deserialization overhead
+
+**Recommendation:**
+- Stream large files instead of loading entirely
+- Chunk processing at 100-200KB boundaries
+- Consider deferring non-critical data storage
+- Implement incremental background processing
+
+### Multiple Rounds to Perplexity API
+**Issue:** Web search goes through Perplexity then falls back to Tavily
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts` (lines 205-235)
+
+**Current flow:**
+1. Check if Perplexity API key exists
+2. Call Perplexity API
+3. If fails, try Tavily
+4. Format results for system prompt
+
+**Issue:**
+- Perplexity failure adds 15+ seconds latency before Tavily kicks in
+- No parallel attempt
+- Hardcoded timeouts could be optimized per service
+
+**Improvement:**
+- Implement racing (fastest response wins)
+- Set shorter timeout for Perplexity (try both quickly)
+- Cache search results for common queries
+- Consider pre-computing frequently searched topics
+
+---
 
 ## Fragile Areas
 
-### Fallback Chain Fragility in Chat Route
+### RLM Service as Critical Path
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts` (lines 238-271)
 
-**Issue:** Complex fallback chain with multiple failure modes
-- **Files:** `app/api/chat/route.ts` (lines 237-357)
-- **Chain:** RLM → Bedrock → No response
-- **Fragility:**
-  - RLM timeout (60s) could hang user request
-  - Bedrock fallback could fail silently in production
-  - No circuit breaker - keeps trying failed services
-  - Web search (Perplexity → Tavily) adds another layer of cascading failures
-- **Safe modification:**
-  1. Add request timeout at route level (30s max)
-  2. Implement circuit breaker for external services
-  3. Add monitoring/alerting for fallback usage
-  4. Test failure modes explicitly
+**Why fragile:**
+- RLM is required for chat to work well (memory retrieval)
+- External service not under direct control
+- 60-second timeout might be too long or too short depending on load
+- Fallback to Bedrock works but degrades experience (no memory context)
+- No circuit breaker pattern
 
-### Import Process State Machine Complexity
+**Safe modification:**
+- Add RLM health check endpoint
+- Implement exponential backoff on failures
+- Cache previous RLM responses for fallback
+- Monitor RLM response times in production
+- Add alerts if RLM availability drops below 95%
 
-**Issue:** Multiple import endpoints without clear coordination
-- **Files:**
-  - `app/api/import/upload/route.ts` (initiates two-phase)
-  - `app/api/import/quick/route.ts` (phase 1)
-  - `app/api/import/embed-all/route.ts` (phase 2)
-  - `app/api/import/process/route.ts` (unified alternative)
-- **Risk:** Unclear which flow is active; potential for partial imports; duplicate data
-- **Test coverage gap:** No integration tests for full import flow
-- **Safe modification:**
-  1. Document which import path is canonical (appears to be `/api/import/process`)
-  2. Deprecate other endpoints explicitly
-  3. Add state validation to prevent double-imports
-  4. Add transactional guarantees to import operations
+**Test coverage needed:**
+- Mock RLM service for chat tests
+- Test timeout scenarios
+- Test degraded mode (Bedrock-only chat)
+- Test partial RLM failures (slow responses)
 
-### Memory Vector Search with Fallback
+### User Profile Lazy Initialization
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts` (lines 188-199)
 
-**Issue:** Silent fallback from vector search to keyword search
-- **Files:** `lib/memory/query.ts` (lines 329-334)
-- **Code:**
-  ```typescript
-  } catch (error) {
-    console.log('[RLM] Vector search failed:', error);
-    // Fallback
-    chunks = await keywordSearch(userId, query, 5);
-  }
-  ```
-- **Risk:**
-  - RPC function may be missing silently (code 42883)
-  - Fallback gives different quality results
-  - User sees inconsistent memory quality without knowing
-- **Safe modification:**
-  1. Add explicit monitoring for RPC errors
-  2. Alert when fallback is triggered
-  3. Make fallback logic explicit and testable
-  4. Cache RPC availability check
+**Why fragile:**
+- AI name is auto-generated if missing
+- This call happens on every chat if name wasn't set
+- If it fails, name defaults to hardcoded string
+- No retry logic for name generation failures
+- Could lead to multiple users having same fallback name
 
-## Test Coverage Gaps
+**Safe modification:**
+- Pre-generate AI name during import completion
+- Only generate once and store immediately
+- Add database constraint to ensure unique names per user
+- Monitor failed name generation attempts
 
-### No Integration Tests for Import Flow
+**Test coverage needed:**
+- Test behavior when name generation fails
+- Test parallel chat requests during name generation
+- Verify uniqueness of generated names
 
-**Issue:** Critical import pipeline untested end-to-end
-- **Files:** `app/api/import/**/*`
-- **What's not tested:**
-  - Full import with file upload → chunking → embedding → soulprint generation
-  - Two-phase import (quick + background embeddings)
-  - Failure recovery during import
-  - Chunk deduplication and overlap
-- **Risk:** Regressions could leave users with incomplete imports silently
-- **Priority:** High - import is core user journey
+### Multi-API Dependency Chain
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts`
 
-### No Tests for Chat with Memory Retrieval
+**Dependencies (in order):**
+1. Supabase Auth (check user)
+2. Supabase DB (fetch profile)
+3. Memory query (could call Bedrock embeddings)
+4. RLM service (optional but crucial)
+5. Perplexity or Tavily (web search if enabled)
+6. Bedrock (fallback LLM)
 
-**Issue:** Chat with memory context is untested
-- **Files:** `app/api/chat/route.ts`, `lib/memory/query.ts`
-- **What's not tested:**
-  - Memory search quality
-  - Fallback from RLM to Bedrock
-  - Web search integration
-  - History concatenation and token limits
-- **Risk:** Changes to memory retrieval could break chat quality without detection
-- **Priority:** High - affects every chat interaction
+**Issue:** Each dependency failure has cascading effects
+- Missing profile → undefined behavior
+- Memory query timeout → chat delays
+- RLM unavailable → no memory in fallback
+- Both web search services down → no current information
 
-### No Admin Endpoint Tests
+**Mitigation needed:**
+- Implement feature flags for each service
+- Add graceful degradation per service
+- Implement timeout strategies per call
+- Return structured error responses indicating which service failed
 
-**Issue:** Admin operations untested
-- **Files:** `app/api/admin/**/*`
-- **What's not tested:**
-  - User reset/deletion cascade
-  - Admin authorization checks
-  - Metric calculations
-  - Health checks
-- **Risk:** Admin operations could corrupt data
-- **Priority:** Medium
+---
 
-## Dependencies at Risk
+## Known Bugs
 
-### OpenAI Fallback for Soulprint Generation
+### .env.local Syntax Issue
+**Symptom:** `.env.local` file contains a "nul" file at root
 
-**Issue:** If OpenAI fails, generates generic fallback soulprint
-- **Files:** `app/api/import/process/route.ts` (lines 272-280), `app/api/import/create-soulprint/route.ts`
-- **Risk:**
-  - Users may not realize their soulprint is generic
-  - No indication to user that generation failed
-  - Repeated failures accumulate poor quality profiles
-- **Mitigation:** Currently has fallback, but no user notification
-- **Recommendation:**
-  1. Add flag to profile indicating soulprint quality
-  2. Alert user if generation failed
-  3. Offer re-import option
-  4. Monitor OpenAI API reliability
+**Files affected:**
+- `C:\Users\drewp\soulprint-landing\nul` (spurious file)
 
-### Bedrock AWS Region Hardcoded
+**Investigation:** Appears to be a Windows redirection artifact
 
-**Issue:** All Bedrock calls use `us-east-1` with no failover
-- **Files:** Multiple files using `process.env.AWS_REGION || 'us-east-1'`
-- **Risk:** Regional outage causes complete service failure
-- **Improvement:** Add multi-region failover or region configuration
+**Fix:** Delete `nul` file from repository root
+
+---
 
 ## Scaling Limits
 
-### Chunk Size and Token Limits
+### Database Query Patterns Without Indexes
+**Risk:** Performance degrades as user base grows
 
-**Issue:** Chunk truncation at fixed boundaries may lose context
-- **Files:**
-  - `lib/import/embedder.ts` (line 39): 128000 char truncation
-  - `lib/memory/query.ts` (lines 360-361): Layer-specific truncation (2000 for MACRO, 1000 for standard)
-- **Risk:** Important information at end of large chunks is discarded
-- **Capacity:** No clear guidance on max conversation size per user
-- **Improvement:**
-  1. Implement sliding window chunking
-  2. Add metrics on chunk loss
-  3. Document maximum supported conversation size
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts` (line 161 - user_profiles select)
+- `C:\Users\drewp\soulprint-landing\app\api\import\process\route.ts` (line 91 - duplicate import check)
 
-### Vector Database Scalability
+**Current capacity:**
+- Likely fine for < 10K active users
+- At 100K+ users, unindexed lookups could become slow
 
-**Issue:** No indexing strategy documented for large user bases
-- **Impact:** Vector searches will slow as chunks accumulate
-- **Improvement path:**
-  1. Add database indices on (`user_id`, `embedding`)
-  2. Implement partitioning by user
-  3. Consider dedicated vector DB (Pinecone, Weaviate) for scale
+**Scaling path:**
+- Verify indexes exist on `user_profiles.user_id`
+- Verify indexes exist on `conversation_chunks.user_id, created_at`
+- Monitor slow query logs in Supabase
+- Implement read replicas for frequently accessed tables
+- Consider denormalizing user profile data for faster lookup
+
+### Embedding Batch Size Fixed at 96
+**Files:**
+- `C:\Users\drewp\soulprint-landing\lib\memory\query.ts` (line 100 - BATCH_SIZE = 96)
+
+**Issue:**
+- Fixed batch size not optimal for all scenarios
+- No adaptive batching based on payload size
+- Could timeout with large embeddings
+
+**Improvement:**
+- Make batch size configurable per model
+- Implement dynamic sizing based on token count
+- Monitor embedding latencies and adjust batch size
+- Consider streaming for very large batches
+
+### Storage for Raw Exports
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\import\process\route.ts` (line 178 - raw_export_path)
+
+**Concern:**
+- Compressed JSON stored in Supabase Storage
+- No retention policy set
+- Could grow unbounded
+
+**Scaling path:**
+- Set automated cleanup (30-90 day retention)
+- Monitor storage usage trends
+- Consider S3 Glacier for long-term retention
+- Implement archive strategy for large exports
+
+---
+
+## Test Coverage Gaps
+
+### Import Processing Not Fully Tested
+**What's not tested:**
+- Two-phase import completion
+- Chunk batching (BATCH_SIZE logic)
+- Raw JSON compression and storage
+- Import state transitions (pending → complete)
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\import\process\route.ts`
+- `C:\Users\drewp\soulprint-landing\app\api\import\upload\route.ts`
+
+**Risk:** High - Import is critical path. Silent failures likely.
+
+**Priority:** High
+
+### Chat Fallback Chains Not Tested
+**What's not tested:**
+- RLM service timeout behavior
+- Perplexity → Tavily fallback
+- Bedrock-only mode (when RLM down)
+- Parallel search requests during slow RLM responses
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts`
+
+**Risk:** Medium - User experience degrades silently
+
+**Priority:** High
+
+### Memory Query Embedding Failures Not Tested
+**What's not tested:**
+- Bedrock embedding API errors
+- Fallback to keyword search behavior
+- Handling of very large documents
+- Edge cases in similarity matching
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\lib\memory\query.ts`
+
+**Risk:** Medium - Memory features fail silently
+
+**Priority:** Medium
+
+### Auth Middleware Not Tested
+**What's not tested:**
+- Token expiration handling
+- Session refresh logic
+- Cookie management
+- Protected route access
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\lib\supabase\middleware.ts`
+
+**Risk:** High - Auth is foundational
+
+**Priority:** High
+
+---
+
+## Dependencies at Risk
+
+### Custom RLM Service (External)
+**Risk:** High - Proprietary service not under direct control
+
+**Impact:** If RLM goes down:
+- Chat functionality degrades to Bedrock without memory
+- No conversation context retrieval
+- Premium feature becomes basic
+
+**Migration plan:**
+- Keep Bedrock fallback working (already done)
+- Document how to switch to pure Bedrock mode
+- Build in-house memory service as backup
+- Set SLA expectation with RLM provider
+
+### Perplexity API Dependency
+**Risk:** Medium - Proprietary API, pricing changes possible
+
+**Impact:**
+- Web search feature unavailable if Perplexity down
+- Falls back to Tavily
+
+**Migration plan:**
+- Keep Tavily as always-available fallback (already done)
+- Monitor Perplexity pricing and availability
+- Consider implementing custom search with Tavily alone
+
+### Bedrock AWS Dependency
+**Risk:** Medium - Regional availability, service deprecation possible
+
+**Impact:**
+- Chat completely non-functional if Bedrock unavailable
+- No fallback LLM provider
+
+**Migration plan:**
+- Add OpenAI GPT-4 as fallback provider (credentials already exist)
+- Implement provider selection logic
+- Monitor Bedrock deprecations from AWS
+- Test OpenAI fallback regularly
+
+---
 
 ## Missing Critical Features
 
-### No Backup/Export for User Data
+### No Conversation Backup/Export for Users
+**Problem:** Users cannot export their chat history after import
 
-**Issue:** User conversations are stored but no export mechanism
-- **Files:** `app/api/import/process/route.ts` (lines 168-202) - only stores compressed raw JSON internally
-- **Risk:** User data lock-in; GDPR compliance gaps
-- **Recommendation:**
-  1. Implement user data export endpoint (conversations, chunks, profile)
-  2. Add periodic backup mechanism
-  3. Document data retention policy
+**Impact:**
+- Data portability concern
+- Lock-in effect
+- GDPR compliance issue (right to data portability)
 
-### No Rate Limiting
+**Recommendation:** Implement `/api/memory/export` endpoint
 
-**Issue:** No per-user rate limits on API endpoints
-- **Files:** All API routes lack rate limiting
-- **Risk:** Abuse of embedding/chat endpoints; cost overruns
-- **Recommendation:**
-  1. Add middleware for rate limiting by user ID
-  2. Configure thresholds per operation type
-  3. Return 429 status with retry info
+### No Explicit User Consent for Data Processing
+**Problem:** No explicit opt-in for storage/processing of imported conversations
 
-### No Request Validation Schema
+**Impact:**
+- Privacy/compliance risk
+- Users unaware of data storage duration
+- GDPR/CCPA implications
 
-**Issue:** Request bodies validated inline, not with schema library
-- **Files:** All API routes manually validate request body properties
-- **Risk:** Easy to miss edge cases; vulnerability to malformed data
-- **Recommendation:**
-  1. Implement Zod or similar schema validation
-  2. Create reusable schemas for common payload types
-  3. Add request logging for debugging
+**Recommendation:**
+- Add explicit consent modal before import starts
+- Document data retention policy
+- Implement delete-after-X-days option
 
-## Data Integrity Concerns
+### No Rate Limiting on User Chat Requests
+**Problem:** No per-user rate limits on chat endpoint
 
-### No Transactional Guarantees for Multi-Step Operations
+**Files:**
+- `C:\Users\drewp\soulprint-landing\app\api\chat\route.ts`
 
-**Issue:** Import process spans multiple API calls without transactions
-- **Files:** `app/api/import/upload/route.ts`, `app/api/import/quick/route.ts`, `app/api/import/embed-all/route.ts`
-- **Scenario:** If embedding fails partway through, user is left with incomplete data
-- **Impact:** Database inconsistency; user confusion
-- **Fix approach:**
-  1. Move to single unified import endpoint with transaction-like semantics
-  2. Use queue system with idempotent operations
-  3. Add import status tracking with detailed error info
+**Impact:**
+- Expensive API calls (Bedrock, Perplexity) uncontrolled
+- Potential for cost explosion from abuse
+- No protection against token-stuffing attacks
 
-### Chat Message Storage Unpredictable
+**Recommendation:**
+- Implement Redis-based rate limiting (e.g., 100 requests/hour per user)
+- Return 429 status when limit exceeded
+- Add X-RateLimit headers to responses
+- Log violations for monitoring
 
-**Issue:** Not clear how chat history is persisted
-- **Files:** `app/api/chat/messages/route.ts` not found in listing; unclear where messages saved
-- **Impact:** Potential data loss; unclear retention policy
-- **Recommendation:**
-  1. Explicitly document chat persistence strategy
-  2. Add endpoint to persist messages incrementally
-  3. Add archival/cleanup policy
+### No Metrics/Observability on API Endpoints
+**Problem:** Limited visibility into system behavior
+
+**Files:** All API routes
+
+**Impact:**
+- Hard to debug performance issues
+- Can't track which features are used
+- Can't detect anomalies in user behavior
+
+**Recommendation:**
+- Add structured logging (JSON format)
+- Track latencies per service call
+- Log success/failure rates per endpoint
+- Monitor error patterns
+
+---
+
+## Build and Configuration Issues
+
+### Test Output Files Left in Repository
+**Problem:** Multiple test output files committed
+
+**Files:**
+- `C:\Users\drewp\soulprint-landing\test-output.txt`
+- `C:\Users\drewp\soulprint-landing\test-output-2.txt`
+- `C:\Users\drewp\soulprint-landing\test-output-3.txt`
+- `C:\Users\drewp\soulprint-landing\test-output-final.txt`
+- `C:\Users\drewp\soulprint-landing\test-output-v3.txt`
+- `C:\Users\drewp\soulprint-landing\models-output.txt`
+- `C:\Users\drewp\soulprint-landing\import_check.html`
+- `C:\Users\drewp\soulprint-landing\build.log`
+
+**Impact:**
+- Repository bloat
+- Confusing for new developers
+- Should be in `.gitignore`
+
+**Fix:**
+- Add these patterns to `.gitignore`:
+  ```
+  test-output*.txt
+  models-output.txt
+  import_check.html
+  build.log
+  *.log
+  ```
+
+### TypeScript Build Cache Not Cleared
+**Files:**
+- `C:\Users\drewp\soulprint-landing\tsconfig.tsbuildinfo` (660KB)
+
+**Issue:**
+- Build cache file is large and not typically committed
+- Should be in `.gitignore` or `.gitattributes`
+
+**Fix:**
+- Add to `.gitignore`: `tsconfig.tsbuildinfo`
+
+### No Environment Validation at Startup
+**Problem:** Missing required env vars aren't detected until runtime
+
+**Files:**
+- All API routes that use `process.env.KEY!`
+
+**Impact:**
+- Deploy with missing config goes unnoticed until request hits that code path
+- Could take hours to discover missing API key
+
+**Recommendation:**
+- Add startup validation script
+- Create `lib/env.ts` with runtime checks
+- Fail fast if required vars missing
+- Export validated config as object
+
+---
+
+## Documentation Gaps
+
+### Unclear Import Flow
+**Problem:** Multiple import endpoints with complex phases
+
+**Impact:**
+- Hard for new developers to understand flow
+- Easy to add wrong endpoint in new features
+- Difficult to debug import failures
+
+**Recommendation:**
+- Create diagram of import state machine
+- Document each endpoint's exact responsibility
+- Add decision tree for which endpoint to call
+
+### RLM Service Contract Undocumented
+**Problem:** RLM expectations not defined
+
+**Impact:**
+- Assumptions about RLM API could be wrong
+- Timeout values chosen arbitrarily (60 seconds)
+- Error handling unclear
+
+**Recommendation:**
+- Document RLM request/response format
+- Document timeout expectations
+- Clarify what happens when RLM has no memory
+- Add version pinning if available
+
+### No API Error Response Standard
+**Problem:** Error responses vary by endpoint
+
+**Impact:**
+- Client code has to handle multiple error formats
+- Harder to implement universal error handling
+- Error messages inconsistent
+
+**Recommendation:**
+- Define error response schema:
+  ```json
+  {
+    "error": "error_code",
+    "message": "Human readable message",
+    "statusCode": 400,
+    "details": {}
+  }
+  ```
+- Use consistently across all endpoints
+- Document error codes as enum
 
 ---
 

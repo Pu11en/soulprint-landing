@@ -4,205 +4,183 @@
 
 ## APIs & External Services
 
-**LLM / AI Models:**
-- AWS Bedrock (Claude 3.5 Haiku) - Primary LLM for chat responses
-  - SDK: `@aws-sdk/client-bedrock-runtime`
-  - Auth: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
-  - Model ID: `us.anthropic.claude-3-5-haiku-20241022-v1:0`
-  - Used in: `app/api/chat/route.ts`, `app/api/import/create-soulprint/route.ts`, `app/api/memory/synthesize/route.ts`
+**AI & LLM:**
+- **AWS Bedrock (Claude)** - Primary LLM for chat and content generation
+  - SDK/Client: `@aws-sdk/client-bedrock-runtime`
+  - Auth: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+  - Model: `BEDROCK_MODEL_ID` (e.g., Claude 3.5 Haiku)
+  - Usage: Chat responses, AI name generation, personality analysis
+  - Implementation: `app/api/chat/route.ts`, `lib/import/personality-analysis.ts`
 
-- OpenAI - Embeddings, transcription, and fallback generation
-  - SDK: `openai`
+- **OpenAI** - Fallback for embeddings and content analysis
+  - SDK/Client: `openai`
   - Auth: `OPENAI_API_KEY`
-  - Features: Embeddings (text-embedding-3-small), Whisper transcription, image generation
-  - Used in: `app/api/transcribe/route.ts`, `app/api/embeddings/process/route.ts`, `app/api/import/process/route.ts`
+  - Usage: Text embeddings, soulprint generation
+  - Implementation: `app/api/import/process/route.ts`
 
-- Google Gemini - Image generation for AI avatars
-  - SDK: Via REST API (no SDK)
-  - Auth: `GEMINI_API_KEY`
-  - Endpoint: Not directly exposed (called via Cloudinary)
-  - Used in: `app/api/profile/ai-avatar/route.ts`
-
-**Web Search & Information Retrieval:**
-- Perplexity AI (Sonar model) - Real-time web search with citations
-  - SDK: Custom HTTP wrapper in `lib/search/perplexity.ts`
+**Web Search & Intelligence:**
+- **Perplexity AI (Sonar)** - Real-time web search with citations
   - Auth: `PERPLEXITY_API_KEY`
-  - Endpoint: `https://api.perplexity.ai/chat/completions`
-  - Features: Real-time search, citations, deep research mode (30s timeout)
-  - Used in: `app/api/chat/route.ts`, `lib/search/perplexity.ts`
+  - Models: `sonar` (quick), `sonar-deep-research` (comprehensive)
+  - Usage: Current news, time-sensitive information, facts
+  - Implementation: `lib/search/perplexity.ts`, `app/api/chat/route.ts`
+  - Timeout: 10s for normal, 30s for deep research
 
-- Tavily API - Fallback web search for current events
-  - SDK: `@tavily/core`
+- **Tavily** - Web search fallback
+  - SDK/Client: `@tavily/core`
   - Auth: `TAVILY_API_KEY`
-  - Features: Web search results, answer extraction
-  - Used in: `app/api/chat/route.ts`, `lib/search/tavily.ts`
+  - Usage: Backup search when Perplexity unavailable
+  - Implementation: `lib/search/tavily.ts`
 
-**RLM Service (Memory Retrieval & Learning):**
-- Custom microservice hosted on Render
-  - Service URL: `RLM_SERVICE_URL` (https://soulprint-landing.onrender.com)
-  - Endpoint: `/query` (POST)
-  - Purpose: Memory context retrieval and dynamic response generation
-  - Fallback behavior: Falls back to Bedrock if RLM unavailable
-  - Used in: `app/api/chat/route.ts`
+**Email:**
+- **Gmail (OAuth2)** - Email sending for waitlist confirmations, task notifications
+  - SDK/Client: `nodemailer` with Gmail service
+  - Auth: `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `GMAIL_USER`
+  - Implementation: `lib/email/send.ts`, `lib/email.ts`
+  - Formats: Waitlist confirmation, task email with citations
+  - From address: `SoulPrint <[GMAIL_USER]>`
+
+- **Resend** - Alternative email delivery service
+  - SDK/Client: `resend`
+  - Auth: Not found in current implementation
+  - Status: Available but not actively used
+
+**Voice & Audio:**
+- **Assembly AI** - Audio transcription and processing
+  - Auth: `ASSEMBLYAI_API_KEY`
+  - Usage: Voice input transcription
+  - Implementation: `app/api/transcribe/route.ts`
+
+- **Google APIs (GoogleAuth)** - Gmail integration via googleapis
+  - SDK/Client: `googleapis`
+  - Auth: Gmail OAuth credentials
+  - Implementation: Email sending pipeline
 
 ## Data Storage
 
 **Databases:**
-- Supabase (PostgreSQL)
-  - Connection: `NEXT_PUBLIC_SUPABASE_URL`
-  - Service Role Key: `SUPABASE_SERVICE_ROLE_KEY`
-  - Anon Key: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  - ORM/Client: `@supabase/supabase-js` 2.93.1, `@supabase/ssr` 0.8.0
-  - Tables: `user_profiles`, `import_jobs`, `conversation_chunks`, `user_memories`, `pending_waitlist`, `gamification_*`
-  - Features: Auth, storage, real-time subscriptions, vector search (pgvector for embeddings)
-  - Used in: Nearly all API routes and utilities
+- **Supabase (PostgreSQL)** - Primary database
+  - Connection: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (client), `SUPABASE_SERVICE_ROLE_KEY` (server)
+  - Client: `@supabase/supabase-js` with SSR mode (`@supabase/ssr`)
+  - Auth: Supabase auth via email/OAuth
+  - Tables: user_profiles, conversations, chunks, embeddings, memories, gamification data
+  - Features: RLS (row-level security), realtime subscriptions, vector search
+  - Implementation: `lib/supabase/server.ts`, `lib/supabase/client.ts`, `lib/supabase/middleware.ts`
 
 **File Storage:**
-- Cloudflare R2 (AWS S3-compatible) - Primary file uploads
-  - Connection: `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
-  - SDK: `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`
+- **Cloudflare R2** - Object storage for user uploads and files
+  - SDK/Client: `@aws-sdk/client-s3` (S3-compatible)
+  - Auth: `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
   - Bucket: `soulprint-uploads`
-  - Used in: `app/api/import/upload/route.ts`, `app/api/test-r2/route.ts`
+  - Operations: Upload, download, delete, signed URL generation
+  - Signed URLs: Generated via `@aws-sdk/s3-request-presigner`
+  - Implementation: `app/api/test-r2/route.ts`, `app/api/import/upload/route.ts`
 
-- Supabase Storage - Secondary storage
-  - Bucket: `imports` (for conversation file uploads)
-  - Used in: `app/api/import/get-upload-url/route.ts`
+- **Cloudinary** - Image hosting and optimization
+  - SDK/Client: `cloudinary`
+  - Status: Available in dependencies, purpose unclear from codebase scan
 
 **Caching:**
-- None detected (no Redis or similar)
+- Not detected in current implementation
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- Supabase Auth
-  - Implementation: OAuth2/PKCE flow with server-side sessions
-  - Cookie handling: 30-day max age, Safari-compatible settings
-  - Routes: `app/auth/`, `app/login/`, `app/signup/`, `app/api/auth/signout/route.ts`
-  - Client: `lib/supabase/server.ts` (server), `lib/supabase/client.ts` (client)
+- **Supabase Auth** - User authentication and session management
+  - Implementation: `lib/supabase/server.ts` (server-side), `lib/supabase/client.ts` (client-side)
+  - Methods: Email/password, OAuth (via Supabase providers)
+  - Session: Cookie-based (30-day max age) with PKCE flow
+  - Middleware: `middleware.ts` for session refresh and route protection
+  - Voice Verification: Optional verification flag passed in chat requests
 
-## Communication & Messaging
+- **Gmail OAuth** - Email credentials (for sending via Gmail)
+  - Flow: OAuth2 with refresh tokens
+  - Purpose: Email delivery authorization
 
-**Email:**
-- Resend (Primary)
-  - SDK: `resend`
-  - Auth: `RESEND_API_KEY`
-  - From: `SoulPrint <noreply@soulprint.so>`
-  - Features: Transactional email templates
-  - Used in: `lib/email/send.ts` (soulprint ready notifications)
-
-- Gmail OAuth2 (Fallback)
-  - SDK: `nodemailer`
-  - Auth: `GMAIL_USER`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`
-  - From: SoulPrint <waitlist@archeforge.com>
-  - Used in: `lib/email.ts` (task notifications, waitlist confirmations)
-
-**Voice:**
-- OpenAI Whisper - Audio transcription
-  - Endpoint: `https://api.openai.com/v1/audio/transcriptions`
-  - Auth: `OPENAI_API_KEY`
-  - Model: `whisper-1`
-  - Features: Multi-format audio transcription (webm, mp4, ogg, wav)
-  - Used in: `app/api/transcribe/route.ts`
-
-- Voice Verification (Placeholder)
-  - Current: Simple fingerprint comparison in `app/api/voice/enroll/route.ts` and `app/api/voice/verify/route.ts`
-  - Note: Production implementation would use voice embedding similarity
+- **Vercel OIDC** - Deployment authentication
+  - Token: `VERCEL_OIDC_TOKEN`
+  - Purpose: GitHub Actions / deployment authentication
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- Not detected (no Sentry, LogRocket, or similar)
+- Not detected (no Sentry, Rollbar, etc.)
+- Console logging used for debugging
 
 **Logs:**
-- Console logging with prefixes: `[Chat]`, `[Import]`, `[Email]`, `[Transcribe]`, etc.
-- No centralized logging service detected
-
-**Health Checks:**
-- `app/api/admin/health/route.ts` - System health dashboard
-- `app/api/chat/health/route.ts` - Chat service status
-- `app/api/rlm/health/route.ts` - RLM service status
-- `app/api/health/supabase/route.ts` - Database connectivity
-
-## CRM & Lead Management
-
-**Streak CRM:**
-- Service: Gmail-based CRM for lead tracking
-  - Auth: `STREAK_API_KEY`, `STREAK_PIPELINE_KEY`
-  - Endpoint: `https://api.streak.com/api/v2/pipelines/{key}/boxes`
-  - Features: Add confirmed waitlist signups to pipeline
-  - Used in: `app/api/waitlist/confirm/route.ts`
+- Console-based logging with prefixes (e.g., `[Chat]`, `[Memory]`, `[Import]`)
+- Structured error logging in API routes
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Vercel - Primary (Next.js frontend & API routes)
-  - Auth: `VERCEL_OIDC_TOKEN` for deployment authorization
-
-- Render - Secondary (RLM microservice)
-  - Service: `https://soulprint-landing.onrender.com`
+- **Vercel** - Frontend and API hosting
+  - Config: `vercel.json`
+  - Environment: Development branch tracked
+  - OIDC: Enabled for secure deployments
 
 **CI Pipeline:**
-- Not detected (no GitHub Actions, CircleCI, or GitLab CI configuration)
+- GitHub Actions (implied but not found in current scan)
+- Automated deployments via Vercel
 
-## Feature Flags & Configuration
+## Environment Configuration
 
-**Admin/Debug Routes:**
-- `app/api/admin/migrate/route.ts` - Database migrations
-- `app/api/admin/health/route.ts` - System health
-- `app/api/debug/test-import/route.ts` - Import testing
-- Auth: `ADMIN_MIGRATION_SECRET` header validation
+**Required env vars (critical):**
+- `AWS_REGION` - AWS operations
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` - AWS credentials
+- `BEDROCK_MODEL_ID` - Claude model selection
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Client-side DB
+- `SUPABASE_SERVICE_ROLE_KEY` - Server-side DB access
+- `OPENAI_API_KEY` - Embeddings and analysis
+- `PERPLEXITY_API_KEY` - Web search
+- `TAVILY_API_KEY` - Web search fallback
+- `GMAIL_*` (4 vars) - Email sending
+- `R2_*` (4 vars) - File storage
+- `RLM_SERVICE_URL` - External memory service
+
+**Optional env vars:**
+- `ASSEMBLYAI_API_KEY` - Audio transcription
+- `NEXT_PUBLIC_SITE_URL` - Site URL for links
+- `VERCEL_OIDC_TOKEN` - Deployment auth
+
+**Secrets location:**
+- `.env.local` (development, not committed)
+- Vercel dashboard (production)
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- `app/api/waitlist/route.ts` - Waitlist form submissions
-- `app/api/waitlist/confirm/route.ts` - Email confirmation callbacks
-- `app/api/tasks/route.ts` - Cron job task execution
+- `app/api/waitlist/confirm/route.ts` - Waitlist confirmation link callback
+- `app/api/cron/tasks/route.ts` - Scheduled task execution (time-based triggers)
 
 **Outgoing:**
-- Streak CRM API calls when user confirms waitlist email
-- RLM service calls for every chat message (via `POST /query`)
-- Email notifications (Resend/Gmail) when soulprint is ready
+- Email confirmations sent via Gmail/Nodemailer
+- Push notifications via `web-push`
+- RLM service calls to `RLM_SERVICE_URL` for memory operations
 
-## Environment Configuration
+## External Service Health Checks
 
-**Required env vars for development:**
-```
-NEXT_PUBLIC_SUPABASE_URL=https://swvljsixpvvcirjmflze.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<jwt-token>
-SUPABASE_SERVICE_ROLE_KEY=<service-role-jwt>
+**Health endpoints** (for monitoring service availability):
+- `app/api/chat/health/route.ts` - Chat/Bedrock health
+- `app/api/chat/perplexity-health/route.ts` - Perplexity service health
+- `app/api/health/supabase/route.ts` - Supabase connection
+- `app/api/rlm/health/route.ts` - Remote learning/memory service
 
-AWS_ACCESS_KEY_ID=<aws-key>
-AWS_SECRET_ACCESS_KEY=<aws-secret>
-AWS_REGION=us-east-1
-BEDROCK_MODEL_ID=us.anthropic.claude-3-5-haiku-20241022-v1:0
+## Integration Patterns
 
-R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-R2_ACCESS_KEY_ID=<r2-key>
-R2_SECRET_ACCESS_KEY=<r2-secret>
-R2_BUCKET_NAME=soulprint-uploads
+**Service Initialization:**
+- Lazy initialization used for SDK clients (avoid build-time errors)
+- Environment variable validation at runtime
+- Fallback patterns (e.g., Perplexity → Tavily for search)
 
-OPENAI_API_KEY=sk-proj-...
-PERPLEXITY_API_KEY=pplx-...
-TAVILY_API_KEY=tvly-dev-...
+**Error Handling:**
+- API errors return JSON with error messages
+- Service failures logged to console with context prefix
+- Graceful degradation (e.g., chat works without web search)
+- Timeout handling (AbortSignal) on external API calls
 
-GMAIL_USER=waitlist@archeforge.com
-GMAIL_CLIENT_ID=<client-id>
-GMAIL_CLIENT_SECRET=<secret>
-GMAIL_REFRESH_TOKEN=<refresh-token>
-
-RESEND_API_KEY=<api-key>
-
-STREAK_API_KEY=strk_...
-STREAK_PIPELINE_KEY=agxz...
-
-RLM_SERVICE_URL=https://soulprint-landing.onrender.com
-NEXT_PUBLIC_SITE_URL=https://www.soulprintengine.ai
-```
-
-**Secrets location:**
-- `.env.local` (development)
-- Vercel Environment Variables (production)
+**Rate Limiting:**
+- Not explicitly configured in current scans
 
 ---
 
