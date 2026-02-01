@@ -82,28 +82,64 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Handle push notifications (for future use)
+// Handle push notifications
 self.addEventListener('push', (event) => {
+  console.log('[SW] Push received');
+
+  let data = { title: 'SoulPrint', body: 'You have a notification', url: '/' };
+
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (e) {
+    // Fallback to text if not JSON
+    data.body = event.data ? event.data.text() : 'New notification from SoulPrint';
+  }
+
   const options = {
-    body: event.data ? event.data.text() : 'New notification from SoulPrint',
-    icon: '/icons/icon-192x192.png',
+    body: data.body,
+    icon: '/images/soulprintlogomain.png',
     badge: '/icons/icon-72x72.png',
     vibrate: [100, 50, 100],
     data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1
-    }
+      url: data.url || '/',
+    },
+    actions: [
+      { action: 'open', title: 'Open' },
+      { action: 'dismiss', title: 'Dismiss' },
+    ],
   };
 
   event.waitUntil(
-    self.registration.showNotification('SoulPrint', options)
+    self.registration.showNotification(data.title || 'SoulPrint', options)
   );
 });
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked');
   event.notification.close();
+
+  if (event.action === 'dismiss') {
+    return;
+  }
+
+  const url = event.notification.data?.url || '/';
+
   event.waitUntil(
-    clients.openWindow('/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Try to focus an existing window
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      // Open new window if none exists
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
+    })
   );
 });

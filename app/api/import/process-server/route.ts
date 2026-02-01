@@ -236,7 +236,26 @@ export async function POST(request: Request) {
 
     console.log(`[ProcessServer] Sending ${conversations.length} conversations to RLM for full processing...`);
 
-    // Call RLM to handle everything: chunking → embedding → soulprint (no timeout on Render)
+    // Store parsed conversations to Supabase Storage (bypasses Vercel 4.5MB body limit)
+    const parsedJsonPath = `${userId}/parsed-${Date.now()}.json`;
+    const parsedJsonData = JSON.stringify(conversations);
+    console.log(`[ProcessServer] Storing parsed JSON (${(parsedJsonData.length / 1024 / 1024).toFixed(2)}MB) to storage...`);
+
+    const { error: parsedUploadError } = await adminSupabase.storage
+      .from('user-imports')
+      .upload(parsedJsonPath, parsedJsonData, {
+        contentType: 'application/json',
+        upsert: true,
+      });
+
+    if (parsedUploadError) {
+      console.error('[ProcessServer] Failed to store parsed JSON:', parsedUploadError);
+      throw new Error('Failed to store parsed conversations for processing.');
+    }
+
+    console.log(`[ProcessServer] Parsed JSON stored at: user-imports/${parsedJsonPath}`);
+
+    // Call RLM with storage path (not full conversations - handles 10,000+ conversations)
     const rlmUrl = process.env.RLM_API_URL || 'https://soulprint-rlm.onrender.com';
     try {
       const rlmResponse = await fetch(`${rlmUrl}/process-full`, {
@@ -244,7 +263,9 @@ export async function POST(request: Request) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
-          conversations: conversations, // Send ALL parsed conversations
+          storage_path: `user-imports/${parsedJsonPath}`, // RLM downloads from storage
+          conversation_count: conversations.length,
+          message_count: totalMessages,
         }),
       });
 
