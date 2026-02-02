@@ -67,13 +67,17 @@ export async function POST(request: Request) {
     
     // Update status to processing with timestamp (for stuck detection)
     const processingStartedAt = new Date().toISOString();
-    await adminSupabase.from('user_profiles').upsert({
+    const { error: statusError } = await adminSupabase.from('user_profiles').upsert({
       user_id: userId,
       import_status: 'processing',
       import_error: null,
       processing_started_at: processingStartedAt,
       updated_at: processingStartedAt,
     }, { onConflict: 'user_id' });
+
+    if (statusError) {
+      console.error('[ProcessServer] Failed to set processing status:', statusError);
+    }
     
     // Download from storage
     const pathParts = storagePath.split('/');
@@ -330,16 +334,20 @@ export async function POST(request: Request) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Processing failed';
     console.error('[ProcessServer] Error:', errorMessage);
-    
+
     // Update status to failed with error message
     if (userId) {
-      await adminSupabase.from('user_profiles').update({
+      const { error: updateError } = await adminSupabase.from('user_profiles').update({
         import_status: 'failed',
         import_error: errorMessage,
         updated_at: new Date().toISOString(),
-      }).eq('user_id', userId); // catch(e => console.error('[ProcessServer] Failed to update status:', e));
+      }).eq('user_id', userId);
+
+      if (updateError) {
+        console.error('[ProcessServer] Failed to update status to failed:', updateError);
+      }
     }
-    
+
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
