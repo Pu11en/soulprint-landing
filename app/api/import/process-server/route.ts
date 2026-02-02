@@ -98,7 +98,7 @@ export async function POST(request: Request) {
     // Check file size limit
     if (sizeMB > MAX_FILE_SIZE_MB) {
       // Clean up storage
-      adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {});
+      adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
       throw new Error(`File too large (${sizeMB.toFixed(0)}MB). Maximum is ${MAX_FILE_SIZE_MB}MB. Please export fewer conversations or contact support.`);
     }
     
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
       const conversationsFile = zip.file('conversations.json');
       
       if (!conversationsFile) {
-        adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {});
+        adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
         throw new Error('conversations.json not found in ZIP. Make sure you exported from ChatGPT correctly.');
       }
       
@@ -133,13 +133,13 @@ export async function POST(request: Request) {
 
     // Check 1: Must be an array
     if (!Array.isArray(rawConversations)) {
-      adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {});
+      adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
       throw new Error('Invalid file format. Expected a ChatGPT export (array of conversations).');
     }
 
     // Check 2: Must have at least one conversation
     if (rawConversations.length === 0) {
-      adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {});
+      adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
       throw new Error('No conversations found in file. Please export your ChatGPT data and try again.');
     }
 
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
     );
 
     if (!hasValidChatGPTFormat) {
-      adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {});
+      adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
       throw new Error(
         "This doesn't look like a ChatGPT export. " +
         "Please go to ChatGPT → Settings → Data Controls → Export Data, " +
@@ -190,7 +190,7 @@ export async function POST(request: Request) {
     }
     
     // Clean up original upload from imports bucket
-    adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {});
+    adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
     
     // Parse conversations into our format
     const conversations: ParsedConversation[] = rawConversations.map((conv: any) => {

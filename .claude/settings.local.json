@@ -7,7 +7,31 @@
       "WebFetch(domain:supabase.com)",
       "Bash(source .env.local)",
       "Bash(echo:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Skill(gsd:debug)",
+      "Bash(npm view:*)",
+      "Bash(npx get-shit-done-cc@latest --global)",
+      "Bash(ls:*)",
+      "Bash(head:*)",
+      "Bash(python:*)",
+      "Bash(git show:*)",
+      "Bash(aws service-quotas list-service-quotas:*)",
+      "WebSearch",
+      "Bash(powershell -Command \"Invoke-RestMethod -Uri ''https://www.soulprintengine.ai/api/waitlist'' -Method Post -ContentType ''application/json'' -Body ''{\"\"email\"\":\"\"drew@archeforge.com\"\",\"\"name\"\":\"\"Drew Test\"\"}''\")",
+      "Bash(powershell -Command \"Invoke-RestMethod -Uri ''https://www.soulprintengine.ai/api/import/complete'' -Method Post -ContentType ''application/json'' -Body ''{\"\"user_id\"\":\"\"test-user\"\",\"\"soulprint_ready\"\":true,\"\"memory_building\"\":true,\"\"processing_time\"\":240}''\")",
+      "Bash(powershell -Command \"Invoke-RestMethod -Uri ''https://soulprintengine.ai/api/import/complete'' -Method Post -ContentType ''application/json'' -Body ''{\"\"user_id\"\":\"\"test\"\"}''\")",
+      "WebFetch(domain:aws.amazon.com)",
+      "Bash(git -C \"C:/Users/drewp/soulprint-rlm\" add main.py)",
+      "Bash(git -C \"C:/Users/drewp/soulprint-rlm\" commit -m \"fix: hardcode Vercel URL for email callback\")",
+      "Bash(git -C \"C:/Users/drewp/soulprint-rlm\" push origin main)",
+      "Bash(git -C \"C:/Users/drewp/soulprint-landing\" add app/api/import/process-server/route.ts)",
+      "Bash(git -C \"C:/Users/drewp/soulprint-landing\" commit -m \"fix: correct RLM URL in process-server\n\nWrong URL: soulprint-rlm.onrender.com \\(doesn''t exist\\)\nCorrect URL: soulprint-landing.onrender.com\n\nThis was causing imports to silently fail - Vercel called a non-existent service.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\")",
+      "Bash(git -C \"C:/Users/drewp/soulprint-landing\" push origin main)",
+      "Bash(git -C \"C:/Users/drewp/soulprint-rlm\" log -1 --oneline)",
+      "Bash(git -C \"C:/Users/drewp/soulprint-rlm\" commit --allow-empty -m \"chore: redeploy to kill stale background task\")",
+      "Bash(git -C \"C:/Users/drewp/soulprint-landing\" log -1 --oneline)",
+      "Skill(gsd:verify-work)",
+      "Bash(git restore:*)"
     ]
   }
 }
