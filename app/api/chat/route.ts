@@ -10,6 +10,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { smartSearch, SmartSearchResult } from '@/lib/search/smart-search';
 import { getMemoryContext } from '@/lib/memory/query';
 import { learnFromChat } from '@/lib/memory/learning';
+import { shouldAttemptRLM, recordSuccess, recordFailure } from '@/lib/rlm/health';
 
 // Initialize Bedrock client
 const bedrockClient = new BedrockRuntimeClient({
@@ -80,6 +81,7 @@ interface RLMResponse {
 }
 
 // RLM Service - handles memory retrieval and response generation
+// Includes circuit breaker for fast-fail when RLM is down
 async function tryRLMService(
   userId: string,
   message: string,
@@ -89,6 +91,12 @@ async function tryRLMService(
 ): Promise<RLMResponse | null> {
   const rlmUrl = process.env.RLM_SERVICE_URL;
   if (!rlmUrl) return null;
+
+  // Circuit breaker check - skip RLM if it's known to be down
+  if (!shouldAttemptRLM()) {
+    console.log('[Chat] RLM circuit open - using fallback');
+    return null;
+  }
 
   try {
     console.log('[Chat] Calling RLM service...');
@@ -107,14 +115,17 @@ async function tryRLMService(
 
     if (!response.ok) {
       console.log('[Chat] RLM service error:', response.status);
+      recordFailure();
       return null;
     }
 
     const data = await response.json();
     console.log('[Chat] RLM success:', data.method, data.latency_ms + 'ms');
+    recordSuccess();
     return data;
   } catch (error) {
     console.log('[Chat] RLM service unavailable:', error);
+    recordFailure();
     return null;
   }
 }

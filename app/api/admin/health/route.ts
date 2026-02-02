@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { getCircuitStatus } from '@/lib/rlm/health'
 
 // Admin check constants
 const ADMIN_EMAILS = [
@@ -101,13 +102,19 @@ async function checkRLM(): Promise<ServiceHealth> {
       status: 'healthy',
       latency_ms,
       message: 'Service responding',
-      details: data,
+      details: {
+        ...data,
+        circuit_breaker: getCircuitStatus(),
+      },
     }
   } catch (err) {
     return {
       status: 'down',
       latency_ms: Date.now() - start,
       message: err instanceof Error ? err.message : 'Connection failed',
+      details: {
+        circuit_breaker: getCircuitStatus(),
+      },
     }
   }
 }
