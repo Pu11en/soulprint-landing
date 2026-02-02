@@ -5,230 +5,160 @@
 ## Naming Patterns
 
 **Files:**
-- **Client Components:** Kebab-case with `.tsx` extension
-  - Example: `login-form.tsx`, `achievement-toast.tsx`, `background-sync.tsx`
-- **Server Actions:** Kebab-case TypeScript files in `app/actions/`
-  - Example: `auth.ts`, `referral.ts`
-- **API Routes:** Kebab-case directory structure following Next.js conventions
-  - Example: `app/api/admin/health/route.ts`, `app/api/branch/route.ts`
-- **Utility Libraries:** Kebab-case in `lib/` directories
-  - Example: `client-soulprint.ts`, `branch-manager.ts`, `personality-analysis.ts`
-- **UI Components:** PascalCase for shared UI components
-  - Example: `AchievementToast.tsx`, `BreakpointDesktop.tsx`
+- API routes use kebab-case: `app/api/chat/route.ts`, `app/api/import/process-server/route.ts`
+- Component files use PascalCase: `components/chat/telegram-chat-v2.tsx`
+- Utility modules use camelCase: `lib/utils.ts`, `lib/email/send.ts`
+- Page components use lowercase: `app/chat/page.tsx`, `app/import/page.tsx`
+- Directories use kebab-case for multi-word names: `app/api/import/`, `lib/search/`
 
 **Functions:**
-- **Server/Lib Functions:** camelCase async functions
-  - Example: `extractFacts()`, `sendSoulprintReadyEmail()`, `createBranch()`, `checkSupabase()`
-- **Event Handlers:** camelCase with `handle` prefix in components
-  - Example: `handleEmailSignIn()`, `handleGoogleSignIn()`, `handleSubmit()`
-- **Internal Helpers:** camelCase, lowercase if not exported
-  - Example: `checkAndSync()`, `parseConversation()`, `getOrderedMessages()`
+- Server actions (marked with `'use server'`) use camelCase: `signUp()`, `signIn()`, `signOut()`, `signInWithGoogle()`
+- Async utility functions use camelCase with clear purpose: `embedQuery()`, `embedBatch()`, `searchMemoryLayered()`, `getMemoryContext()`
+- Handler functions in API routes are named `POST`, `GET`, `PUT`, `DELETE` following Next.js convention
+- Private/internal functions use camelCase with helper semantics: `getSupabaseAdmin()`, `normalizeQuery()`, `checkCache()`
 
 **Variables:**
-- **State Variables:** camelCase
-  - Example: `email`, `password`, `loading`, `checkingAuth`, `toastQueue`
-- **Constants:** UPPER_SNAKE_CASE
-  - Example: `ADMIN_EMAILS`, `FROM_EMAIL`, `XP_CONFIG`, `RARITY_COLORS`, `DB_NAME`
-- **Interface Props:** PascalCase with `Props` suffix
-  - Example: `ToastProps`, `AchievementToastProviderProps`
+- State variables use camelCase: `const [isLoading, setIsLoading]`, `const [messages, setMessages]`
+- Constants use UPPER_SNAKE_CASE: `const MAX_FILE_SIZE_MB = 500`, `const RATE_LIMIT_MAX = 10`, `const CACHE_TTL_MS = 5 * 60 * 1000`
+- Type/interface variables in lowercase during destructuring: `const { message, history = [] } = body`
+- Ref variables end with `Ref`: `messageQueueRef`, `processingPromiseRef`
 
-**Types & Interfaces:**
-- **Exported Types:** PascalCase
-  - Example: `FactCategory`, `ExtractedFact`, `ParsedConversation`, `ChatGPTMessage`, `ServiceHealth`
-- **Union Types:** Named explicitly with semantic meaning
-  - Example: `type XPSource = 'message' | 'memory' | 'streak' | 'achievement' | 'daily_bonus'`
-- **Rarity Enums:** Lowercase strings in union types
-  - Example: `'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'`
+**Types:**
+- Interfaces use PascalCase: `interface ChatMessage`, `interface UserProfile`, `interface SmartSearchResult`
+- Type unions are descriptive: `'user' | 'assistant'`, `'none' | 'quick_ready' | 'processing' | 'complete'`
+- Query response types map database rows: `interface ChunkRpcRow`, `interface ChunkTableRow`, `interface LearnedFactRow`
 
 ## Code Style
 
 **Formatting:**
-- **Indentation:** 2 spaces
-- **Line length:** No enforced maximum (pragmatic approach)
-- **Semicolons:** Used consistently throughout codebase
-- **Quotes:** Double quotes for JSX/HTML, consistency with single/double in strings
+- ESLint: v9 with `eslint-config-next` and TypeScript rules enabled
+- Indentation: 2 spaces (enforced via ESLint)
+- Line length: No strict limit, but code is kept readable
+- Quotes: Single quotes for strings except in JSX attributes
+- Semicolons: Used consistently
 
 **Linting:**
-- **Tool:** ESLint with Next.js and TypeScript configuration
-- **Config file:** `eslint.config.mjs`
-- **Rules:** Based on ESLint core-web-vitals and Next.js TypeScript presets
-- **Key enforcement:**
-  - React/Next.js best practices
-  - Core Web Vitals recommendations
-  - TypeScript strict mode enabled in `tsconfig.json`
+- ESLint config: `eslint.config.mjs` with core-web-vitals and TypeScript plugins
+- Ignored paths: `.next/`, `out/`, `build/`, `next-env.d.ts`
+- Next.js best practices enforced (image optimization, layout patterns, etc.)
 
-**TypeScript Configuration:**
-- **Target:** ES2017
-- **Strict Mode:** Enabled
-- **Module Resolution:** Bundler (Next.js-aware)
-- **Path Aliases:** `@/*` maps to project root (e.g., `@/lib/supabase/server`)
+**TypeScript:**
+- Strict mode enabled: `"strict": true`
+- Target: ES2017 with ESNext modules
+- Path aliases: `@/*` maps to project root
+- JSX: react-jsx (automatic runtime)
+- Isolated modules: enabled for faster builds
 
 ## Import Organization
 
 **Order:**
-1. External packages (Node.js, npm, third-party)
-   - `import { NextResponse } from 'next/server'`
-   - `import { createClient } from '@supabase/supabase-js'`
-   - `import JSZip from 'jszip'`
-2. Relative project imports (`@/` path aliases)
-   - `import { createClient } from '@/lib/supabase/server'`
-   - `import { Button } from '@/components/ui/button'`
-   - `import { cn } from '@/lib/utils'`
-3. Type imports (grouped, can use `type` keyword)
-   - `import type { MemoryChunk } from './query'`
-   - `import type { Achievement } from '@/lib/gamification/xp'`
+1. Standard library/Node imports: `import { NextRequest } from 'next/server'`
+2. Third-party packages: `import JSZip from 'jszip'`, `import { Resend } from 'resend'`
+3. Internal modules with path alias: `import { createClient } from '@/lib/supabase/server'`
+4. Relative imports (rare): used only when necessary
 
 **Path Aliases:**
-- `@/*` resolves to project root
-- Used throughout for internal imports to avoid relative paths
-- Example: `@/app`, `@/lib`, `@/components`
+- `@/*`: Project root imports (standard Next.js pattern)
+- Examples: `@/lib/supabase/server`, `@/components/chat/telegram-chat-v2`, `@/app/actions/auth`
 
-**No Barrel Files:** Individual file imports preferred over index re-exports
+**Comment blocks:**
+- Top-level file comments describe purpose: `/** Server-side import processing for large files (mobile-friendly) */`
+- Section comments in functions mark major steps: `// Step 1: Check if search is needed`, `// VALIDATION: Ensure this is a valid ChatGPT export`
+- Inline comments explain "why", not "what": `// 5 minute TTL` rather than `// Set TTL to 5 minutes`
 
 ## Error Handling
 
 **Patterns:**
+- Try-catch blocks for async operations with specific error messages
+- Validation happens early with clear error returns: `if (!storagePath) return NextResponse.json({ error: 'storagePath required' }, { status: 400 })`
+- HTTP responses use NextResponse for consistency: `NextResponse.json({ error: msg }, { status: 500 })`
+- Database errors are caught and logged before re-throwing: `if (error) { console.error(...); throw new Error(...) }`
+- Graceful degradation: non-critical failures log warnings but don't crash: `adminSupabase.storage.from(bucket).remove([filePath]).catch(() => {})`
 
-**Try-Catch Blocks:**
-- Used in API routes and async server functions
-- Catches both typed errors and unknown errors
-- Example pattern from `app/api/branch/route.ts`:
-```typescript
-try {
-  const result = await branchManager.writeToFile(username, filePath, content, branchId);
-  return NextResponse.json({ success: true, ...result });
-} catch (error) {
-  console.error('Branch API error:', error);
-  return NextResponse.json(
-    { error: error instanceof Error ? error.message : 'Internal error' },
-    { status: 500 }
-  );
-}
-```
-
-**Error Type Guards:**
-- Always check `error instanceof Error` before accessing `.message`
-- Fallback to generic message if not Error instance
-- Example: `error instanceof Error ? error.message : 'Internal error'`
-
-**Response Format:**
-- API errors: `{ error: string }` JSON with appropriate HTTP status codes
-- Server actions: `{ error?: string }` or `{ success: boolean, error?: string }`
-- Example from `app/actions/auth.ts`:
-```typescript
-if (error) {
-    return { error: error.message }
-}
-return { success: true }
-```
-
-**Supabase API Errors:**
-- Responses include `{ data, error }` tuple
-- Check error field: `if (error) { return { error: error.message } }`
-- Example from `app/api/admin/health/route.ts`:
-```typescript
-const { data, error } = await adminClient.from('profiles').select('id').limit(1);
-if (error) {
-  return { status: 'degraded', latency_ms, message: error.message };
-}
-```
+**Error Messages:**
+- User-facing errors are clear and actionable: `"File too large (500MB). Maximum is 500MB. Please export fewer conversations or contact support."`
+- Technical errors log enough context for debugging: `[ProcessServer] Download error: ${downloadError}`
+- Error context includes operation scope: `[Chat] RLM service error:`, `[SmartSearch] Perplexity failed:`
 
 ## Logging
 
-**Framework:** Native `console` object (no logging library)
+**Framework:** Native `console` (no external logger)
 
 **Patterns:**
-- **Info/Success:** `console.log()` with prefixed context
-  - `console.log('[Email] Soulprint ready email sent to ${to}')`
-  - `console.log('[SoulPrint LLM] Batch ${i + 1}/${batches.length} complete')`
-- **Errors:** `console.error()` with prefixed context
-  - `console.error('[Email] Failed to send:', error)`
-  - `console.error('Branch API error:', error)`
-  - `console.error('[Learning] Failed to extract facts:', error)`
-
-**Context Prefixes:**
-- Prefixed with service/module name in brackets: `[Email]`, `[SoulPrint LLM]`, `[Learning]`, `[Personality]`
-- Helps with log aggregation and debugging
-
-**No Logging Middleware:** Observability is minimal, logs go to stdout
+- All logging uses `console.log()` for info, `console.error()` for errors, `console.warn()` for warnings
+- Log messages use scope prefix in brackets: `[Chat]`, `[ProcessServer]`, `[SmartSearch]`, `[Email]`, `[Memory]`, `[RLM]`
+- Logging is contextual and helps trace execution: logs show feature, status, and key metrics
+- Examples:
+  ```typescript
+  console.log('[Chat] Calling RLM service...');
+  console.log(`[Chat] Found ${chunks.length} memories via ${method}`);
+  console.log('[ProcessServer] Downloaded ${sizeMB.toFixed(1)}MB');
+  console.error('[Chat] Name generation failed:', error);
+  ```
+- Non-critical async operations log failures without blocking: `learnFromChat(...).catch(err => { console.log('[Chat] Learning failed (non-blocking):', err); })`
 
 ## Comments
 
 **When to Comment:**
-- Complex algorithms: Explain the "why" not the "what"
-- Data structure transformations: Show before/after or intent
-- Non-obvious logic: Particularly around chat parsing, memory extraction
-- Configuration explanations: Why certain values are chosen
+- Complex logic or non-obvious decisions: `// Check if query is in cache and still valid`
+- Business logic explanations: `// Store original (gzip) → Supabase Storage`, `// ChatGPT format - traverse the mapping properly`
+- Configuration rationale: `// Cohere v3 supports context`, `// Critical for v3`
+- Multi-step processes benefit from section headers
 
 **JSDoc/TSDoc:**
-- Used for functions with complex signatures or important utilities
-- Minimal but present for public APIs
-- Example from `lib/branch/route.ts`:
-```typescript
-/**
- * Branch API - Handles file versioning for user edits
- *
- * POST /api/branch - Create a branch or write to existing branch
- * GET /api/branch - List branches (optionally filtered by user)
- * GET /api/branch?id=xxx - Get specific branch
- */
-```
-- Example from `lib/email/send.ts`:
-```typescript
-/**
- * Email sending utility using Resend
- */
-```
-- Example from `lib/memory/facts.ts`:
-```typescript
-/**
- * Extract durable facts from memory chunks using Bedrock Claude
- */
-export async function extractFacts(chunks: MemoryChunk[]): Promise<ExtractedFact[]>
-```
+- Function signatures include parameter and return type info
+- Example from `smart-search.ts`:
+  ```typescript
+  /**
+   * Normalize query for cache key
+   */
+  function normalizeQuery(query: string): string { ... }
+
+  /**
+   * Smart Search - Main function
+   *
+   * Automatically determines if search is needed and performs it.
+   * Returns formatted context for the AI.
+   */
+  export async function smartSearch(message: string, ...): Promise<SmartSearchResult> { ... }
+  ```
+- Comments above type definitions explain purpose: `// Database row types for proper typing`
 
 ## Function Design
 
-**Size:** No strict enforced limits observed, but most functions range 20-50 lines
+**Size:** Functions are focused and generally under 100 lines; larger processes are broken into steps with comments
 
 **Parameters:**
-- Named parameters in objects for functions with multiple arguments
-- Example: `sendEmail({ to, subject, html, text })`
-- Server actions use FormData for form submissions
-- API routes destructure `request.json()` before passing to handler
+- Avoid excessive positional parameters; use options objects for optional flags
+- Example pattern: `smartSearch(message, userId, options: { forceSearch?, skipCache?, preferDeep? } = {})`
+- Named exports preferred for utility functions
 
 **Return Values:**
-- Consistent patterns by context:
-  - **API Routes:** `NextResponse.json()` with status codes
-  - **Server Actions:** `{ success: boolean, error?: string }` or `{ error: string }`
-  - **Utilities:** Typed returns matching exported interfaces
-
-**Async/Await:**
-- Heavily used in server functions and API routes
-- Used in client components with useEffect
-- Error handling with try-catch blocks
+- Explicit return types on all functions: `Promise<MemoryChunk[]>`, `SmartSearchResult | null`
+- Consistent error handling: errors thrown or returned in result objects
+- Nullable returns use explicit `| null`: `async function searchLearnedFacts(...): Promise<LearnedFactResult[]>`
 
 ## Module Design
 
 **Exports:**
-- **Named Exports:** Preferred for functions and types
-  - `export async function sendEmail(...)`
-  - `export interface ExtractedFact { ... }`
-  - `export const XP_CONFIG = { ... }`
-- **Default Exports:** Used for React components and page components
-  - `export function LoginForm() { ... }`
-  - `export default function Page() { ... }`
+- Utility modules export named functions: `export async function embedQuery(...)`, `export function getMemoryContext(...)`
+- Barrel files not used; direct imports from specific modules
+- Server action files export multiple handlers: `export async function signUp(...)`, `export async function signIn(...)`
 
-**File Organization:**
-- **Type Definitions:** At top of file, before implementations
-- **Constants:** After imports, before functions
-- **Main Exports:** Named exports with clear function signatures
-- **Helper Functions:** Private (non-exported) helpers below main functions
+**Module Purpose:**
+- Each file has a clear, single responsibility
+- Examples:
+  - `lib/email/send.ts` - Email delivery via Resend
+  - `lib/memory/query.ts` - Memory search and retrieval
+  - `lib/search/smart-search.ts` - Intelligent web search orchestration
+  - `app/api/chat/route.ts` - Chat request handler with RLM/Bedrock logic
+  - `app/actions/auth.ts` - Server-side authentication actions
 
-**Module Examples:**
-- `lib/gamification/xp.ts` exports: `XP_CONFIG`, `type XPSource`, `interface XPGain`, `interface UserStats`, `RARITY_COLORS`
-- `lib/email/send.ts` exports: `function sendSoulprintReadyEmail(...)`
-- `lib/memory/facts.ts` exports: `type FactCategory`, `interface ExtractedFact`, `function extractFacts()`, `function groupFactsByCategory()`, `function getHighConfidenceFacts()`
+**Data Flow:**
+- Server actions in `app/actions/` handle form input and redirect logic
+- API routes in `app/api/` handle HTTP requests and return JSON/streams
+- Lib modules provide utilities and business logic
+- Components in `app/` pages use client-side hooks and fetch APIs
 
 ---
 

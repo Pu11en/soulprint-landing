@@ -5,131 +5,136 @@
 ## Languages
 
 **Primary:**
-- TypeScript 5.x - Application code, type safety throughout
-- JavaScript (ESM) - Configuration files, build scripts
+- TypeScript 5 - All application and API code
+- JavaScript - Configuration files (Next.js config, ESLint)
+- SQL - Database migrations and Supabase functions
 
 **Secondary:**
-- CSS/HTML - Styling via Tailwind CSS, UI markup
-- SQL - Supabase PostgreSQL queries and migrations
+- HTML/CSS - Email templates (inlined styles)
 
 ## Runtime
 
 **Environment:**
-- Node.js 20+ (via Next.js)
-- Browser: Modern browsers with ES2017+ support
+- Node.js (version not pinned, inferred from package-lock.json)
 
 **Package Manager:**
-- npm
-- Lockfile: `package-lock.json` (present)
+- npm (9.x or higher)
+- Lockfile: Present (`package-lock.json`)
 
 ## Frameworks
 
 **Core:**
-- Next.js 16.1.5 - React SSR framework, API routes, server actions
+- Next.js 16.1.5 - Full-stack React framework with App Router
 - React 19.2.3 - UI component library
+- React DOM 19.2.3 - DOM rendering
 
-**UI Components & Design:**
-- @radix-ui/* (v1.2-2.2) - Headless UI components (accordion, dialog, select, slider, tooltip, etc.)
-- lucide-react 0.563.0 - Icon library
-- Tailwind CSS 3.4.19 - Utility-first styling
-- framer-motion 12.29.2 - Animation library
-- motion 12.29.2 - Additional motion utilities
-- tailwindcss-animate 1.0.7 - Animation presets
-- next-themes 0.4.6 - Dark mode support
-- class-variance-authority 0.7.1 - Component variant management
-- clsx 2.1.1 - Conditional CSS class combining
-- tailwind-merge 3.4.0 - Tailwind class merging
+**UI Components:**
+- Radix UI - Headless component library (accordion, dialog, select, slider, scroll-area, tooltip, etc.)
+  - Multiple Radix components v1.x-2.x
+- Tailwind CSS 3.4.19 - Utility-first CSS framework
+- Tailwind Merge 3.4.0 - Resolve Tailwind conflicts
+- Tailwind Animate 1.0.7 - Animation utilities
+
+**Animation:**
+- Framer Motion 12.29.2 - React animation library
+- Motion 12.29.2 - Motion library (appears to be duplicate/related to Framer)
+
+**Themes & Styling:**
+- Next Themes 0.4.6 - Dark mode support
+- Class Variance Authority 0.7.1 - CSS class composition
+
+**Icons:**
+- Radix UI Icons 1.3.2 - Icon components
+- Lucide React 0.563.0 - Icon library
+
+**Utilities:**
+- clsx 2.1.1 - Conditional className builder
+- Use Stick to Bottom 1.1.2 - Chat scroll behavior
+
+## Testing & Build
 
 **Testing:**
-- No testing framework detected in dependencies
+- No dedicated test framework detected in package.json (might be external)
 
 **Build/Dev:**
-- ESLint 9.x - Code linting (eslint-config-next integration)
-- TypeScript compiler - Bundled with Next.js
-- PostCSS 8.5.6 - CSS transformation via Tailwind
-- Autoprefixer 10.4.23 - CSS vendor prefixing
-- sharp 0.34.5 - Image optimization
+- ESLint 9 - JavaScript/TypeScript linting
+- ESLint Config Next 16.1.5 - Next.js ESLint rules
+- TypeScript - Static type checking
+- Sharp 0.34.5 - Image optimization (dev dependency for Next.js)
+- PostCSS 8.5.6 - CSS transformation
+- Autoprefixer 10.4.23 - Browser prefix support
 
 ## Key Dependencies
 
 **Critical:**
-- @supabase/supabase-js 2.93.1 - PostgreSQL database client with auth, realtime, and storage APIs
-- @supabase/ssr 0.8.0 - Supabase-specific server-side rendering helpers
-- @aws-sdk/client-bedrock-runtime 3.980.0 - Claude AI model access via AWS Bedrock
-- @aws-sdk/client-s3 3.975.0 - S3/R2 object storage
-- @aws-sdk/s3-request-presigner 3.975.0 - Signed URL generation for S3/R2
-- openai 6.17.0 - OpenAI API client (fallback for embeddings/analysis)
+- `@supabase/supabase-js` 2.93.1 - Supabase database/auth client
+- `@supabase/ssr` 0.8.0 - Server-side Supabase session handling
+- `@aws-sdk/client-bedrock-runtime` 3.980.0 - AWS Bedrock for Claude LLM
+- `@aws-sdk/client-s3` 3.975.0 - AWS S3/Cloudflare R2 file storage
+- `@aws-sdk/s3-request-presigner` 3.975.0 - Signed URL generation for S3
+- `openai` 6.17.0 - OpenAI API (limited use, RLM preferred)
+- `resend` 6.9.1 - Email delivery service
+- `nodemailer` 7.0.13 - Gmail OAuth2 email sending
+- `jszip` 3.10.1 - ZIP file parsing for ChatGPT exports
 
-**AI & ML:**
-- @tavily/core 0.7.1 - Web search API integration
-- googleapis 170.1.0 - Google Gmail API for email
-- nodemailer 7.0.13 - Email sending (via Gmail OAuth2)
+**Search & AI:**
+- `@tavily/core` 0.7.1 - Tavily web search API
+- `googleapis` 170.1.0 - Google APIs (Gemini image generation for avatars)
 
-**Data & Processing:**
-- jszip 3.10.1 - ZIP file reading/processing
-- zlib - Native gzip compression (embedded in Node.js)
+**Notifications:**
+- `web-push` 3.6.7 - Web Push API for notifications
 
-**Web Push:**
-- web-push 3.6.7 - Push notification delivery
-- use-stick-to-bottom 1.1.2 - UI utility for chat scrolling
+**Image Storage:**
+- `cloudinary` 2.9.0 - Image hosting and CDN
 
-**Observability:**
-- cloudinary 2.9.0 - Image hosting and optimization (or general media)
-- resend 6.9.1 - Email delivery service
+**Components & Utils:**
+- `next-env.d.ts` - Next.js type definitions
+- Type definitions for Node, React, web-push, Nodemailer
 
 ## Configuration
 
 **Environment:**
-All configuration via `.env.local` (not committed, secrets only):
+- `.env.local` - Local development environment variables (40+ vars)
+- Next.js handles public variables via `NEXT_PUBLIC_` prefix
+- Service/private variables stored in `.env.local` (not committed)
 
-**Required env vars:**
-- `AWS_REGION` - AWS region (us-east-1)
-- `AWS_ACCESS_KEY_ID` - AWS credentials
-- `AWS_SECRET_ACCESS_KEY` - AWS credentials
-- `BEDROCK_MODEL_ID` - Claude model ID (e.g., `us.anthropic.claude-3-5-haiku-20241022-v1:0`)
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (server-only)
-- `OPENAI_API_KEY` - OpenAI API key
-- `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `GMAIL_USER` - Gmail OAuth
-- `TAVILY_API_KEY` - Tavily web search API
-- `PERPLEXITY_API_KEY` - Perplexity AI API
-- `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` - Cloudflare R2 storage
-- `RLM_SERVICE_URL` - Remote learning/memory service endpoint
-- `NEXT_PUBLIC_SITE_URL` - Frontend URL
+**Key Config Files:**
+- `next.config.ts` - Next.js configuration (50MB body limit for imports, security headers)
+- `tsconfig.json` - TypeScript configuration (strict mode, ES2017 target, path aliases)
+- `tailwind.config.ts` - Tailwind CSS customization
+- `postcss.config.mjs` - PostCSS configuration (Tailwind processing)
+- `eslint.config.mjs` - ESLint configuration (Next.js + TypeScript rules)
 
-**Build:**
-- `tsconfig.json` - TypeScript configuration
-  - Target: ES2017
-  - Module resolution: bundler
-  - Path alias: `@/*` → project root
-  - Strict mode enabled
-- `next.config.ts` - Next.js configuration
-  - Server action body size limit: 50MB
-  - Security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy)
-- `eslint.config.mjs` - ESLint configuration (flat config format)
-  - Extends: eslint-config-next core-web-vitals and TypeScript
-- `tailwind.config.ts` - Tailwind CSS configuration
-  - Dark mode via class
-  - Custom fonts (Inter, Koulen, Geist, Host Grotesk, Cinzel, JetBrains Mono)
-  - CSS variables for theming
-- `postcss.config.mjs` - PostCSS configuration (Tailwind + autoprefixer)
+**Path Aliases:**
+- `@/*` maps to root directory (enables `import from '@/lib'`)
 
 ## Platform Requirements
 
 **Development:**
-- Node.js 20+
-- npm/yarn
-- .env.local file with all secrets
-- AWS account with Bedrock access
-- Supabase project
-- Cloudflare R2 bucket
+- Node.js with npm
+- Modern browser with Web Push API support
+- Git
 
 **Production:**
-- Deployment: Vercel (detected via vercel.json)
-- Next.js server runtime (Node.js)
-- Environment variables set in Vercel dashboard
-- OIDC token for Vercel deployments
+- Deployment: Vercel (Next.js optimized)
+- Runtime: Node.js
+- Max function duration: 300 seconds (5 minutes) for import processing
+- Body size limit: 50MB (for large ChatGPT export files)
+
+**Database:**
+- Supabase PostgreSQL with pgvector extension
+- PostgreSQL 14+ (pgvector for embeddings)
+
+**External Services Required:**
+- Supabase account (database + auth)
+- AWS account (Bedrock + S3/R2)
+- Cloudinary account (image generation storage)
+- Resend API key (transactional email)
+- Gmail OAuth2 credentials (alternative email)
+- Tavily API key (web search)
+- Perplexity API key (real-time search, optional)
+- Google Gemini API key (avatar generation)
+- RLM Service (internal, running on Render)
 
 ---
 
