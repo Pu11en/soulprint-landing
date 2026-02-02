@@ -23,21 +23,40 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail({ to, subject, html, text }: SendEmailOptions): Promise<{ success: boolean; error?: string; messageId?: string }> {
-  try {
-    const mailOptions = {
-      from: `SoulPrint <${process.env.GMAIL_USER}>`,
-      to,
-      subject,
-      html,
-      text: text || html.replace(/<[^>]*>/g, ''),
-    };
+  const mailOptions = {
+    from: `SoulPrint <${process.env.GMAIL_USER}>`,
+    to,
+    subject,
+    html,
+    text: text || html.replace(/<[^>]*>/g, ''),
+  };
 
-    const result = await transporter.sendMail(mailOptions);
-    return { success: true, messageId: result.messageId };
-  } catch (error) {
-    console.error('[Email] Send failed:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  // Retry up to 3 times with exponential backoff
+  const maxRetries = 3;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await transporter.sendMail(mailOptions);
+      if (attempt > 1) {
+        console.log(`[Email] Sent successfully on attempt ${attempt}`);
+      }
+      return { success: true, messageId: result.messageId };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+      console.error(`[Email] Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+
+      if (attempt < maxRetries) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        console.log(`[Email] Retrying in ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
+
+  console.error('[Email] All retry attempts failed');
+  return { success: false, error: lastError?.message || 'Unknown error' };
 }
 
 /**
