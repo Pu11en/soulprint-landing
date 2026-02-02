@@ -73,6 +73,30 @@ interface UserProfile {
   ai_name: string | null;
 }
 
+/**
+ * Safely validate and extract user profile from database result
+ * Prevents crashes from unexpected data shapes
+ */
+function validateProfile(data: unknown): UserProfile | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const raw = data as Record<string, unknown>;
+
+  // Validate import_status is a known value
+  const validStatuses = ['none', 'quick_ready', 'processing', 'complete'];
+  const importStatus = typeof raw.import_status === 'string' && validStatuses.includes(raw.import_status)
+    ? raw.import_status as UserProfile['import_status']
+    : 'none';
+
+  return {
+    soulprint_text: typeof raw.soulprint_text === 'string' ? raw.soulprint_text : null,
+    import_status: importStatus,
+    ai_name: typeof raw.ai_name === 'string' ? raw.ai_name : null,
+  };
+}
+
 interface RLMResponse {
   response: string;
   chunks_used: number;
@@ -173,10 +197,11 @@ export async function POST(request: NextRequest) {
     
     console.log('[Chat] User:', user.id);
     console.log('[Chat] Profile error:', profileError?.message || 'none');
-    console.log('[Chat] Has soulprint:', !!profile?.soulprint_text);
-    
-    const userProfile = profile as UserProfile | null;
+
+    // Safely validate profile data (defensive against unexpected DB data)
+    const userProfile = validateProfile(profile);
     const hasSoulprint = !!userProfile?.soulprint_text;
+    console.log('[Chat] Has soulprint:', hasSoulprint);
 
     // Search conversation chunks for memory context
     let memoryContext = '';
