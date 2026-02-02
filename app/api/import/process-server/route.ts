@@ -257,7 +257,7 @@ export async function POST(request: Request) {
     console.log(`[ProcessServer] Raw JSON stored at: user-imports/${parsedJsonPath}`);
 
     // Call RLM with storage path (not full conversations - handles 10,000+ conversations)
-    const rlmUrl = process.env.RLM_API_URL || 'https://soulprint-rlm.onrender.com';
+    const rlmUrl = process.env.RLM_API_URL || 'https://soulprint-landing.onrender.com';
     try {
       const rlmResponse = await fetch(`${rlmUrl}/process-full`, {
         method: 'POST',
