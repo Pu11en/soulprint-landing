@@ -16,16 +16,18 @@ The import-to-chat flow must work flawlessly on mobile. Everything else (gamific
 
 ### Validated
 
-(None yet — ship to validate)
+- Mobile upload flow works end-to-end (ZIP → processing → chat) — v1.0
+- Soulprint generated from imported conversations via RLM — v1.0
+- Chat with memory-enhanced responses (RAG retrieval) — v1.0
+- Email notification when SoulPrint ready — v1.0
 
 ### Active
 
-**MVP (Current Focus):**
-- [ ] Mobile upload flow works end-to-end (ZIP → processing → chat)
-- [ ] Soulprint generated from imported conversations via RLM
-- [ ] Chat with memory-enhanced responses (RAG retrieval)
+**v1.1 Polish (Next Focus):**
 - [ ] User can see import/embedding progress
 - [ ] Clean, mobile-responsive UI
+- [ ] Error handling with clear messages
+- [ ] Large file handling (>500MB)
 
 **Memory System:**
 - [ ] 5-layer RLM chunking (200→5000 chars)
@@ -121,4 +123,4 @@ The import-to-chat flow must work flawlessly on mobile. Everything else (gamific
 | `referrals` | Referral program tracking |
 
 ---
-*Last updated: 2026-01-31 after GSD discovery*
+*Last updated: 2026-02-01 after v1.0 milestone*

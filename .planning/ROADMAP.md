@@ -1,24 +1,26 @@
 # SoulPrint — Roadmap
 
-## Phase 1: Mobile MVP ← CURRENT
-**Goal:** Working import → chat flow on mobile
-**Timeline:** Now
+## Milestones
 
-### Milestones
-1. ✅ Database clean
-2. ✅ Storage fixed
-3. 🔄 Upload works on mobile
-4. ⏳ Processing completes
-5. ⏳ Chat loads with context
-
-### Success Criteria
-- Drew can upload ZIP on phone
-- Soulprint generated
-- Chat responds with memory
+- **v1.0 MVP** — Phase 1 (shipped 2026-02-01) — [Archive](milestones/v1.0-MVP-ROADMAP.md)
+- **v1.1 Polish** — Phases 2-4 (in progress)
 
 ---
 
-## Phase 2: Polish
+<details>
+<summary>v1.0 MVP (Phase 1) — SHIPPED 2026-02-01</summary>
+
+- [x] Phase 1: Mobile MVP (4/4 UAT tests passed)
+  - Email notification after import
+  - Chat loads after import
+  - Memory context in responses
+  - Mobile upload works
+
+</details>
+
+---
+
+## Phase 2: Polish ← CURRENT
 **Goal:** Smooth UX, handle edge cases
 
 ### Milestones

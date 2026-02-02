@@ -2,37 +2,45 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-31)
+See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Import your ChatGPT history → Get an AI that knows you
-**Current focus:** Mobile MVP — Upload → Process → Chat flow
+**Current focus:** v1.1 Polish — Progress indicators, error handling
 
 ---
 
-## Current Phase: Mobile MVP
+## Milestone Status
 
-### Status: 🔄 Testing
+**v1.0 MVP** — SHIPPED 2026-02-01
+- Phase 1: Mobile MVP (4/4 UAT tests passed)
+- Full pipeline working: Upload → Process → SoulPrint → Email → Chat
 
-**Objective:** User can upload ChatGPT ZIP on mobile and land in working chat.
+**v1.1 Polish** — IN PROGRESS
+- Phase 2: Polish (not started)
+- Phase 3: Retention (planned)
+- Phase 4: Growth (planned)
 
-### Completed
+---
+
+## Current Phase: Polish
+
+### Status: Ready to plan
+
+**Objective:** Smooth UX, handle edge cases, show progress
+
+### Completed (v1.0)
 - [x] Database cleanup (29 → 12 tables)
 - [x] Storage bucket MIME fix (accepts any type)
 - [x] Build passing on Vercel
-- [x] Test user cleared for fresh import test
-- [x] GSD discovery documentation complete
-
-### In Progress
-- [ ] Drew testing mobile upload flow
-
-### Blocked
-- None
+- [x] Import → Process → SoulPrint pipeline
+- [x] Email notification on completion
+- [x] Memory-augmented chat working
 
 ### Next Actions
-1. Verify mobile upload completes successfully
-2. Verify processing creates soulprint
-3. Verify chat loads with memory context
-4. Fix any issues found
+1. Plan Phase 2: Polish
+2. Add progress indicators during import
+3. Improve error handling
+4. Support larger files (>500MB)
 
 ---
 
