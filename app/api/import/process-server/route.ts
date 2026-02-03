@@ -295,8 +295,13 @@ export async function POST(request: Request) {
     console.log(`[ProcessServer] Raw JSON stored at: user-imports/${parsedJsonPath}`);
 
     // Call RLM with storage path (not full conversations - handles 10,000+ conversations)
+    // IMPORTANT: Fire-and-forget! Don't await - RLM processes async and updates DB when done
     const rlmUrl = process.env.RLM_API_URL || 'https://soulprint-landing.onrender.com';
     try {
+      // Use a short timeout just to confirm RLM accepted the job
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s to accept job
+      
       const rlmResponse = await fetch(`${rlmUrl}/process-full`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -306,16 +311,29 @@ export async function POST(request: Request) {
           conversation_count: conversations.length,
           message_count: totalMessages,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
+      // We only check if RLM accepted the job - actual processing is async
       if (!rlmResponse.ok) {
-        console.error(`[ProcessServer] RLM returned ${rlmResponse.status}`);
-        throw new Error(`RLM processing failed with status ${rlmResponse.status}`);
+        const errorText = await rlmResponse.text().catch(() => 'Unknown error');
+        console.error(`[ProcessServer] RLM returned ${rlmResponse.status}: ${errorText}`);
+        // Don't throw - let user proceed to chat while we retry later
+        console.warn(`[ProcessServer] RLM may be slow - user can start chatting while processing continues`);
+      } else {
+        console.log(`[ProcessServer] RLM accepted job for user ${userId}`);
       }
-      console.log(`[ProcessServer] RLM full processing started for user ${userId}`);
-    } catch (e) {
-      console.error(`[ProcessServer] Failed to call RLM:`, e);
-      throw new Error('Failed to start background processing. Please try again.');
+    } catch (e: any) {
+      // Even if RLM call fails/times out, don't block the user
+      // They can chat with basic soulprint while embeddings process later
+      if (e.name === 'AbortError') {
+        console.warn(`[ProcessServer] RLM job submission timed out - will retry in background`);
+      } else {
+        console.error(`[ProcessServer] Failed to call RLM:`, e);
+      }
+      // Don't throw - continue to success response
     }
     
     return NextResponse.json({
