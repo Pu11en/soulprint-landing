@@ -89,7 +89,7 @@ export function FloatingChat({
                   : '0 8px 32px rgba(0, 0, 0, 0.5)',
               }}
             >
-              <MessageContent content={message.content} />
+              <MessageContent content={message.content} textColor="#FFFFFF" />
             </div>
           </div>
         ))}
