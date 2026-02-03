@@ -21,6 +21,7 @@ interface TelegramChatV2Props {
   onBack?: () => void;
   onSettings?: () => void;
   defaultDarkMode?: boolean;
+  floatingMode?: boolean;
 }
 
 // Theme colors - SoulPrint Branding
@@ -53,6 +54,22 @@ const themes = {
     accent: '#EA580C', // SoulPrint primary orange
     homeIndicator: 'rgba(255,255,255,0.15)',
   },
+};
+
+// Floating mode theme (transparent backgrounds)
+const floatingTheme = {
+  background: 'transparent',
+  navBg: 'rgba(10, 10, 10, 0.7)',
+  navBorder: 'rgba(255, 255, 255, 0.1)',
+  senderBubble: '#EA580C',
+  senderText: '#FFFFFF',
+  recipientBubble: 'rgba(30, 30, 30, 0.8)',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#a3a3a3',
+  inputBg: 'rgba(30, 30, 30, 0.8)',
+  inputBorder: 'rgba(255, 255, 255, 0.1)',
+  accent: '#EA580C',
+  homeIndicator: 'rgba(255,255,255,0.15)',
 };
 
 // Swipeable message component
