@@ -231,7 +231,7 @@ function generateChunks(
       continue;
     }
 
-    let accumulated: string[] = overlapText ? [overlapText] : [];
+    const accumulated: string[] = overlapText ? [overlapText] : [];
     let accumulatedLength = overlapText.length;
     let msgCount = 0;
 

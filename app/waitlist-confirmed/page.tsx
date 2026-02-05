@@ -57,7 +57,7 @@ function ConfirmationContent() {
 
         {isSuccess && (
           <p className="text-white/40 text-sm">
-            We'll email you when your access is ready.
+            We&apos;ll email you when your access is ready.
           </p>
         )}
       </div>

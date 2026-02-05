@@ -191,8 +191,16 @@ export async function POST(request: Request) {
 }
 
 // Web Push notification helper
+type PushSubscriptionPayload = {
+  endpoint: string;
+  keys?: {
+    p256dh?: string;
+    auth?: string;
+  };
+};
+
 async function sendPushNotification(
-  subscription: any,
+  subscription: PushSubscriptionPayload,
   payload: { title: string; body: string; url?: string }
 ) {
   // Web Push requires VAPID keys - check if configured

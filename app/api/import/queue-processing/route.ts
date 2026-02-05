@@ -101,10 +101,10 @@ export async function POST(request: Request) {
         ...result,
       });
       
-    } catch (fetchError: any) {
+    } catch (fetchError) {
       clearTimeout(timeoutId);
       
-      if (fetchError.name === 'AbortError') {
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.error('[QueueProcessing] Process server timed out');
         await adminSupabase.from('user_profiles').update({
           import_status: 'failed',

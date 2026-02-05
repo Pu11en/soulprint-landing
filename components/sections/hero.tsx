@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
@@ -10,13 +10,10 @@ import { AccessCodeModal } from "@/components/access-code-modal";
 export function Hero() {
     const [authModal, setAuthModal] = useState<{ open: boolean; mode: 'login' | 'signup' }>({ open: false, mode: 'login' });
     const [accessCodeModal, setAccessCodeModal] = useState(false);
-    const [hasValidCode, setHasValidCode] = useState(false);
-
-    // Check for stored valid code on mount
-    useEffect(() => {
-        const stored = localStorage.getItem('hasValidCode') === 'true';
-        setHasValidCode(stored);
-    }, []);
+    const [hasValidCode, setHasValidCode] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return localStorage.getItem('hasValidCode') === 'true';
+    });
 
     // Handle CTA click - check if user has valid code
     const handleEnterClick = () => {

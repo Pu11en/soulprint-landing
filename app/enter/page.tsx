@@ -99,10 +99,10 @@ export default function EnterPage() {
                 <CheckCircle2 className="w-10 h-10 text-green-500" />
               </div>
               <h1 className="text-3xl font-koulen uppercase text-white">
-                YOU'RE ON THE LIST
+                YOU&apos;RE ON THE LIST
               </h1>
               <p className="text-white/60">
-                We'll reach out when your spot opens up. Keep an eye on your inbox!
+                We&apos;ll reach out when your spot opens up. Keep an eye on your inbox!
               </p>
               <Link 
                 href="/"
@@ -190,7 +190,7 @@ export default function EnterPage() {
                   JOIN THE <span className="text-orange-600">WAITLIST</span>
                 </h1>
                 <p className="text-white/60 text-lg">
-                  We'll let you know when your spot opens up.
+                  We&apos;ll let you know when your spot opens up.
                 </p>
               </div>
 

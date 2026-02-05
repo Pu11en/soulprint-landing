@@ -164,7 +164,9 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    checkHealth();
+    const initialTimeout = setTimeout(() => {
+      checkHealth();
+    }, 0);
     
     const refreshInterval = setInterval(() => {
       checkHealth();
@@ -175,6 +177,7 @@ export default function AdminDashboard() {
     }, 1000);
 
     return () => {
+      clearTimeout(initialTimeout);
       clearInterval(refreshInterval);
       clearInterval(countdownInterval);
     };

@@ -194,7 +194,7 @@ export function AccessCodeModal({ isOpen, onClose, onCodeValid }: AccessCodeModa
                   <Mail className="w-7 h-7 text-orange-500" />
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-2">Join the Waitlist</h2>
-                <p className="text-white/60">We'll let you know when your spot opens up.</p>
+                <p className="text-white/60">We&apos;ll let you know when your spot opens up.</p>
               </div>
 
               <form onSubmit={handleWaitlistSubmit} className="space-y-4">

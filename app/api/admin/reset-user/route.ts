@@ -53,7 +53,7 @@ export async function DELETE(request: Request) {
     const adminSupabase = getSupabaseAdmin();
     
     // Delete in order (foreign key constraints)
-    const results: Record<string, any> = {};
+    const results: Record<string, string> = {};
     
     // 1. Delete chat messages
     const { error: chatError, count: chatCount } = await adminSupabase

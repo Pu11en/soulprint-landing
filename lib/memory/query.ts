@@ -176,7 +176,7 @@ export async function searchMemoryLayered(
 
   const searchPromise = async (): Promise<MemoryChunk[]> => {
     // Call the NEW layered search function
-    let rpcName = 'match_conversation_chunks_layered';
+    const rpcName = 'match_conversation_chunks_layered';
 
     // Try the layered RPC first
     let { data, error } = await supabase.rpc(rpcName, {

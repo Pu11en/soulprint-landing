@@ -170,8 +170,8 @@ export async function POST(request: NextRequest) {
       has_user_md: !!userMd,
     });
 
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
       console.error('[GenerateSoulprint] RLM timeout');
       return NextResponse.json({ error: 'Soulprint generation timed out' }, { status: 504 });
     }
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
     console.error('[GenerateSoulprint] Error:', error);
     return NextResponse.json({ 
       error: 'Soulprint generation failed',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
 }
@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'No pending users' });
   }
 
-  const results = [];
+  const results: Array<Record<string, unknown>> = [];
   for (const user of pendingUsers) {
     try {
       const response = await fetch(new URL('/api/soulprint/generate', request.url), {
@@ -212,8 +212,8 @@ export async function GET(request: NextRequest) {
       });
       const result = await response.json();
       results.push({ userId: user.user_id, ...result });
-    } catch (e: any) {
-      results.push({ userId: user.user_id, error: e.message });
+    } catch (e) {
+      results.push({ userId: user.user_id, error: e instanceof Error ? e.message : 'Unknown error' });
     }
   }
 

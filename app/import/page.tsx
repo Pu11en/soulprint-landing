@@ -23,7 +23,7 @@ type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
 type Step = 'export' | 'upload' | 'processing' | 'done';
 
 // Safe JSON parsing - handles non-JSON error responses from server
-async function safeJsonParse(response: Response): Promise<{ ok: boolean; data?: any; error?: string }> {
+async function safeJsonParse(response: Response): Promise<{ ok: boolean; data?: unknown; error?: string }> {
   try {
     const text = await response.text();
     try {
@@ -41,6 +41,7 @@ async function safeJsonParse(response: Response): Promise<{ ok: boolean; data?: 
 // IndexedDB helpers for storing large datasets client-side
 const DB_NAME = 'soulprint_import';
 const DB_VERSION = 1;
+const LARGE_UPLOAD_THRESHOLD = 50 * 1024 * 1024; // 50MB
 
 async function openImportDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -59,7 +60,7 @@ async function openImportDB(): Promise<IDBDatabase> {
   });
 }
 
-async function storeChunksInDB(db: IDBDatabase, chunks: any[]): Promise<void> {
+async function storeChunksInDB(db: IDBDatabase, chunks: unknown[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('chunks', 'readwrite');
     const store = tx.objectStore('chunks');
@@ -70,7 +71,7 @@ async function storeChunksInDB(db: IDBDatabase, chunks: any[]): Promise<void> {
   });
 }
 
-async function storeRawInDB(db: IDBDatabase, conversations: any[]): Promise<void> {
+async function storeRawInDB(db: IDBDatabase, conversations: unknown[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('raw', 'readwrite');
     const store = tx.objectStore('raw');
@@ -97,6 +98,80 @@ function ImportPageContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadProgressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const uploadWithTus = async (file: Blob, uploadPath: string, contentType: string) => {
+    const supabase = createClient();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey || !accessToken) {
+      throw new Error('Missing Supabase credentials for chunked upload.');
+    }
+
+    const encode = (value: string) => btoa(unescape(encodeURIComponent(value)));
+    const metadata = [
+      `bucketName ${encode('imports')}`,
+      `objectName ${encode(uploadPath)}`,
+      `contentType ${encode(contentType)}`,
+      `cacheControl ${encode('3600')}`,
+    ].join(',');
+
+    const endpoint = `${supabaseUrl}/storage/v1/upload/resumable`;
+    const createRes = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        apikey: supabaseKey,
+        'x-upsert': 'true',
+        'Tus-Resumable': '1.0.0',
+        'Upload-Length': String(file.size),
+        'Upload-Metadata': metadata,
+      },
+    });
+
+    if (!createRes.ok) {
+      const errorText = await createRes.text().catch(() => '');
+      throw new Error(errorText || `Chunked upload init failed (${createRes.status})`);
+    }
+
+    const location = createRes.headers.get('Location');
+    if (!location) throw new Error('Chunked upload did not return a location.');
+    const uploadUrl = new URL(location, endpoint).toString();
+
+    const chunkSize = 6 * 1024 * 1024;
+    let offset = 0;
+    while (offset < file.size) {
+      const chunk = file.slice(offset, offset + chunkSize);
+      const patchRes = await fetch(uploadUrl, {
+        method: 'PATCH',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          apikey: supabaseKey,
+          'Tus-Resumable': '1.0.0',
+          'Upload-Offset': String(offset),
+          'Content-Type': 'application/offset+octet-stream',
+        },
+        body: chunk,
+      });
+
+      if (!patchRes.ok) {
+        const errorText = await patchRes.text().catch(() => '');
+        throw new Error(errorText || `Chunk upload failed (${patchRes.status})`);
+      }
+
+      const newOffset = Number(patchRes.headers.get('Upload-Offset'));
+      offset = Number.isFinite(newOffset) ? newOffset : offset + chunk.size;
+
+      const percentage = Math.round((offset / file.size) * 100);
+      const scaled = Math.min(15 + Math.round((percentage / 100) * 35), 50);
+      setProgress(scaled);
+      setProgressStage(`Uploading... ${percentage}%`);
+    }
+
+    return { path: uploadPath };
+  };
 
   // Cleanup intervals on unmount
   useEffect(() => {
@@ -270,31 +345,44 @@ function ImportPageContent() {
 
         console.log(`[Import] Starting client-side upload: ${uploadPath}`);
 
-        // Simulate progress since Supabase client doesn't provide callback for simple upload
-        uploadProgressIntervalRef.current = setInterval(() => {
-          setProgress(p => Math.min(p + 5, 50));
-        }, 500);
+        const contentType = uploadFilename.endsWith('.json') ? 'application/json' : 'application/zip';
+        const shouldUseTus = uploadBlob.size >= LARGE_UPLOAD_THRESHOLD;
 
-        const { data, error } = await supabase.storage
-          .from('imports')
-          .upload(uploadPath, uploadBlob, {
-            upsert: true,
-            contentType: uploadFilename.endsWith('.json') ? 'application/json' : 'application/zip'
-          });
+        let uploadedPath: string;
+        if (shouldUseTus) {
+          setProgressStage('Uploading securely (chunked)...');
+          setProgress(15);
+          const result = await uploadWithTus(uploadBlob, uploadPath, contentType);
+          uploadedPath = result.path;
+        } else {
+          // Simulate progress since Supabase client doesn't provide callback for simple upload
+          uploadProgressIntervalRef.current = setInterval(() => {
+            setProgress(p => Math.min(p + 5, 50));
+          }, 500);
 
-        if (uploadProgressIntervalRef.current) clearInterval(uploadProgressIntervalRef.current);
+          const { data, error } = await supabase.storage
+            .from('imports')
+            .upload(uploadPath, uploadBlob, {
+              upsert: true,
+              contentType,
+            });
 
-        if (error) {
-          console.error('[Import] Storage upload error:', error);
-          throw new Error(`Upload failed: ${error.message}`);
+          if (uploadProgressIntervalRef.current) clearInterval(uploadProgressIntervalRef.current);
+
+          if (error) {
+            console.error('[Import] Storage upload error:', error);
+            throw new Error(`Upload failed: ${error.message}`);
+          }
+
+          if (!data?.path) {
+            throw new Error('Upload successful but returned no path');
+          }
+
+          uploadedPath = data.path;
         }
 
-        if (!data?.path) {
-          throw new Error('Upload successful but returned no path');
-        }
-
-        console.log('[Import] Upload success:', data);
-        const storagePath = `imports/${data.path}`; // Construct full path including bucket
+        console.log('[Import] Upload success:', uploadedPath);
+        const storagePath = `imports/${uploadedPath}`; // Construct full path including bucket
 
 
         setProgressStage('Upload complete! Analyzing your conversations...');
