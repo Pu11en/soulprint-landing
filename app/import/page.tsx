@@ -445,20 +445,22 @@ function ImportPageContent() {
         </Link>
 
         <div className="flex items-center gap-3">
-          {/* Reset Button - Always Visible */}
-          <button
-            onClick={handleReset}
-            disabled={isResetting}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-[10px] sm:text-xs disabled:opacity-50 transition-colors"
-            title="Reset and start fresh"
-          >
-            {isResetting ? (
-              <Loader2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 animate-spin" />
-            ) : (
-              <Settings className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-            )}
-            <span>{isResetting ? 'Resetting...' : 'Reset'}</span>
-          </button>
+          {/* Reset Button - Only show if user has data (returning user or has error) */}
+          {(isReturningUser || errorMessage || status === 'error') && (
+            <button
+              onClick={handleReset}
+              disabled={isResetting}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-[10px] sm:text-xs disabled:opacity-50 transition-colors"
+              title="Reset and start fresh"
+            >
+              {isResetting ? (
+                <Loader2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 animate-spin" />
+              ) : (
+                <Settings className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+              )}
+              <span>{isResetting ? 'Resetting...' : 'Reset'}</span>
+            </button>
+          )}
           
           <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/50 text-[10px] sm:text-xs">
             <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
