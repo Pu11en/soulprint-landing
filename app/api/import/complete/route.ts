@@ -212,6 +212,12 @@ async function sendPushNotification(
     return;
   }
 
+  // Validate subscription has required keys
+  if (!subscription.keys?.p256dh || !subscription.keys?.auth) {
+    console.warn('[Push] Invalid subscription - missing keys');
+    return;
+  }
+
   // Dynamic import to avoid issues if web-push not installed
   const webpush = await import('web-push').catch(() => null);
   if (!webpush) {
@@ -225,8 +231,17 @@ async function sendPushNotification(
     vapidPrivateKey
   );
 
+  // Cast to expected type after validation
+  const validSubscription = {
+    endpoint: subscription.endpoint,
+    keys: {
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth,
+    },
+  };
+
   await webpush.default.sendNotification(
-    subscription,
+    validSubscription,
     JSON.stringify(payload)
   );
 }
