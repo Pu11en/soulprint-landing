@@ -269,21 +269,42 @@ function ImportPageContent() {
         const cleanName = uploadFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
         const uploadPath = `${user.id}/${timestamp}-${cleanName}`;
 
-        console.log(`[Import] Starting client-side upload: ${uploadPath}`);
+        console.log(`[Import] Starting client-side upload: ${uploadPath} (${(uploadBlob.size / 1024 / 1024).toFixed(1)}MB)`);
 
         // Simulate progress since Supabase client doesn't provide callback for simple upload
+        // Slower progress for larger files
+        const uploadIntervalMs = uploadBlob.size > 100 * 1024 * 1024 ? 2000 : 500; // 2s for >100MB
         uploadProgressIntervalRef.current = setInterval(() => {
-          setProgress(p => Math.min(p + 5, 50));
-        }, 500);
+          setProgress(p => Math.min(p + 2, 50));
+        }, uploadIntervalMs);
 
-        const { data, error } = await supabase.storage
+        // Wrap upload in timeout (5 min for large files, 2 min for small)
+        const uploadTimeoutMs = uploadBlob.size > 100 * 1024 * 1024 ? 5 * 60 * 1000 : 2 * 60 * 1000;
+        
+        const uploadPromise = supabase.storage
           .from('imports')
           .upload(uploadPath, uploadBlob, {
             upsert: true,
             contentType: uploadFilename.endsWith('.json') ? 'application/json' : 'application/zip'
           });
 
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Upload timed out. Your file may be too large or your connection is slow.')), uploadTimeoutMs)
+        );
+
+        let data, error;
+        try {
+          const result = await Promise.race([uploadPromise, timeoutPromise]);
+          data = result.data;
+          error = result.error;
+        } catch (timeoutErr) {
+          if (uploadProgressIntervalRef.current) clearInterval(uploadProgressIntervalRef.current);
+          throw timeoutErr;
+        }
+
         if (uploadProgressIntervalRef.current) clearInterval(uploadProgressIntervalRef.current);
+
+        console.log('[Import] Upload completed, checking result...');
 
         if (error) {
           console.error('[Import] Storage upload error:', error);
@@ -291,10 +312,13 @@ function ImportPageContent() {
         }
 
         if (!data?.path) {
+          console.error('[Import] Upload returned no path:', data);
           throw new Error('Upload successful but returned no path');
         }
 
         console.log('[Import] Upload success:', data);
+        setProgressStage('Upload complete! Starting processing...');
+        setProgress(52);
         const storagePath = `imports/${data.path}`; // Construct full path including bucket
 
 
