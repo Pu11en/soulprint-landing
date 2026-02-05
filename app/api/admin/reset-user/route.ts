@@ -12,6 +12,7 @@ export const runtime = 'nodejs';
 const ADMIN_EMAILS = [
   'drew@archeforge.com',
   'drewspatterson@gmail.com',
+  'kidquick360@gmail.com',
 ];
 
 async function checkAdminAuth(): Promise<{ authorized: boolean; error?: NextResponse }> {

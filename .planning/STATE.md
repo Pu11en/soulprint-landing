@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Import your ChatGPT history → Get an AI that knows you
-**Current focus:** v1.1 Polish — Progress indicators, error handling
+**Current focus:** v1.1 Phase 2 — Hardening (reliability, errors, reset)
 
 ---
 
@@ -13,34 +13,72 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 
 **v1.0 MVP** — SHIPPED 2026-02-01
 - Phase 1: Mobile MVP (4/4 UAT tests passed)
-- Full pipeline working: Upload → Process → SoulPrint → Email → Chat
 
 **v1.1 Polish** — IN PROGRESS
-- Phase 2: Polish (not started)
+- **Phase 2: Hardening** ← ACTIVE
 - Phase 3: Retention (planned)
 - Phase 4: Growth (planned)
 
 ---
 
-## Current Phase: Polish
+## Current Phase: Hardening
 
-### Status: Ready to plan
+### Status: PLANNING → READY TO EXECUTE
 
-**Objective:** Smooth UX, handle edge cases, show progress
+**Objective:** Make it work reliably for real users
 
-### Completed (v1.0)
-- [x] Database cleanup (29 → 12 tables)
-- [x] Storage bucket MIME fix (accepts any type)
-- [x] Build passing on Vercel
-- [x] Import → Process → SoulPrint pipeline
-- [x] Email notification on completion
-- [x] Memory-augmented chat working
+### Issues Found (2026-02-04)
+
+| # | Issue | Severity | File |
+|---|-------|----------|------|
+| 1 | Reset button only works for admin emails | 🔴 CRITICAL | `api/admin/reset-user/route.ts` |
+| 2 | Users can't retry after failed import | 🔴 CRITICAL | `app/import/page.tsx` |
+| 3 | Error messages not shown to users | 🟡 HIGH | Multiple |
+| 4 | No progress indicator during import | 🟡 HIGH | `app/import/page.tsx` |
+| 5 | No progress indicator during embedding | 🟡 HIGH | `app/chat/page.tsx` |
+| 6 | "Analyzing..." placeholder soulprint | 🟡 HIGH | `process-server/route.ts` |
+| 7 | Large files (>500MB) hit memory limits | 🟢 MEDIUM | Vercel limits |
+
+### Completed (Phase 2)
+- [x] Issue audit complete
+- [x] Created TASKS.md with full map
+- [ ] Fix reset button for users
+- [ ] Add error handling
+- [ ] Add progress indicators
 
 ### Next Actions
-1. Plan Phase 2: Polish
-2. Add progress indicators during import
-3. Improve error handling
-4. Support larger files (>500MB)
+1. **Add user self-reset** (not just admin)
+2. **Surface error messages in UI**
+3. **Add progress indicators**
+
+---
+
+## Fix Plan (Phase 2)
+
+See: `.planning/milestones/v1.1-PHASE2-SPEC.md` (to be created)
+
+### Sprint 1: Critical Fixes (Today)
+```
+[ ] 1. User self-reset button (any logged-in user can reset their own data)
+[ ] 2. Add Google account email to admin list (Drew's kidquick360)
+[ ] 3. Show error messages on import page
+[ ] 4. Show error messages on chat page
+```
+
+### Sprint 2: Progress UX (This Week)
+```
+[ ] 5. Progress bar during ZIP upload
+[ ] 6. Processing status with stages
+[ ] 7. Embedding progress indicator
+[ ] 8. Soulprint generation status
+```
+
+### Sprint 3: Edge Cases (Next Week)
+```
+[ ] 9. Large file chunked upload
+[ ] 10. Import retry after partial failure
+[ ] 11. Stuck import detection + auto-recovery
+```
 
 ---
 
@@ -56,26 +94,22 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 
 ---
 
-## Recent Sessions
+## Session Log
+
+### 2026-02-04 22:30 CST
+**Focus:** Issue audit + planning
+- Drew reports Phase 1 broken, reset button not working
+- Discovered: Reset only works for 2 admin emails
+- Created TASKS.md with 23 tasks mapped
+- Generated Nano Banana Pro architecture visual
+- Dev server running locally
+- **Status:** Planning complete, ready to execute Sprint 1
 
 ### 2026-01-31 00:00 CST
 **Focus:** GSD Discovery & Documentation
-- Created comprehensive `.planning/` documentation:
-  - `PROJECT.md` - Full project spec
-  - `CONTEXT.md` - Technical architecture
-  - `FLOW.md` - User flow details
+- Created comprehensive `.planning/` documentation
 - Mapped entire codebase structure
-- Documented all API routes and integrations
-- **Status:** Discovery complete, awaiting test results
-
-### 2026-01-30 22:30 CST
-**Focus:** Database cleanup + mobile testing
-- Cloned fresh repo, fixed build errors
-- Cleaned Supabase: dropped 17 unused tables
-- Fixed storage bucket MIME restrictions
-- Cleared Drew's test account
-- Created GSD skill
-- **Status:** Awaiting Drew's mobile test result
+- **Status:** Discovery complete
 
 ---
 
@@ -89,29 +123,24 @@ User → Next.js (Vercel) → Supabase (DB/Auth/Storage)
          Perplexity/Tavily (Web Search)
 ```
 
-## Key Files
-
-| Category | Key Files |
-|----------|-----------|
-| **Import** | `lib/import/parser.ts`, `chunker.ts`, `embedder.ts`, `soulprint.ts` |
-| **Memory** | `lib/memory/query.ts`, `learning.ts`, `facts.ts` |
-| **Chat** | `app/api/chat/route.ts`, `lib/search/perplexity.ts` |
-| **DB** | `lib/supabase/server.ts`, `client.ts` |
-
 ---
 
 ## Environment
 
 - **Prod URL:** https://www.soulprintengine.ai
+- **Local:** http://localhost:3000 (running)
 - **Supabase:** swvljsixpvvcirjmflze
 - **Vercel Project:** soulprint-landing
 - **RLM Service:** soulprint-landing.onrender.com
 
 ---
 
-## Blockers Log
+## Blockers
 
-(None currently)
+| Blocker | Status | Resolution |
+|---------|--------|------------|
+| Reset button only for admins | ACTIVE | Sprint 1, Task 1 |
+| kidquick360 email not admin | ACTIVE | Need email from Drew |
 
 ---
-*Last updated: 2026-01-31 00:15 CST after GSD discovery*
+*Last updated: 2026-02-04 22:35 CST*
