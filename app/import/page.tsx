@@ -444,11 +444,54 @@ function ImportPageContent() {
           <span className="text-white font-semibold text-xs sm:text-sm">SoulPrint</span>
         </Link>
 
-        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/50 text-[10px] sm:text-xs">
-          <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-          <span>Private</span>
+        <div className="flex items-center gap-3">
+          {/* Reset Button - Always Visible */}
+          <button
+            onClick={handleReset}
+            disabled={isResetting}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-[10px] sm:text-xs disabled:opacity-50 transition-colors"
+            title="Reset and start fresh"
+          >
+            {isResetting ? (
+              <Loader2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 animate-spin" />
+            ) : (
+              <Settings className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+            )}
+            <span>{isResetting ? 'Resetting...' : 'Reset'}</span>
+          </button>
+          
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/50 text-[10px] sm:text-xs">
+            <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+            <span>Private</span>
+          </div>
         </div>
       </header>
+
+      {/* Error Banner - Shows when there's an error */}
+      {errorMessage && (
+        <div className="relative z-10 mx-4 mt-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex-shrink-0">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-red-400 text-sm font-medium">Something went wrong</p>
+              <p className="text-white/70 text-xs mt-1">{errorMessage}</p>
+            </div>
+            <button
+              onClick={() => setErrorMessage('')}
+              className="text-white/50 hover:text-white/80 text-xs"
+            >
+              ✕
+            </button>
+          </div>
+          <button
+            onClick={handleReset}
+            disabled={isResetting}
+            className="mt-2 w-full py-1.5 rounded bg-red-500/20 text-red-400 text-xs hover:bg-red-500/30 disabled:opacity-50"
+          >
+            {isResetting ? 'Resetting...' : '🔄 Reset & Try Again'}
+          </button>
+        </div>
+      )}
 
       {/* Step Indicator - Horizontal dots */}
       <div className="relative z-10 flex items-center justify-center gap-2 py-2 sm:py-3 flex-shrink-0">
