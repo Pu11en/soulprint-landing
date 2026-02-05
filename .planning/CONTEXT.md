@@ -28,6 +28,7 @@
 | Images | Cloudinary | Avatar storage |
 | Email | Resend | Notifications |
 | Hosting | Vercel | Auto-deploy from GitHub |
+| Domain | soulprintengine.ai | Production URL |
 | RLM | Render | Python service for Bedrock |
 
 ## Key Patterns
