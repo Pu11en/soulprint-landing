@@ -57,17 +57,17 @@ Plans:
 **Goal**: All async operations handle cancellation and out-of-order responses correctly
 **Depends on**: Phase 2
 **Requirements**: BUG-02, BUG-03, BUG-04
+**Plans:** 3 plans
 **Success Criteria** (what must be TRUE):
   1. Starting a new import cancels any existing processing job (verified by test)
   2. Failed chat message saves retry with exponential backoff and show error indicator
   3. Memory status polling ignores out-of-order responses using sequence tracking
   4. All fetch calls implement cancellation via AbortController
-**Plans**: TBD
 
 Plans:
-- [ ] 03-01: Add duplicate import detection and cancellation logic
-- [ ] 03-02: Implement message save retry with exponential backoff
-- [ ] 03-03: Fix polling race conditions with AbortController or request ID tracking
+- [ ] 03-01-PLAN.md -- Duplicate import detection and 409 rejection with stuck-import override
+- [ ] 03-02-PLAN.md -- Reusable fetchWithRetry utility and chat message save retry with error indicator
+- [ ] 03-03-PLAN.md -- Sequence-tracked polling and AbortController on all chat page fetches
 
 ### Phase 4: Security Hardening
 **Goal**: Production-ready security posture with defense in depth
