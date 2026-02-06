@@ -25,11 +25,11 @@ type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
 type Step = 'export' | 'upload' | 'processing' | 'done';
 
 // Safe JSON parsing - handles non-JSON error responses from server
-async function safeJsonParse(response: Response): Promise<{ ok: boolean; data?: any; error?: string }> {
+async function safeJsonParse(response: Response): Promise<{ ok: boolean; data?: unknown; error?: string }> {
   try {
     const text = await response.text();
     try {
-      const data = JSON.parse(text);
+      const data: unknown = JSON.parse(text);
       return { ok: response.ok, data };
     } catch {
       // Response was not JSON (e.g., "Request Entity Too Large")
@@ -61,7 +61,7 @@ async function openImportDB(): Promise<IDBDatabase> {
   });
 }
 
-async function storeChunksInDB(db: IDBDatabase, chunks: any[]): Promise<void> {
+async function storeChunksInDB(db: IDBDatabase, chunks: unknown[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('chunks', 'readwrite');
     const store = tx.objectStore('chunks');
@@ -72,7 +72,7 @@ async function storeChunksInDB(db: IDBDatabase, chunks: any[]): Promise<void> {
   });
 }
 
-async function storeRawInDB(db: IDBDatabase, conversations: any[]): Promise<void> {
+async function storeRawInDB(db: IDBDatabase, conversations: unknown[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('raw', 'readwrite');
     const store = tx.objectStore('raw');

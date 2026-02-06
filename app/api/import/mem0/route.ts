@@ -12,6 +12,7 @@ import {
   Mem0Client,
   importToMem0,
   ParsedMessage,
+  ChatGPTConversation,
 } from '@/lib/mem0';
 import { checkRateLimit } from '@/lib/rate-limit';
 
@@ -76,9 +77,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse conversations
+    // Parse conversations - parseChatGPTExport expects string | ChatGPTConversation[]
+    // Cast to ChatGPTConversation[] - parseChatGPTExport will validate the structure
     const messages: ParsedMessage[] = [];
-    for await (const msg of parseChatGPTExport(conversations as any)) {
+    for await (const msg of parseChatGPTExport(conversations as ChatGPTConversation[])) {
       messages.push(msg);
     }
 

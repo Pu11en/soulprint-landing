@@ -182,7 +182,7 @@ export async function POST(request: Request) {
         ...result,
       });
       
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
       if (fetchError instanceof Error && fetchError.name === 'TimeoutError') {
         console.error('[QueueProcessing] Process server timed out after 290s');
         await adminSupabase.from('user_profiles').update({

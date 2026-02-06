@@ -107,7 +107,7 @@ export async function uploadWithProgress(
   authToken: string,
   contentType: string,
   onProgress?: (percent: number) => void
-): Promise<{ success: boolean; data?: any; error?: string }> {
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
   // Get CSRF token first
   const csrfToken = await getCsrfToken();
 

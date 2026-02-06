@@ -330,6 +330,6 @@ describe('POST /api/import/process-server', () => {
     expect(response.status).toBe(500);
 
     const body = await response.json();
-    expect(body.error).toContain('Invalid file format');
+    expect(body.error).toContain('Invalid ChatGPT export format');
   });
 });

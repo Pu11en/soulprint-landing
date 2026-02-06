@@ -193,7 +193,7 @@ export async function POST(request: Request) {
 
 // Web Push notification helper
 async function sendPushNotification(
-  subscription: any,
+  subscription: unknown,
   payload: { title: string; body: string; url?: string }
 ) {
   // Web Push requires VAPID keys - check if configured
@@ -218,8 +218,9 @@ async function sendPushNotification(
     vapidPrivateKey
   );
 
+  // Type cast since this is dead code - if re-enabled, add proper validation
   await webpush.default.sendNotification(
-    subscription,
+    subscription as Parameters<typeof webpush.default.sendNotification>[0],
     JSON.stringify(payload)
   );
 }

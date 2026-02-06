@@ -13,6 +13,7 @@ import JSZip from 'jszip';
 import { gzipSync } from 'zlib';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { createLogger } from '@/lib/logger';
+import { chatGPTExportSchema, ChatGPTRawConversation } from '@/lib/api/schemas';
 
 const log = createLogger('API:ImportProcessServer');
 
@@ -118,15 +119,25 @@ export async function POST(request: Request) {
       throw new Error(`File too large (${sizeMB.toFixed(0)}MB). Maximum is ${MAX_FILE_SIZE_MB}MB. Please export fewer conversations or contact support.`);
     }
     
-    let rawConversations: any[];
+    let rawConversations: ChatGPTRawConversation[];
     let rawJsonString: string = '';
-    
+
     // Check if it's JSON directly or a ZIP
     if (filePath.endsWith('.json')) {
       reqLog.debug('Parsing JSON directly');
       const text = new TextDecoder().decode(arrayBuffer);
       rawJsonString = text;
-      rawConversations = JSON.parse(text);
+
+      // Parse as unknown first, then validate
+      const parsed: unknown = JSON.parse(text);
+      const validationResult = chatGPTExportSchema.safeParse(parsed);
+
+      if (!validationResult.success) {
+        adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
+        throw new Error('Invalid ChatGPT export format. Please upload a valid ChatGPT export file.');
+      }
+
+      rawConversations = validationResult.data;
     } else {
       reqLog.debug('Extracting from ZIP');
       const zip = await JSZip.loadAsync(arrayBuffer);
@@ -138,7 +149,17 @@ export async function POST(request: Request) {
       }
 
       rawJsonString = await conversationsFile.async('string');
-      rawConversations = JSON.parse(rawJsonString);
+
+      // Parse as unknown first, then validate
+      const parsed: unknown = JSON.parse(rawJsonString);
+      const validationResult = chatGPTExportSchema.safeParse(parsed);
+
+      if (!validationResult.success) {
+        adminSupabase.storage.from(bucket).remove([filePath]).catch(e => reqLog.warn({ error: String(e) }, 'Cleanup failed'));
+        throw new Error('Invalid ChatGPT export format. Please upload a valid ChatGPT export file.');
+      }
+
+      rawConversations = validationResult.data;
     }
 
     reqLog.info({ conversationCount: rawConversations.length }, 'Conversations parsed');
@@ -160,7 +181,7 @@ export async function POST(request: Request) {
     }
 
     // Check 3: At least one conversation should have ChatGPT's 'mapping' structure
-    const hasValidChatGPTFormat = rawConversations.some((conv: any) =>
+    const hasValidChatGPTFormat = rawConversations.some((conv) =>
       conv && typeof conv === 'object' && conv.mapping && typeof conv.mapping === 'object'
     );
 
@@ -208,30 +229,48 @@ export async function POST(request: Request) {
     adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
     
     // Parse conversations into our format
-    const conversations: ParsedConversation[] = rawConversations.map((conv: any) => {
+    const conversations: ParsedConversation[] = rawConversations.map((conv) => {
       const messages: ConversationMessage[] = [];
-      
+
       if (conv.mapping) {
         // ChatGPT format - traverse the mapping properly
-        const nodes = Object.values(conv.mapping) as any[];
+        // mapping is Record<string, unknown>, so we use type guards
+        const nodes = Object.values(conv.mapping);
         for (const node of nodes) {
-          if (node?.message?.content?.parts?.[0]) {
-            const role = node.message.author?.role || 'user';
-            const content = node.message.content.parts[0];
+          // Type guard: check if node has the expected structure
+          if (
+            node &&
+            typeof node === 'object' &&
+            'message' in node &&
+            node.message &&
+            typeof node.message === 'object' &&
+            'content' in node.message &&
+            node.message.content &&
+            typeof node.message.content === 'object' &&
+            'parts' in node.message.content &&
+            Array.isArray(node.message.content.parts) &&
+            node.message.content.parts[0]
+          ) {
+            const message = node.message as {
+              author?: { role?: string };
+              content: { parts: unknown[] };
+            };
+            const role = message.author?.role || 'user';
+            const content = message.content.parts[0];
             if (typeof content === 'string' && content.trim()) {
               messages.push({ role, content });
             }
           }
         }
       }
-      
+
       return {
         id: conv.id || conv.conversation_id || Math.random().toString(36),
         title: conv.title || 'Untitled',
         messages,
         createdAt: conv.create_time ? new Date(conv.create_time * 1000).toISOString() : new Date().toISOString(),
       };
-    }).filter((c: ParsedConversation) => c.messages.length > 0);
+    }).filter((c) => c.messages.length > 0);
 
     reqLog.info({ conversationsWithMessages: conversations.length }, 'Conversations extracted');
     
@@ -336,10 +375,10 @@ export async function POST(request: Request) {
       } else {
         reqLog.info('RLM accepted job');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Even if RLM call fails/times out, don't block the user
       // They can chat with basic soulprint while embeddings process later
-      if (e.name === 'AbortError') {
+      if (e instanceof Error && e.name === 'AbortError') {
         reqLog.warn('RLM job submission timed out - will retry in background');
       } else {
         reqLog.error({ error: String(e) }, 'Failed to call RLM');
