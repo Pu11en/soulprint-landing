@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Testing Foundation** - Vitest setup enabling verification of all fixes
 - [x] **Phase 2: Memory & Resource Cleanup** - Fix leaks, timeouts, and error handling
 - [x] **Phase 3: Race Condition Fixes** - Eliminate out-of-order state updates
-- [ ] **Phase 4: Security Hardening** - CSRF, rate limiting, RLS audit, input validation
+- [x] **Phase 4: Security Hardening** - CSRF, rate limiting, RLS audit, input validation
 - [ ] **Phase 5: Observability** - Structured logging and health checks
 - [ ] **Phase 6: Comprehensive Testing** - Integration and E2E test coverage
 - [ ] **Phase 7: Type Safety Refinement** - Replace `any` with proper types
@@ -86,8 +86,8 @@ Plans:
 - [x] 04-02-PLAN.md -- Per-user rate limiting with @upstash/ratelimit on critical routes
 - [x] 04-03-PLAN.md -- RLS audit and remediation scripts for all Supabase tables
 - [x] 04-04-PLAN.md -- Zod validation schemas for all critical API route request bodies
-- [ ] 04-05-PLAN.md -- Gap closure: CSRF client-side token integration
-- [ ] 04-06-PLAN.md -- Gap closure: Rate limiting expansion to all POST/PUT/DELETE endpoints
+- [x] 04-05-PLAN.md -- Gap closure: CSRF client-side token integration
+- [x] 04-06-PLAN.md -- Gap closure: Rate limiting expansion to all POST/PUT/DELETE endpoints
 
 ### Phase 5: Observability
 **Goal**: Production monitoring with structured logs and health checks
@@ -146,7 +146,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 1. Testing Foundation | 2/2 | Complete | 2026-02-06 |
 | 2. Memory & Resource Cleanup | 3/3 | Complete | 2026-02-06 |
 | 3. Race Condition Fixes | 3/3 | Complete | 2026-02-06 |
-| 4. Security Hardening | 4/6 | Gap closure | - |
+| 4. Security Hardening | 6/6 | Complete | 2026-02-06 |
 | 5. Observability | 0/2 | Not started | - |
 | 6. Comprehensive Testing | 0/3 | Not started | - |
 | 7. Type Safety Refinement | 0/3 | Not started | - |

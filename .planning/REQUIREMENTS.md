@@ -14,10 +14,10 @@
 
 ### Security
 
-- [ ] **SEC-01**: State-changing API endpoints validate CSRF tokens
-- [ ] **SEC-02**: API endpoints enforce per-user rate limits (429 with Retry-After)
-- [ ] **SEC-03**: All Supabase tables have RLS policies verified and documented
-- [ ] **SEC-04**: All API route request bodies validated with Zod schemas
+- [x] **SEC-01**: State-changing API endpoints validate CSRF tokens
+- [x] **SEC-02**: API endpoints enforce per-user rate limits (429 with Retry-After)
+- [x] **SEC-03**: All Supabase tables have RLS policies verified and documented
+- [x] **SEC-04**: All API route request bodies validated with Zod schemas
 
 ### Reliability
 
@@ -78,10 +78,10 @@
 | BUG-02 | Phase 3 | Complete |
 | BUG-03 | Phase 3 | Complete |
 | BUG-04 | Phase 3 | Complete |
-| SEC-01 | Phase 4 | Pending |
-| SEC-02 | Phase 4 | Pending |
-| SEC-03 | Phase 4 | Pending |
-| SEC-04 | Phase 4 | Pending |
+| SEC-01 | Phase 4 | Complete |
+| SEC-02 | Phase 4 | Complete |
+| SEC-03 | Phase 4 | Complete |
+| SEC-04 | Phase 4 | Complete |
 | REL-03 | Phase 5 | Pending |
 | REL-04 | Phase 5 | Pending |
 | TEST-02 | Phase 6 | Pending |
