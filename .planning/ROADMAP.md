@@ -26,16 +26,16 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Goal**: Vitest and React Testing Library configured and running with passing tests
 **Depends on**: Nothing (first phase)
 **Requirements**: TEST-01
+**Plans:** 2 plans
 **Success Criteria** (what must be TRUE):
   1. Vitest runs successfully with `npm test` command
   2. At least one unit test passes (sample test for critical utility function)
   3. Test configuration supports Next.js 16 App Router components
   4. MSW configured for API mocking in tests
-**Plans**: TBD
 
 Plans:
-- [ ] 01-01: Install and configure Vitest, React Testing Library, MSW
-- [ ] 01-02: Create test directory structure and sample passing tests
+- [ ] 01-01-PLAN.md -- Install and configure Vitest, React Testing Library, MSW
+- [ ] 01-02-PLAN.md -- Create sample passing tests for cn() and XP system
 
 ### Phase 2: Memory & Resource Cleanup
 **Goal**: Application memory usage plateaus under load with no resource leaks
@@ -107,9 +107,9 @@ Plans:
 **Depends on**: Phase 5
 **Requirements**: TEST-02, TEST-03, TEST-04
 **Success Criteria** (what must be TRUE):
-  1. Import flow has end-to-end test (upload → process → complete)
+  1. Import flow has end-to-end test (upload -> process -> complete)
   2. All API routes have integration tests with mocked dependencies
-  3. Critical user flows tested with Playwright (auth → import → chat)
+  3. Critical user flows tested with Playwright (auth -> import -> chat)
   4. Tests run offline in under 30 seconds with no external API calls
 **Plans**: TBD
 
@@ -137,7 +137,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
