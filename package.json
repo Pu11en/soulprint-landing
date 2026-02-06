@@ -72,6 +72,7 @@
     "eslint-config-next": "16.1.5",
     "jsdom": "^28.0.0",
     "msw": "^2.12.9",
+    "next-test-api-route-handler": "^5.0.3",
     "postcss": "^8.5.6",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.19",
