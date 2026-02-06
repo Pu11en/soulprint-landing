@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { TelegramChatV2 } from '@/components/chat/telegram-chat-v2';
+import { fetchWithRetry } from '@/lib/retry';
 import { AddToHomeScreen } from '@/components/ui/AddToHomeScreen';
 // BackgroundSync removed - RLM handles all chunk processing server-side
 
@@ -36,7 +37,8 @@ export default function ChatPage() {
   const [memoryProgress, setMemoryProgress] = useState<number | null>(null);
   const [memoryStatus, setMemoryStatus] = useState<string>('loading');
   const [importError, setImportError] = useState<string | null>(null);
-  
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   // Message queue for handling multiple messages while AI is responding
   const messageQueueRef = useRef<QueuedMessage[]>([]);
   const processingPromiseRef = useRef<Promise<void> | null>(null);
@@ -163,16 +165,21 @@ export default function ChatPage() {
 
   const saveMessage = async (role: string, content: string) => {
     try {
-      const response = await fetch('/api/chat/messages', {
+      const response = await fetchWithRetry('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role, content }),
       });
       if (!response.ok) {
-        console.error('[Chat] Failed to save message:', response.status);
+        console.error('[Chat] Failed to save message after retries:', response.status);
+        setSaveError('Message may not have been saved. Check your connection.');
+      } else {
+        // Clear any previous save error on success
+        if (saveError) setSaveError(null);
       }
     } catch (error) {
-      console.error('[Chat] Network error saving message:', error);
+      console.error('[Chat] Message save failed after all retries:', error);
+      setSaveError('Failed to save message. Your conversation may not be fully saved.');
     }
   };
 
@@ -527,6 +534,20 @@ export default function ChatPage() {
           defaultDarkMode={true}
         />
       </div>
+
+      {saveError && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 max-w-sm w-full px-4">
+          <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl px-4 py-3 flex items-center gap-2">
+            <span className="text-sm text-red-400 flex-1">{saveError}</span>
+            <button
+              onClick={() => setSaveError(null)}
+              className="text-red-400/60 hover:text-red-400 text-xs font-medium shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Memory Loading Indicator */}
       {(memoryStatus === 'loading' || memoryStatus === 'processing') && memoryProgress !== null && memoryProgress < 100 && (
