@@ -98,11 +98,11 @@ Plans:
   2. Structured logging includes user ID, endpoint, duration, status code
   3. Health check endpoint reports status of Supabase, Bedrock, and RLM service
   4. Health check returns degraded status when dependencies are unhealthy
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 05-01: Implement structured logging with correlation IDs
-- [ ] 05-02: Create health check endpoint with dependency status
+- [ ] 05-01-PLAN.md -- Install Pino, create logger factory, inject correlation IDs via middleware, integrate structured logging into error handler and critical routes
+- [ ] 05-02-PLAN.md -- Create public /api/health endpoint with Supabase/RLM/Bedrock dependency checks and degraded status, update admin health with structured logging
 
 ### Phase 6: Comprehensive Testing
 **Goal**: Critical user flows covered by integration and E2E tests
