@@ -23,8 +23,8 @@
 
 - [x] **REL-01**: RLM timeout reduced to 15s with fast fallback to Bedrock
 - [x] **REL-02**: All API routes return proper error responses (no unhandled exceptions)
-- [ ] **REL-03**: Structured logging with correlation IDs on all API routes
-- [ ] **REL-04**: Health check endpoint reports status of all external dependencies
+- [x] **REL-03**: Structured logging with correlation IDs on all API routes
+- [x] **REL-04**: Health check endpoint reports status of all external dependencies
 
 ### Type Safety
 
@@ -82,8 +82,8 @@
 | SEC-02 | Phase 4 | Complete |
 | SEC-03 | Phase 4 | Complete |
 | SEC-04 | Phase 4 | Complete |
-| REL-03 | Phase 5 | Pending |
-| REL-04 | Phase 5 | Pending |
+| REL-03 | Phase 5 | Complete |
+| REL-04 | Phase 5 | Complete |
 | TEST-02 | Phase 6 | Pending |
 | TEST-03 | Phase 6 | Pending |
 | TEST-04 | Phase 6 | Pending |

@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Memory & Resource Cleanup** - Fix leaks, timeouts, and error handling
 - [x] **Phase 3: Race Condition Fixes** - Eliminate out-of-order state updates
 - [x] **Phase 4: Security Hardening** - CSRF, rate limiting, RLS audit, input validation
-- [ ] **Phase 5: Observability** - Structured logging and health checks
+- [x] **Phase 5: Observability** - Structured logging and health checks
 - [ ] **Phase 6: Comprehensive Testing** - Integration and E2E test coverage
 - [ ] **Phase 7: Type Safety Refinement** - Replace `any` with proper types
 
@@ -101,8 +101,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- Install Pino, create logger factory, inject correlation IDs via middleware, integrate structured logging into error handler and critical routes
-- [ ] 05-02-PLAN.md -- Create public /api/health endpoint with Supabase/RLM/Bedrock dependency checks and degraded status, update admin health with structured logging
+- [x] 05-01-PLAN.md -- Install Pino, create logger factory, inject correlation IDs via middleware, integrate structured logging into error handler and critical routes
+- [x] 05-02-PLAN.md -- Create public /api/health endpoint with Supabase/RLM/Bedrock dependency checks and degraded status, update admin health with structured logging
 
 ### Phase 6: Comprehensive Testing
 **Goal**: Critical user flows covered by integration and E2E tests
@@ -147,7 +147,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 2. Memory & Resource Cleanup | 3/3 | Complete | 2026-02-06 |
 | 3. Race Condition Fixes | 3/3 | Complete | 2026-02-06 |
 | 4. Security Hardening | 6/6 | Complete | 2026-02-06 |
-| 5. Observability | 0/2 | Not started | - |
+| 5. Observability | 2/2 | Complete | 2026-02-06 |
 | 6. Comprehensive Testing | 0/3 | Not started | - |
 | 7. Type Safety Refinement | 0/3 | Not started | - |
 
