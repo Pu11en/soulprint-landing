@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SoulPrint Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            background: #0a0a0a;
+            color: #fff;
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 { color: #EA580C; margin-bottom: 10px; }
+        h2 { color: #888; margin-top: 40px; }
+        .mermaid { 
+            background: #111; 
+            padding: 30px; 
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 20px 0;
+        }
+        th, td { 
+            padding: 12px; 
+            text-align: left; 
+            border-bottom: 1px solid #333;
+        }
+        th { color: #EA580C; }
+        code { 
+            background: #222; 
+            padding: 2px 6px; 
+            border-radius: 4px;
+            color: #EA580C;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 SoulPrint Landing</h1>
+    <p style="color:#666">Architecture Overview</p>
+
+    <h2>System Architecture</h2>
+    <div class="mermaid">
+graph TB
+    subgraph Frontend["🖥️ Frontend Pages"]
+        HOME["/ (Home)"]
+        LOGIN["/login"]
+        SIGNUP["/signup"]
+        IMPORT["/import"]
+        CHAT["/chat"]
+        DASHBOARD["/dashboard"]
+        MEMORY["/memory"]
+        ACHIEVEMENTS["/achievements"]
+        ADMIN["/admin"]
+    end
+
+    subgraph APIs["⚡ API Routes"]
+        CHAT_API["/api/chat"]
+        IMPORT_API["/api/import/*"]
+        MEMORY_API["/api/memory/*"]
+        GAMIFICATION_API["/api/gamification/*"]
+        ADMIN_API["/api/admin/*"]
+    end
+
+    subgraph External["☁️ External Services"]
+        SUPABASE[("🗃️ Supabase<br/>Auth + DB")]
+        RLM["🧠 RLM Service<br/>Memory Embeddings"]
+        CLAUDE["🤖 Claude API"]
+        R2["📦 Cloudflare R2"]
+    end
+
+    HOME --> LOGIN
+    LOGIN --> SUPABASE
+    SIGNUP --> SUPABASE
+    
+    IMPORT --> IMPORT_API
+    IMPORT_API --> R2
+    IMPORT_API --> SUPABASE
+    
+    CHAT --> CHAT_API
+    CHAT_API --> RLM
+    CHAT_API --> CLAUDE
+    CHAT_API --> SUPABASE
+    
+    MEMORY --> MEMORY_API
+    MEMORY_API --> RLM
+    
+    ACHIEVEMENTS --> GAMIFICATION_API
+    GAMIFICATION_API --> SUPABASE
+
+    style CHAT fill:#EA580C,color:#fff
+    style IMPORT fill:#EA580C,color:#fff
+    style RLM fill:#10B981,color:#fff
+    style SUPABASE fill:#3FCF8E,color:#000
+    style CLAUDE fill:#D4A574,color:#000
+    </div>
+
+    <h2>User Journey</h2>
+    <div class="mermaid">
+sequenceDiagram
+    participant U as 👤 User
+    participant FE as 🖥️ Frontend
+    participant API as ⚡ API
+    participant RLM as 🧠 RLM
+    participant DB as 🗃️ Supabase
+    participant AI as 🤖 Claude
+
+    rect rgb(40, 40, 40)
+    Note over U,AI: 📥 Import Flow
+    U->>FE: Upload ChatGPT export
+    FE->>API: Process ZIP
+    API->>DB: Store conversations
+    API->>RLM: Generate embeddings
+    end
+
+    rect rgb(40, 40, 40)
+    Note over U,AI: 💬 Chat Flow
+    U->>FE: Send message
+    FE->>API: POST /api/chat
+    API->>RLM: Query memories
+    RLM-->>API: Relevant context
+    API->>AI: Generate response
+    AI-->>FE: Stream reply
+    end
+    </div>
+
+    <h2>Key Directories</h2>
+    <table>
+        <tr><th>Path</th><th>Purpose</th></tr>
+        <tr><td><code>/app</code></td><td>Next.js pages & API routes</td></tr>
+        <tr><td><code>/components</code></td><td>React components (chat, auth, UI)</td></tr>
+        <tr><td><code>/lib</code></td><td>Business logic (supabase, memory, gamification)</td></tr>
+        <tr><td><code>/supabase</code></td><td>Database migrations</td></tr>
+        <tr><td><code>/rlm-service</code></td><td>Memory embedding service</td></tr>
+    </table>
+
+    <h2>Services</h2>
+    <table>
+        <tr><th>Service</th><th>Purpose</th><th>URL</th></tr>
+        <tr><td>Supabase</td><td>Auth + Database</td><td><code>swvljsixpvvcirjmflze.supabase.co</code></td></tr>
+        <tr><td>RLM Service</td><td>Memory embeddings</td><td><code>soulprint-landing.onrender.com</code></td></tr>
+        <tr><td>Claude API</td><td>AI responses</td><td><code>api.anthropic.com</code></td></tr>
+        <tr><td>Vercel</td><td>Hosting</td><td><code>soulprintengine.ai</code></td></tr>
+    </table>
+
+    <script>mermaid.initialize({theme: 'dark', startOnLoad: true});</script>
+</body>
+</html>
