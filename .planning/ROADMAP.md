@@ -73,7 +73,7 @@ Plans:
 **Goal**: Production-ready security posture with defense in depth
 **Depends on**: Phase 3
 **Requirements**: SEC-01, SEC-02, SEC-03, SEC-04
-**Plans:** 4 plans
+**Plans:** 6 plans
 **Success Criteria** (what must be TRUE):
   1. All state-changing API endpoints validate CSRF tokens (POST, PUT, DELETE)
   2. API endpoints enforce per-user rate limits and return 429 with Retry-After header
@@ -82,10 +82,12 @@ Plans:
   5. Security headers configured (X-Frame-Options, CSP, Permissions-Policy)
 
 Plans:
-- [ ] 04-01-PLAN.md -- CSRF protection via @edge-csrf/nextjs middleware + CSP and Permissions-Policy headers
-- [ ] 04-02-PLAN.md -- Per-user rate limiting with @upstash/ratelimit on critical routes
-- [ ] 04-03-PLAN.md -- RLS audit and remediation scripts for all Supabase tables
-- [ ] 04-04-PLAN.md -- Zod validation schemas for all critical API route request bodies
+- [x] 04-01-PLAN.md -- CSRF protection via @edge-csrf/nextjs middleware + CSP and Permissions-Policy headers
+- [x] 04-02-PLAN.md -- Per-user rate limiting with @upstash/ratelimit on critical routes
+- [x] 04-03-PLAN.md -- RLS audit and remediation scripts for all Supabase tables
+- [x] 04-04-PLAN.md -- Zod validation schemas for all critical API route request bodies
+- [ ] 04-05-PLAN.md -- Gap closure: CSRF client-side token integration
+- [ ] 04-06-PLAN.md -- Gap closure: Rate limiting expansion to all POST/PUT/DELETE endpoints
 
 ### Phase 5: Observability
 **Goal**: Production monitoring with structured logs and health checks
@@ -144,7 +146,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 1. Testing Foundation | 2/2 | Complete | 2026-02-06 |
 | 2. Memory & Resource Cleanup | 3/3 | Complete | 2026-02-06 |
 | 3. Race Condition Fixes | 3/3 | Complete | 2026-02-06 |
-| 4. Security Hardening | 0/4 | Not started | - |
+| 4. Security Hardening | 4/6 | Gap closure | - |
 | 5. Observability | 0/2 | Not started | - |
 | 6. Comprehensive Testing | 0/3 | Not started | - |
 | 7. Type Safety Refinement | 0/3 | Not started | - |
