@@ -5,6 +5,13 @@
  */
 
 import { ParsedMessage, Mem0Message, toMem0Messages, groupByThread } from './chatgpt-parser';
+import {
+  mem0AddResponseSchema,
+  mem0SearchResponseSchema,
+  mem0GetAllResponseSchema,
+  mem0DeleteResponseSchema,
+  mem0MemorySchema,
+} from '@/lib/api/schemas';
 
 export interface Mem0Config {
   mode: 'cloud' | 'oss';
@@ -105,7 +112,13 @@ export class Mem0Client {
       throw new Error(`Mem0 API error: ${error}`);
     }
 
-    return response.json();
+    const raw: unknown = await response.json();
+    const parsed = mem0AddResponseSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error('[Mem0] Invalid add response:', parsed.error.issues);
+      throw new Error('Invalid response from Mem0 API');
+    }
+    return parsed.data;
   }
 
   /**
@@ -137,7 +150,13 @@ export class Mem0Client {
       throw new Error(`Mem0 API error: ${error}`);
     }
 
-    return response.json();
+    const raw: unknown = await response.json();
+    const parsed = mem0SearchResponseSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error('[Mem0] Invalid search response:', parsed.error.issues);
+      throw new Error('Invalid response from Mem0 API');
+    }
+    return parsed.data;
   }
 
   /**
@@ -145,7 +164,7 @@ export class Mem0Client {
    */
   async getAll(options: { userId: string }): Promise<{ results: Memory[] }> {
     const params = new URLSearchParams({ user_id: options.userId });
-    
+
     const response = await fetch(`${this.baseUrl}/v1/memories/?${params}`, {
       headers: this.headers,
     });
@@ -155,7 +174,13 @@ export class Mem0Client {
       throw new Error(`Mem0 API error: ${error}`);
     }
 
-    return response.json();
+    const raw: unknown = await response.json();
+    const parsed = mem0GetAllResponseSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error('[Mem0] Invalid getAll response:', parsed.error.issues);
+      throw new Error('Invalid response from Mem0 API');
+    }
+    return parsed.data;
   }
 
   /**
@@ -163,7 +188,7 @@ export class Mem0Client {
    */
   async deleteAll(options: { userId: string }): Promise<{ message: string }> {
     const params = new URLSearchParams({ user_id: options.userId });
-    
+
     const response = await fetch(`${this.baseUrl}/v1/memories/?${params}`, {
       method: 'DELETE',
       headers: this.headers,
@@ -174,7 +199,13 @@ export class Mem0Client {
       throw new Error(`Mem0 API error: ${error}`);
     }
 
-    return response.json();
+    const raw: unknown = await response.json();
+    const parsed = mem0DeleteResponseSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error('[Mem0] Invalid deleteAll response:', parsed.error.issues);
+      throw new Error('Invalid response from Mem0 API');
+    }
+    return parsed.data;
   }
 
   /**
@@ -190,7 +221,13 @@ export class Mem0Client {
       throw new Error(`Mem0 API error: ${error}`);
     }
 
-    return response.json();
+    const raw: unknown = await response.json();
+    const parsed = mem0MemorySchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error('[Mem0] Invalid get response:', parsed.error.issues);
+      throw new Error('Invalid response from Mem0 API');
+    }
+    return parsed.data;
   }
 
   /**
@@ -207,7 +244,13 @@ export class Mem0Client {
       throw new Error(`Mem0 API error: ${error}`);
     }
 
-    return response.json();
+    const raw: unknown = await response.json();
+    const parsed = mem0DeleteResponseSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error('[Mem0] Invalid delete response:', parsed.error.issues);
+      throw new Error('Invalid response from Mem0 API');
+    }
+    return parsed.data;
   }
 }
 

@@ -125,3 +125,127 @@ export async function parseRequestBody<T extends z.ZodType>(
 
   return result.data;
 }
+
+// ============================================
+// ChatGPT Export Format Schemas (Phase 7)
+// ============================================
+
+/**
+ * ChatGPT Raw Conversation Schema
+ * Minimal validation for ChatGPT export format - just enough to confirm structure
+ */
+export const chatGPTRawConversationSchema = z.object({
+  id: z.string().optional(),
+  conversation_id: z.string().optional(),
+  title: z.string().optional(),
+  create_time: z.number().optional(),
+  update_time: z.number().optional(),
+  mapping: z.record(z.unknown()).optional(),
+});
+
+export const chatGPTExportSchema = z.array(chatGPTRawConversationSchema);
+
+export type ChatGPTRawConversation = z.infer<typeof chatGPTRawConversationSchema>;
+
+// ============================================
+// External API Response Schemas (Phase 7)
+// ============================================
+
+/**
+ * Bedrock Titan Embedding Response Schema
+ * Validates response from AWS Bedrock Titan embedding model
+ */
+export const bedrockEmbedResponseSchema = z.object({
+  embedding: z.array(z.number()),
+  inputTextTokenCount: z.number().optional(),
+});
+
+/**
+ * RLM Process Response Schema
+ * Validates response from RLM /process-full endpoint
+ */
+export const rlmProcessResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
+});
+
+/**
+ * Chunked Upload Result Schema
+ * Validates response from chunked upload endpoint
+ */
+export const chunkedUploadResultSchema = z.object({
+  complete: z.boolean().optional(),
+  path: z.string().optional(),
+});
+
+// ============================================
+// Mem0 API Response Schemas (Phase 7)
+// ============================================
+
+/**
+ * Mem0 Memory Object Schema
+ * Single memory entry returned by Mem0 API
+ */
+export const mem0MemorySchema = z.object({
+  id: z.string(),
+  memory: z.string(),
+  hash: z.string().optional(),
+  metadata: z.record(z.unknown()).optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+
+/**
+ * Mem0 Add Memory Response Schema
+ * Response from POST /v1/memories/ (add operation)
+ */
+export const mem0AddResponseSchema = z.object({
+  results: z.array(mem0MemorySchema),
+  relations: z.array(z.unknown()).optional(),
+});
+
+/**
+ * Mem0 Search Result Schema
+ * Single search result with relevance score
+ */
+export const mem0SearchResultSchema = z.object({
+  id: z.string(),
+  memory: z.string(),
+  score: z.number().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+/**
+ * Mem0 Search Response Schema
+ * Response from POST /v1/memories/search/
+ */
+export const mem0SearchResponseSchema = z.object({
+  results: z.array(mem0SearchResultSchema),
+});
+
+/**
+ * Mem0 Get All Response Schema
+ * Response from GET /v1/memories/ (get all operation)
+ */
+export const mem0GetAllResponseSchema = z.object({
+  results: z.array(mem0MemorySchema),
+});
+
+/**
+ * Mem0 Delete Response Schema
+ * Response from DELETE operations
+ */
+export const mem0DeleteResponseSchema = z.object({
+  message: z.string(),
+});
+
+/**
+ * Cloudinary Upload Result Schema
+ * Validates response from Cloudinary upload_stream
+ */
+export const cloudinaryUploadResultSchema = z.object({
+  secure_url: z.string(),
+  public_id: z.string(),
+  duration: z.number().optional(),
+  bytes: z.number(),
+});
