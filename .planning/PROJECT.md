@@ -39,7 +39,9 @@ The import-to-chat flow must work reliably every time on production — no stuck
 
 ### Active
 
-(None — define with `/gsd:new-milestone`)
+- [ ] Upload → brief loading screen → redirect to chat (no email wait)
+- [ ] Remove "SoulPrint is ready" email (keep waitlist email)
+- [ ] Memory builds in background while user chats
 
 ### Out of Scope
 
@@ -98,5 +100,7 @@ The import-to-chat flow must work reliably every time on production — no stuck
 | noUncheckedIndexedAccess | Prevent undefined access bugs | ✓ Good — caught 57 issues |
 | Zod boundary validation | Validate external API responses at parse boundary | ✓ Good — catches malformed data |
 
+| Remove email gate for import | Users are already chatting by the time email arrives — unnecessary wait | — Pending |
+
 ---
-*Last updated: 2026-02-06 after v1.1 milestone*
+*Last updated: 2026-02-06 after v1.2 milestone started*
