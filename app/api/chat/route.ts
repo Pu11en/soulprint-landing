@@ -134,7 +134,7 @@ async function tryRLMService(
         history,
         web_search_context: webSearchContext,  // Pass to RLM
       }),
-      signal: AbortSignal.timeout(60000), // 60s timeout
+      signal: AbortSignal.timeout(15000), // 15s timeout
     });
 
     if (!response.ok) {
@@ -148,7 +148,12 @@ async function tryRLMService(
     recordSuccess();
     return data;
   } catch (error) {
-    console.log('[Chat] RLM service unavailable:', error);
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      console.error('[Chat] RLM timed out after 15s - falling back to Bedrock');
+      recordFailure();
+      return null;
+    }
+    console.log('[Chat] RLM service unavailable:', error instanceof Error ? error.message : error);
     recordFailure();
     return null;
   }
