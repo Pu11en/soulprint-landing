@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -35,8 +36,7 @@ export async function GET() {
       hasName: !!profile?.ai_name,
     });
   } catch (error) {
-    console.error('Error getting AI name:', error);
-    return NextResponse.json({ error: 'Failed to get AI name' }, { status: 500 });
+    return handleAPIError(error, 'API:ProfileAiName:GET');
   }
 }
 
@@ -74,7 +74,6 @@ export async function POST(request: NextRequest) {
       aiName: cleanName,
     });
   } catch (error) {
-    console.error('Error setting AI name:', error);
-    return NextResponse.json({ error: 'Failed to set AI name' }, { status: 500 });
+    return handleAPIError(error, 'API:ProfileAiName:POST');
   }
 }

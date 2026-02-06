@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 export const runtime = 'nodejs';
 
@@ -97,9 +98,6 @@ export async function DELETE() {
     });
 
   } catch (error) {
-    console.error('[UserReset] Error:', error);
-    return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Reset failed' 
-    }, { status: 500 });
+    return handleAPIError(error, 'API:UserReset');
   }
 }

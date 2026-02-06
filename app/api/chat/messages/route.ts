@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[Messages] Load error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to load messages' }, { status: 500 });
     }
 
     // Reverse to get chronological order
@@ -51,8 +52,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[Messages] Error:', error);
-    return NextResponse.json({ error: 'Failed to load messages' }, { status: 500 });
+    return handleAPIError(error, 'API:ChatMessages:GET');
   }
 }
 
@@ -100,13 +100,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('[Messages] Save error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
     }
 
     return NextResponse.json({ message });
 
   } catch (error) {
-    console.error('[Messages] Error:', error);
-    return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
+    return handleAPIError(error, 'API:ChatMessages:POST');
   }
 }

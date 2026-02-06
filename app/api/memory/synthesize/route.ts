@@ -10,6 +10,7 @@ import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from '@aws-sdk/client-bedrock-runtime';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 // Lazy initialization to avoid build-time errors
 let _supabase: SupabaseClient | null = null;
@@ -207,11 +208,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[Synthesize API] Error:', error);
-    return NextResponse.json(
-      { error: 'Synthesis failed', details: String(error) },
-      { status: 500 }
-    );
+    return handleAPIError(error, 'API:MemorySynthesize');
   }
 }
 

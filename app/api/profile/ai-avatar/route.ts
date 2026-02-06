@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { v2 as cloudinary } from 'cloudinary';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -44,8 +45,7 @@ export async function GET() {
       hasAvatar: !!profile?.ai_avatar_url,
     });
   } catch (error) {
-    console.error('Error getting AI avatar:', error);
-    return NextResponse.json({ error: 'Failed to get AI avatar' }, { status: 500 });
+    return handleAPIError(error, 'API:ProfileAiAvatar:GET');
   }
 }
 
@@ -174,7 +174,6 @@ Clean, minimal, professional. No text. Centered composition. Square format.`;
       aiName,
     });
   } catch (error) {
-    console.error('Error generating AI avatar:', error);
-    return NextResponse.json({ error: 'Failed to generate avatar' }, { status: 500 });
+    return handleAPIError(error, 'API:ProfileAiAvatar:POST');
   }
 }

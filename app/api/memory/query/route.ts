@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { searchMemoryLayered as searchMemory } from '@/lib/memory/query';
 import { extractFacts } from '@/lib/memory/facts';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,10 +44,6 @@ export async function POST(request: NextRequest) {
       userId: user.id,
     });
   } catch (error) {
-    console.error('Memory query error:', error);
-    return NextResponse.json(
-      { error: 'Failed to query memory' },
-      { status: 500 }
-    );
+    return handleAPIError(error, 'API:MemoryQuery');
   }
 }

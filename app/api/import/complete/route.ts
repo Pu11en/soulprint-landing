@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 function getSupabaseAdmin() {
   return createClient(
@@ -182,11 +183,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('[ImportComplete] Error:', error);
-    return NextResponse.json(
-      { error: 'Notification failed' },
-      { status: 500 }
-    );
+    return handleAPIError(error, 'API:ImportComplete');
   }
 }
 

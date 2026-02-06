@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { XP_CONFIG, XPSource } from '@/lib/gamification/xp';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 async function getUser() {
   const cookieStore = await cookies();
@@ -151,8 +152,7 @@ export async function POST(req: NextRequest) {
       streak: updates.current_streak || stats?.current_streak,
     });
   } catch (error) {
-    console.error('XP error:', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return handleAPIError(error, 'API:GamificationXP');
   }
 }
 

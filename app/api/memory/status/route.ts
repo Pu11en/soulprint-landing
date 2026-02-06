@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 export async function GET() {
   try {
@@ -59,11 +60,6 @@ export async function GET() {
       } : null,
     });
   } catch (error) {
-    console.error('Memory status error:', error);
-    return NextResponse.json({ 
-      status: 'error',
-      hasSoulprint: false,
-      stats: null,
-    });
+    return handleAPIError(error, 'API:MemoryStatus');
   }
 }

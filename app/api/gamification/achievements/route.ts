@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 async function getUser() {
   const cookieStore = await cookies();
@@ -79,7 +80,6 @@ export async function GET() {
       totalCount: achievements?.length || 0,
     });
   } catch (error) {
-    console.error('Achievements error:', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return handleAPIError(error, 'API:GamificationAchievements');
   }
 }

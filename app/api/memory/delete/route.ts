@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { handleAPIError } from '@/lib/api/error-handler';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,7 +38,6 @@ export async function POST(request: NextRequest) {
       deleted: count || idsToDelete.length,
     });
   } catch (error) {
-    console.error('Memory delete error:', error);
-    return NextResponse.json({ error: 'Failed to delete memories' }, { status: 500 });
+    return handleAPIError(error, 'API:MemoryDelete');
   }
 }
