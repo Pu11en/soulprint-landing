@@ -3,454 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SoulPrint Architecture Diagram</title>
+    <title>SoulPrint Architecture</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            min-height: 100vh;
+            font-family: system-ui, sans-serif;
+            background: #1a1a2e;
             color: #fff;
-        }
-        .header {
-            background: rgba(0,0,0,0.3);
             padding: 20px;
+            min-height: 100vh;
+        }
+        h1 {
             text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .header h1 {
-            font-size: 2rem;
-            margin-bottom: 8px;
-            background: linear-gradient(90deg, #EA580C, #f97316);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .header p {
-            color: rgba(255,255,255,0.7);
-            font-size: 0.9rem;
-        }
-        .diagram-container {
-            padding: 20px;
-            overflow-x: auto;
-            display: flex;
-            justify-content: center;
+            color: #EA580C;
+            margin-bottom: 20px;
         }
         .mermaid {
-            background: rgba(255,255,255,0.95);
+            background: #fff;
             border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 100%;
-        }
-        .legend {
-            margin: 20px auto;
-            max-width: 800px;
-            padding: 0 20px;
-        }
-        .legend h2 {
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            color: #EA580C;
-        }
-        .legend-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 12px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-        }
-        .legend-color {
-            width: 24px;
-            height: 24px;
-            border-radius: 4px;
-        }
-        .controls {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            gap: 10px;
-        }
-        .controls button {
-            padding: 10px 20px;
-            background: #EA580C;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-        .controls button:hover {
-            background: #f97316;
-            transform: translateY(-2px);
-        }
-        .stats {
-            text-align: center;
-            padding: 15px;
-            background: rgba(0,0,0,0.2);
-            margin: 0 20px;
-            border-radius: 8px;
-        }
-        .stats span {
-            margin: 0 15px;
-            color: rgba(255,255,255,0.8);
-        }
-        .stats strong {
-            color: #EA580C;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🧠 SoulPrint Architecture</h1>
-        <p>Interactive system diagram - Click components to navigate to source files</p>
-    </div>
-
-    <div class="stats">
-        <span>📄 <strong>11</strong> Pages</span>
-        <span>🧩 <strong>14</strong> Components</span>
-        <span>🔌 <strong>20+</strong> API Routes</span>
-        <span>📚 <strong>20+</strong> Libraries</span>
-        <span>🗄️ <strong>7</strong> Database Tables</span>
-    </div>
-
-    <div class="diagram-container">
-        <div class="mermaid">
+    <h1>🧠 SoulPrint Architecture</h1>
+    <div class="mermaid">
 flowchart TD
-    %% External Users
-    User("👤 User"):::external
+    User[User] --> Landing[Landing Page]
+    Landing --> Signup[Signup]
+    Landing --> Login[Login]
+    Signup --> Import[Import ChatGPT]
+    Login --> Chat[Chat Interface]
+    Import --> Chat
 
-    %% Frontend Layer
-    subgraph "Frontend Layer"
-        Landing["🏠 Landing Page"]:::frontend
-        Signup["📝 Signup"]:::frontend
-        Login["🔐 Login"]:::frontend
-        Import["📥 Import"]:::frontend
-        Chat["💬 Chat"]:::frontend
-        Dashboard["📊 Dashboard"]:::frontend
-        Achievements["🏆 Achievements"]:::frontend
-        Memory["🧠 Memory View"]:::frontend
-        Pillars["🎯 Pillars"]:::frontend
-        Voice["🎤 Voice"]:::frontend
-        Admin["👑 Admin"]:::frontend
+    subgraph Frontend
+        Landing
+        Signup
+        Login
+        Import
+        Chat
+        Dashboard[Dashboard]
+        Memory[Memory View]
     end
 
-    %% Components Layer
-    subgraph "Components"
-        subgraph "Auth Components"
-            LoginForm["Login Form"]:::component
-            SignupModal["Signup Modal"]:::component
-            AuthModal["Auth Modal"]:::component
-        end
-        
-        subgraph "Chat Components"
-            ChatInput["Chat Input"]:::component
-            ChatMessage["Chat Message"]:::component
-            TelegramChat["Telegram Chat UI"]:::component
-            GlassmorphicChat["Glassmorphic Chat"]:::component
-        end
-        
-        subgraph "UI Components"
-            Navbar["Navbar"]:::component
-            Hero["Hero Section"]:::component
-            Features["Features Bento"]:::component
-            Footer["Footer"]:::component
-            Stepper["Stepper"]:::component
-            Toast["Toast"]:::component
-        end
+    subgraph APIs
+        AuthAPI[Auth API]
+        ChatAPI[Chat API]
+        MemoryAPI[Memory API]
+        ImportAPI[Import API]
+        GamificationAPI[Gamification API]
     end
 
-    %% API Layer
-    subgraph "API Routes"
-        subgraph "Auth API"
-            AuthSignout["/api/auth/signout"]:::api
-            AuthCallback["/api/auth/callback"]:::api
-        end
-        
-        subgraph "Import API"
-            ImportProcess["/api/import/process-server"]:::api
-            ImportComplete["/api/import/complete"]:::api
-            ImportStatus["/api/import/motia/status"]:::api
-        end
-        
-        subgraph "Chat API"
-            ChatRoute["/api/chat"]:::api
-        end
-        
-        subgraph "Memory API"
-            MemoryQuery["/api/memory/query"]:::api
-            MemoryList["/api/memory/list"]:::api
-            MemorySynthesize["/api/memory/synthesize"]:::api
-        end
-        
-        subgraph "Profile API"
-            ProfileAIName["/api/profile/ai-name"]:::api
-            ProfileAvatar["/api/profile/ai-avatar"]:::api
-        end
-        
-        subgraph "Gamification API"
-            GamificationStats["/api/gamification/stats"]:::api
-            GamificationXP["/api/gamification/xp"]:::api
-            GamificationAchievements["/api/gamification/achievements"]:::api
-        end
-        
-        subgraph "Other APIs"
-            SoulprintAPI["/api/soulprint"]:::api
-            EmbeddingsAPI["/api/embeddings"]:::api
-            VoiceAPI["/api/voice"]:::api
-            TranscribeAPI["/api/transcribe"]:::api
-            WaitlistAPI["/api/waitlist"]:::api
-            PushAPI["/api/push"]:::api
-            TasksAPI["/api/tasks"]:::api
-            RLMAPI["/api/rlm"]:::api
-        end
+    subgraph Libraries
+        SupabaseLib[Supabase Client]
+        BedrockLib[Bedrock Client]
+        MemoryLib[Memory Query]
+        ParserLib[ChatGPT Parser]
     end
 
-    %% Library Layer
-    subgraph "Core Libraries"
-        subgraph "Database"
-            SupabaseClient["Supabase Client"]:::lib
-            SupabaseServer["Supabase Server"]:::lib
-            SupabaseMiddleware["Supabase Middleware"]:::lib
-        end
-        
-        subgraph "Memory System"
-            MemoryQueryLib["Memory Query"]:::lib
-            MemoryFacts["Facts Extraction"]:::lib
-            MemoryLearning["Learning Engine"]:::lib
-        end
-        
-        subgraph "AI/ML"
-            BedrockClient["Bedrock Client"]:::lib
-            RLMHealth["RLM Health"]:::lib
-            Mem0Client["Mem0 Client"]:::lib
-            ChatGPTParser["ChatGPT Parser"]:::lib
-        end
-        
-        subgraph "Search"
-            SmartSearch["Smart Search"]:::lib
-            Perplexity["Perplexity"]:::lib
-            Tavily["Tavily"]:::lib
-        end
-        
-        subgraph "Utilities"
-            ErrorHandler["Error Handler"]:::lib
-            TTLCache["TTL Cache"]:::lib
-            RateLimit["Rate Limiter"]:::lib
-            Retry["Retry Logic"]:::lib
-            CSRF["CSRF Protection"]:::lib
-        end
-        
-        subgraph "SoulPrint"
-            SoulprintCore["SoulPrint Core"]:::lib
-            SoulprintTypes["SoulPrint Types"]:::lib
-        end
-        
-        subgraph "Other Libs"
-            ChunkedUpload["Chunked Upload"]:::lib
-            EmailSend["Email Sender"]:::lib
-            GamificationXPLib["XP Calculator"]:::lib
-            BranchManager["Branch Manager"]:::lib
-        end
+    subgraph External
+        Supabase[(Supabase DB)]
+        RLM[RLM Service]
+        Bedrock[AWS Bedrock]
     end
 
-    %% External Services
-    subgraph "External Services"
-        Supabase[("🗄️ Supabase")]:::external_service
-        RLMService["🤖 RLM Service"]:::external_service
-        Bedrock["☁️ AWS Bedrock"]:::external_service
-        Cloudinary["📸 Cloudinary"]:::external_service
-        Resend["📧 Resend"]:::external_service
-        Vercel["🚀 Vercel"]:::external_service
-    end
+    Chat --> ChatAPI
+    Chat --> MemoryAPI
+    Import --> ImportAPI
+    Dashboard --> GamificationAPI
 
-    %% Database Tables
-    subgraph "Supabase Database"
-        UserProfiles[("user_profiles")]:::database
-        ConvoChunks[("conversation_chunks")]:::database
-        ChatMessages[("chat_messages")]:::database
-        LearnedFacts[("learned_facts")]:::database
-        Referrals[("referral_tracking")]:::database
-        RecurringTasks[("recurring_tasks")]:::database
-        SoulprintFiles[("soulprint_files")]:::database
-    end
+    ChatAPI --> MemoryLib
+    ChatAPI --> BedrockLib
+    ImportAPI --> ParserLib
+    MemoryAPI --> SupabaseLib
 
-    %% Connections - User Flow
-    User -->|"visits"| Landing
-    Landing -->|"auth"| Signup
-    Landing -->|"auth"| Login
-    Signup -->|"imports"| Import
-    Login -->|"continues"| Chat
-    Import -->|"processes"| Chat
-    Chat -->|"views"| Memory
-    Chat -->|"earns"| Achievements
-    Chat -->|"configures"| Dashboard
+    SupabaseLib --> Supabase
+    BedrockLib --> Bedrock
+    RLM --> Bedrock
 
-    %% Page to Component connections
-    Signup --> SignupModal
-    Login --> LoginForm
-    Chat --> ChatInput
-    Chat --> ChatMessage
-    Chat --> TelegramChat
-    Landing --> Hero
-    Landing --> Features
-    Landing --> Navbar
-
-    %% API connections
-    LoginForm -->|"POST"| AuthCallback
-    SignupModal -->|"POST"| AuthCallback
-    Import -->|"POST"| ImportProcess
-    ChatInput -->|"POST"| ChatRoute
-    Memory -->|"GET"| MemoryQuery
-    Dashboard -->|"GET"| GamificationStats
-    Achievements -->|"GET"| GamificationAchievements
-
-    %% API to Library connections
-    ChatRoute --> MemoryQueryLib
-    ChatRoute --> BedrockClient
-    ImportProcess --> ChatGPTParser
-    ImportProcess --> SoulprintCore
-    MemoryQuery --> SmartSearch
-    GamificationXP --> GamificationXPLib
-
-    %% Library to External Service connections
-    SupabaseClient -->|"queries"| Supabase
-    BedrockClient -->|"inference"| Bedrock
-    RLMHealth -->|"health check"| RLMService
-    EmailSend -->|"sends"| Resend
-    ChunkedUpload -->|"uploads"| Cloudinary
-
-    %% RLM Service connections
-    RLMService -->|"embeddings"| Bedrock
-    RLMService -->|"soulprint gen"| Bedrock
-
-    %% Database connections
-    Supabase --> UserProfiles
-    Supabase --> ConvoChunks
-    Supabase --> ChatMessages
-    Supabase --> LearnedFacts
-    Supabase --> Referrals
-    Supabase --> RecurringTasks
-    Supabase --> SoulprintFiles
-
-    %% Click Events
     click Landing "https://github.com/Pu11en/soulprint-landing/blob/main/app/page.tsx"
-    click Signup "https://github.com/Pu11en/soulprint-landing/blob/main/app/signup/page.tsx"
-    click Login "https://github.com/Pu11en/soulprint-landing/blob/main/app/login/page.tsx"
-    click Import "https://github.com/Pu11en/soulprint-landing/blob/main/app/import/page.tsx"
     click Chat "https://github.com/Pu11en/soulprint-landing/blob/main/app/chat/page.tsx"
-    click Dashboard "https://github.com/Pu11en/soulprint-landing/blob/main/app/dashboard/page.tsx"
-    click Achievements "https://github.com/Pu11en/soulprint-landing/blob/main/app/achievements/page.tsx"
-    click Memory "https://github.com/Pu11en/soulprint-landing/blob/main/app/memory/page.tsx"
-    click Pillars "https://github.com/Pu11en/soulprint-landing/blob/main/app/pillars/page.tsx"
-    click Voice "https://github.com/Pu11en/soulprint-landing/blob/main/app/voice/page.tsx"
-    click Admin "https://github.com/Pu11en/soulprint-landing/blob/main/app/admin/page.tsx"
-    
-    click LoginForm "https://github.com/Pu11en/soulprint-landing/blob/main/components/auth/login-form.tsx"
-    click SignupModal "https://github.com/Pu11en/soulprint-landing/blob/main/components/auth/signup-modal.tsx"
-    click AuthModal "https://github.com/Pu11en/soulprint-landing/blob/main/components/auth-modal.tsx"
-    click ChatInput "https://github.com/Pu11en/soulprint-landing/blob/main/components/chat/ChatInput.tsx"
-    click ChatMessage "https://github.com/Pu11en/soulprint-landing/blob/main/components/chat/ChatMessage.tsx"
-    click TelegramChat "https://github.com/Pu11en/soulprint-landing/blob/main/components/chat/telegram-chat-v2.tsx"
-    click GlassmorphicChat "https://github.com/Pu11en/soulprint-landing/blob/main/components/chat-variants/GlassmorphicChat.tsx"
-    click Navbar "https://github.com/Pu11en/soulprint-landing/blob/main/components/Navbar.tsx"
-    click Hero "https://github.com/Pu11en/soulprint-landing/blob/main/components/sections/hero.tsx"
-    click Features "https://github.com/Pu11en/soulprint-landing/blob/main/components/sections/features-bento.tsx"
-    click Footer "https://github.com/Pu11en/soulprint-landing/blob/main/components/sections/footer.tsx"
-    
-    click SupabaseClient "https://github.com/Pu11en/soulprint-landing/blob/main/lib/supabase/client.ts"
-    click SupabaseServer "https://github.com/Pu11en/soulprint-landing/blob/main/lib/supabase/server.ts"
-    click SupabaseMiddleware "https://github.com/Pu11en/soulprint-landing/blob/main/lib/supabase/middleware.ts"
-    click MemoryQueryLib "https://github.com/Pu11en/soulprint-landing/blob/main/lib/memory/query.ts"
-    click MemoryFacts "https://github.com/Pu11en/soulprint-landing/blob/main/lib/memory/facts.ts"
-    click MemoryLearning "https://github.com/Pu11en/soulprint-landing/blob/main/lib/memory/learning.ts"
-    click BedrockClient "https://github.com/Pu11en/soulprint-landing/blob/main/lib/bedrock.ts"
-    click RLMHealth "https://github.com/Pu11en/soulprint-landing/blob/main/lib/rlm/health.ts"
-    click Mem0Client "https://github.com/Pu11en/soulprint-landing/blob/main/lib/mem0/client.ts"
-    click ChatGPTParser "https://github.com/Pu11en/soulprint-landing/blob/main/lib/mem0/chatgpt-parser.ts"
-    click SmartSearch "https://github.com/Pu11en/soulprint-landing/blob/main/lib/search/smart-search.ts"
-    click Perplexity "https://github.com/Pu11en/soulprint-landing/blob/main/lib/search/perplexity.ts"
-    click Tavily "https://github.com/Pu11en/soulprint-landing/blob/main/lib/search/tavily.ts"
-    click ErrorHandler "https://github.com/Pu11en/soulprint-landing/blob/main/lib/api/error-handler.ts"
-    click TTLCache "https://github.com/Pu11en/soulprint-landing/blob/main/lib/api/ttl-cache.ts"
-    click RateLimit "https://github.com/Pu11en/soulprint-landing/blob/main/lib/rate-limit.ts"
-    click Retry "https://github.com/Pu11en/soulprint-landing/blob/main/lib/retry.ts"
-    click CSRF "https://github.com/Pu11en/soulprint-landing/blob/main/lib/csrf.ts"
-    click SoulprintCore "https://github.com/Pu11en/soulprint-landing/blob/main/lib/soulprint/index.ts"
-    click SoulprintTypes "https://github.com/Pu11en/soulprint-landing/blob/main/lib/soulprint/types.ts"
-    click ChunkedUpload "https://github.com/Pu11en/soulprint-landing/blob/main/lib/chunked-upload.ts"
-    click EmailSend "https://github.com/Pu11en/soulprint-landing/blob/main/lib/email/send.ts"
-    click GamificationXPLib "https://github.com/Pu11en/soulprint-landing/blob/main/lib/gamification/xp.ts"
-    click BranchManager "https://github.com/Pu11en/soulprint-landing/blob/main/lib/versioning/branch-manager.ts"
-
-    %% Styles
-    classDef external fill:#f9f,stroke:#333,stroke-width:2px
-    classDef frontend fill:#61dafb,stroke:#333,stroke-width:1px,color:#000
-    classDef component fill:#a8e6cf,stroke:#333,stroke-width:1px,color:#000
-    classDef api fill:#ffd93d,stroke:#333,stroke-width:1px,color:#000
-    classDef lib fill:#c9b1ff,stroke:#333,stroke-width:1px,color:#000
-    classDef external_service fill:#ff6b6b,stroke:#333,stroke-width:2px,color:#fff
-    classDef database fill:#4ecdc4,stroke:#333,stroke-width:1px,color:#000
-        </div>
-    </div>
-
-    <div class="legend">
-        <h2>Legend</h2>
-        <div class="legend-grid">
-            <div class="legend-item">
-                <div class="legend-color" style="background: #61dafb;"></div>
-                <span>Frontend Pages</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #a8e6cf;"></div>
-                <span>UI Components</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #ffd93d;"></div>
-                <span>API Routes</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #c9b1ff;"></div>
-                <span>Core Libraries</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #ff6b6b;"></div>
-                <span>External Services</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #4ecdc4;"></div>
-                <span>Database Tables</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="controls">
-        <button onclick="window.print()">📄 Export PDF</button>
-        <button onclick="location.reload()">🔄 Refresh</button>
+    click Import "https://github.com/Pu11en/soulprint-landing/blob/main/app/import/page.tsx"
+    click ChatAPI "https://github.com/Pu11en/soulprint-landing/blob/main/app/api/chat"
+    click MemoryLib "https://github.com/Pu11en/soulprint-landing/blob/main/lib/memory/query.ts"
     </div>
 
     <script>
         mermaid.initialize({
             startOnLoad: true,
             theme: 'default',
-            securityLevel: 'loose',
-            flowchart: {
-                useMaxWidth: false,
-                htmlLabels: true,
-                curve: 'basis'
-            }
+            securityLevel: 'loose'
         });
     </script>
 </body>

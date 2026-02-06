@@ -31,7 +31,8 @@
       "Bash(git -C \"C:/Users/drewp/soulprint-rlm\" commit --allow-empty -m \"chore: redeploy to kill stale background task\")",
       "Bash(git -C \"C:/Users/drewp/soulprint-landing\" log -1 --oneline)",
       "Skill(gsd:verify-work)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(tree:*)"
     ]
   }
 }
