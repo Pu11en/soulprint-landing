@@ -11,7 +11,7 @@ import { RingProgress } from '@/components/ui/ring-progress';
 // Client-side soulprint generation removed - all imports now use server-side RLM
 import { createClient } from '@/lib/supabase/client';
 import JSZip from 'jszip';
-import { uploadWithProgress } from '@/lib/chunked-upload';
+import { uploadWithProgress, chunkedUpload } from '@/lib/chunked-upload';
 
 // Detect mobile devices (conservative - if unsure, treat as mobile)
 function isMobileDevice(): boolean {
@@ -300,36 +300,70 @@ function ImportPageContent() {
           throw new Error('Session expired. Please refresh and try again.');
         }
 
-        // Supabase storage upload URL
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const uploadUrl = `${supabaseUrl}/storage/v1/object/imports/${uploadPath}`;
         const contentType = uploadFilename.endsWith('.json') ? 'application/json' : 'application/zip';
+        
+        // Use chunked upload for files > 100MB, otherwise direct upload
+        const CHUNKED_THRESHOLD = 100 * 1024 * 1024; // 100MB
+        let storagePath: string;
 
-        console.log(`[Import] Using XHR upload to: ${uploadUrl}`);
+        if (uploadBlob.size > CHUNKED_THRESHOLD) {
+          // CHUNKED UPLOAD for large files (100MB+)
+          console.log(`[Import] Using CHUNKED upload for ${blobSizeMB.toFixed(1)}MB file`);
+          setProgressStage(`Uploading ${blobSizeMB.toFixed(1)}MB in chunks...`);
 
-        // Use XHR for real progress tracking
-        const uploadResult = await uploadWithProgress(
-          uploadBlob,
-          uploadUrl,
-          accessToken,
-          contentType,
-          (percent) => {
-            // Map upload progress to 15-50% range
-            const mappedProgress = 15 + (percent * 0.35);
-            setProgress(Math.round(mappedProgress));
-            setProgressStage(`Uploading... ${percent}%`);
+          const uploadId = `${user.id}-${timestamp}`;
+          const chunkedUrl = '/api/import/chunked-upload';
+
+          const chunkResult = await chunkedUpload(
+            uploadBlob,
+            chunkedUrl,
+            accessToken,
+            (progress) => {
+              // Map upload progress to 15-50% range
+              const mappedProgress = 15 + (progress.percent * 0.35);
+              setProgress(Math.round(mappedProgress));
+              setProgressStage(`Uploading chunk ${progress.chunk}/${progress.totalChunks} (${progress.percent}%)`);
+            },
+            uploadId
+          );
+
+          if (!chunkResult.success) {
+            console.error('[Import] Chunked upload failed:', chunkResult.error);
+            throw new Error(chunkResult.error || 'Upload failed');
           }
-        );
 
-        if (!uploadResult.success) {
-          console.error('[Import] XHR upload failed:', uploadResult.error);
-          throw new Error(uploadResult.error || 'Upload failed');
+          storagePath = chunkResult.path || `imports/${user.id}/${timestamp}-conversations.json`;
+          console.log('[Import] Chunked upload complete:', storagePath);
+        } else {
+          // DIRECT UPLOAD for smaller files (<100MB)
+          const uploadUrl = `${supabaseUrl}/storage/v1/object/imports/${uploadPath}`;
+          console.log(`[Import] Using direct XHR upload to: ${uploadUrl}`);
+
+          const uploadResult = await uploadWithProgress(
+            uploadBlob,
+            uploadUrl,
+            accessToken,
+            contentType,
+            (percent) => {
+              // Map upload progress to 15-50% range
+              const mappedProgress = 15 + (percent * 0.35);
+              setProgress(Math.round(mappedProgress));
+              setProgressStage(`Uploading... ${percent}%`);
+            }
+          );
+
+          if (!uploadResult.success) {
+            console.error('[Import] XHR upload failed:', uploadResult.error);
+            throw new Error(uploadResult.error || 'Upload failed');
+          }
+
+          storagePath = `imports/${uploadPath}`;
         }
 
         console.log('[Import] Upload complete');
         setProgressStage('Upload complete! Starting processing...');
         setProgress(52);
-        const storagePath = `imports/${uploadPath}`; // Full path including bucket
 
         setProgressStage('Analyzing your conversations...');
         setProgress(55);

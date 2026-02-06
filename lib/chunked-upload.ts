@@ -22,10 +22,12 @@ export async function chunkedUpload(
   file: Blob,
   uploadUrl: string,
   authToken: string,
-  onProgress?: ProgressCallback
-): Promise<{ success: boolean; error?: string }> {
+  onProgress?: ProgressCallback,
+  uploadId?: string
+): Promise<{ success: boolean; error?: string; path?: string }> {
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
   let uploadedBytes = 0;
+  let resultPath: string | undefined;
 
   console.log(`[ChunkedUpload] Starting: ${(file.size / 1024 / 1024).toFixed(1)}MB in ${totalChunks} chunks`);
 
@@ -37,16 +39,22 @@ export async function chunkedUpload(
     console.log(`[ChunkedUpload] Uploading chunk ${chunkIndex + 1}/${totalChunks} (${(chunk.size / 1024 / 1024).toFixed(1)}MB)`);
 
     try {
+      const headers: Record<string, string> = {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/octet-stream',
+        'X-Chunk-Index': String(chunkIndex),
+        'X-Total-Chunks': String(totalChunks),
+        'X-Chunk-Size': String(chunk.size),
+        'X-Total-Size': String(file.size),
+      };
+      
+      if (uploadId) {
+        headers['X-Upload-Id'] = uploadId;
+      }
+
       const response = await fetch(uploadUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/octet-stream',
-          'X-Chunk-Index': String(chunkIndex),
-          'X-Total-Chunks': String(totalChunks),
-          'X-Chunk-Size': String(chunk.size),
-          'X-Total-Size': String(file.size),
-        },
+        headers,
         body: chunk,
       });
 
@@ -54,6 +62,12 @@ export async function chunkedUpload(
         const error = await response.text();
         console.error(`[ChunkedUpload] Chunk ${chunkIndex + 1} failed:`, error);
         return { success: false, error: `Chunk ${chunkIndex + 1} failed: ${error}` };
+      }
+
+      // Parse response to get final path when all chunks are uploaded
+      const result = await response.json().catch(() => ({}));
+      if (result.complete && result.path) {
+        resultPath = result.path;
       }
 
       uploadedBytes += chunk.size;
@@ -74,7 +88,7 @@ export async function chunkedUpload(
   }
 
   console.log('[ChunkedUpload] All chunks uploaded successfully');
-  return { success: true };
+  return { success: true, path: resultPath };
 }
 
 /**
