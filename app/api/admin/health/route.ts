@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { getCircuitStatus } from '@/lib/rlm/health'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('AdminHealth')
 
 // Admin check constants
 const ADMIN_EMAILS = [
@@ -34,13 +37,14 @@ async function checkSupabase(): Promise<ServiceHealth> {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
-    
-    // Simple query to test connection
+
+    // Simple query to test connection with timeout
     const { data, error } = await adminClient
       .from('profiles')
       .select('id')
       .limit(1)
-    
+      .abortSignal(AbortSignal.timeout(5000))
+
     const latency_ms = Date.now() - start
     
     if (error) {
@@ -78,14 +82,10 @@ async function checkRLM(): Promise<ServiceHealth> {
   }
   
   try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000)
-    
     const response = await fetch(`${rlmUrl}/health`, {
-      signal: controller.signal,
+      signal: AbortSignal.timeout(5000),
     })
-    
-    clearTimeout(timeout)
+
     const latency_ms = Date.now() - start
     
     if (!response.ok) {
@@ -185,6 +185,8 @@ async function checkPerplexity(): Promise<ServiceHealth> {
 }
 
 export async function GET() {
+  const startTime = Date.now()
+
   try {
     // Auth check
     const supabase = await createServerClient()
@@ -197,6 +199,8 @@ export async function GET() {
     if (!ADMIN_EMAILS.includes(user.email || '')) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
+
+    log.info({ userId: user.id }, 'Admin health check requested')
 
     // Run all health checks in parallel
     const [supabaseHealth, rlmHealth, perplexityHealth] = await Promise.all([
@@ -225,9 +229,17 @@ export async function GET() {
       },
     }
 
+    log.info(
+      { duration: Date.now() - startTime, overall_status },
+      'Admin health check completed'
+    )
+
     return NextResponse.json(response)
   } catch (err) {
-    console.error('Health check error:', err)
+    log.error(
+      { error: err, duration: Date.now() - startTime },
+      'Admin health check failed'
+    )
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
