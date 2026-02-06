@@ -32,7 +32,7 @@
 
 ### Testing
 
-- [ ] **TEST-01**: Vitest configured and running with at least one passing test
+- [x] **TEST-01**: Vitest configured and running with at least one passing test
 - [ ] **TEST-02**: Import flow has end-to-end test coverage (upload → process → complete)
 - [ ] **TEST-03**: All API routes have integration tests with mocked dependencies
 - [ ] **TEST-04**: Critical user flows have E2E tests via Playwright
@@ -71,7 +71,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEST-01 | Phase 1 | Pending |
+| TEST-01 | Phase 1 | Complete |
 | BUG-01 | Phase 2 | Pending |
 | REL-01 | Phase 2 | Pending |
 | REL-02 | Phase 2 | Pending |
