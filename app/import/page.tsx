@@ -412,6 +412,18 @@ function ImportPageContent() {
 
         if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
 
+        // Handle duplicate import (409 Conflict) specifically
+        if (queueRes.status === 409) {
+          const dupData = await queueRes.json().catch(() => ({ elapsedMinutes: 0 }));
+          const mins = dupData.elapsedMinutes ?? 0;
+          setErrorMessage(
+            `An import is already processing (started ${mins} minute${mins === 1 ? '' : 's'} ago). ` +
+            `Please wait for it to complete, or try again in a few minutes.`
+          );
+          setStatus('error');
+          return;
+        }
+
         if (!queueRes.ok) {
           const err = await queueRes.json().catch((e) => { console.warn("[JSON parse]", e); return {}; });
           console.error('[Import] queue-processing error:', err);
