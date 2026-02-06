@@ -39,9 +39,12 @@ The import-to-chat flow must work reliably every time on production — no stuck
 
 ### Active
 
-- [ ] Upload → brief loading screen → redirect to chat (no email wait)
-- [ ] Remove "SoulPrint is ready" email (keep waitlist email)
-- [ ] Memory builds in background while user chats
+- [ ] Restructure soulprint into SOUL (personality/tone) + USER (profile facts) + MEMORY (preferences/knowledge) sections
+- [ ] Generate SOUL + USER from ChatGPT export during import (Bedrock analysis)
+- [ ] Build structured system prompt from SOUL + USER + MEMORY + dynamic context
+- [ ] Gate chat on SOUL + USER being ready (brief "Analyzing..." loading screen)
+- [ ] Remove "SoulPrint is ready" email from import flow (keep waitlist email)
+- [ ] Memory chunks + MEMORY section build in background while user chats
 
 ### Out of Scope
 
@@ -52,6 +55,8 @@ The import-to-chat flow must work reliably every time on production — no stuck
 - Client-side encryption of exports — security enhancement, future work
 - Chat pagination — optimization, not stability-critical
 - Concurrent chunk uploads — performance optimization, future work
+- Multi-platform channels (SMS, Telegram, WhatsApp) — v2+ OpenClaw-style gateway
+- Per-user cloud instances — v2+ each SoulPrint as deployable agent
 
 ## Context
 
@@ -101,6 +106,8 @@ The import-to-chat flow must work reliably every time on production — no stuck
 | Zod boundary validation | Validate external API responses at parse boundary | ✓ Good — catches malformed data |
 
 | Remove email gate for import | Users are already chatting by the time email arrives — unnecessary wait | — Pending |
+| OpenClaw-inspired structured context | Modular SOUL/USER/MEMORY sections vs monolithic soulprint_text blob | — Pending |
+| Generate SOUL+USER on server during import | Gate chat on these two, let memory build in background | — Pending |
 
 ---
 *Last updated: 2026-02-06 after v1.2 milestone started*
