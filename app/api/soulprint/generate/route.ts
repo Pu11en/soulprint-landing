@@ -9,6 +9,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { PillarSummary, EmotionalSignatureCurve, PILLAR_NAMES } from '@/lib/soulprint/types';
 import { Mem0Client } from '@/lib/mem0';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const maxDuration = 60;
 
@@ -79,6 +80,10 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Rate limit check
+    const rateLimited = await checkRateLimit(user.id, 'expensive');
+    if (rateLimited) return rateLimited;
 
     // Check requirements
     // 1. Pillar summaries must exist

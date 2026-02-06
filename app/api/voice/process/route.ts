@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { EmotionalSignatureCurve, CadenceMarkers } from '@/lib/soulprint/types';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const maxDuration = 120; // 2 minutes for processing all 6 recordings
 
@@ -200,6 +201,10 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Rate limit check
+    const rateLimited = await checkRateLimit(user.id, 'expensive');
+    if (rateLimited) return rateLimited;
 
     // Get all recordings
     const { data: recordings, error: fetchError } = await supabase

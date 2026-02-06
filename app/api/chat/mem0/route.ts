@@ -9,6 +9,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { bedrockChatStream, CLAUDE_MODELS } from '@/lib/bedrock';
 import { Mem0Client } from '@/lib/mem0';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -70,10 +71,14 @@ export async function POST(request: NextRequest) {
     );
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return new Response('Unauthorized', { status: 401 });
     }
+
+    // Rate limit check
+    const rateLimited = await checkRateLimit(user.id, 'expensive');
+    if (rateLimited) return rateLimited;
 
     // Parse request
     const body: ChatRequest = await request.json();

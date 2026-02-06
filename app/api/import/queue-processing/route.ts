@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { startMotiaImport } from '@/lib/motia-client';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // Feature flag for Motia backend
 const USE_MOTIA = process.env.USE_MOTIA_BACKEND === 'true';
@@ -32,11 +33,15 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
     userId = user.id;
+
+    // Rate limit check
+    const rateLimited = await checkRateLimit(user.id, 'expensive');
+    if (rateLimited) return rateLimited;
 
     const { storagePath, filename, fileSize, isExtracted } = await request.json();
 

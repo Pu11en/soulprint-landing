@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -15,10 +16,14 @@ export async function POST(request: NextRequest) {
     // Check auth
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Rate limit check
+    const rateLimited = await checkRateLimit(user.id, 'expensive');
+    if (rateLimited) return rateLimited;
 
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;

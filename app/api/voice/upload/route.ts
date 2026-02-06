@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { v2 as cloudinary } from 'cloudinary';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const maxDuration = 60;
 
@@ -37,6 +38,10 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Rate limit check
+    const rateLimited = await checkRateLimit(user.id, 'expensive');
+    if (rateLimited) return rateLimited;
 
     // Parse form data
     const formData = await request.formData();

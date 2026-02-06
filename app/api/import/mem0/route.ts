@@ -13,6 +13,7 @@ import {
   importToMem0,
   ParsedMessage,
 } from '@/lib/mem0';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const maxDuration = 300; // 5 minutes for large imports
 export const dynamic = 'force-dynamic';
@@ -43,13 +44,17 @@ export async function POST(request: NextRequest) {
     );
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
+
+    // Rate limit check
+    const rateLimited = await checkRateLimit(user.id, 'expensive');
+    if (rateLimited) return rateLimited;
 
     // Parse request
     const body: ImportRequest = await request.json();

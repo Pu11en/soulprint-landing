@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { handleAPIError } from '@/lib/api/error-handler';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // Lazy initialization to avoid build-time errors
 let _supabase: SupabaseClient | null = null;
@@ -257,6 +258,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch((e) => { console.warn("[JSON parse]", e); return {}; });
     const { userId, limit = BATCH_SIZE * 2 } = body;
+
+    // Rate limit check - only if userId provided (not for cron/batch)
+    if (userId) {
+      const rateLimited = await checkRateLimit(userId, 'expensive');
+      if (rateLimited) return rateLimited;
+    }
 
     if (userId) {
       // Process specific user

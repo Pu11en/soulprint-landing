@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { startMotiaImport } from '@/lib/motia-client'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
@@ -11,6 +12,10 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Rate limit check
+    const rateLimited = await checkRateLimit(user.id, 'expensive')
+    if (rateLimited) return rateLimited
 
     const { fileUrl, fileName } = await request.json()
 
