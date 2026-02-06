@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { TTLCache } from '@/lib/api/ttl-cache';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('API:ChunkedUpload');
 
 // Define upload session structure
 interface UploadSession {
@@ -15,6 +18,9 @@ interface UploadSession {
 const uploadCache = new TTLCache<UploadSession>(30 * 60 * 1000, 5 * 60 * 1000);
 
 export async function POST(req: NextRequest) {
+  const correlationId = req.headers.get('x-correlation-id') || undefined;
+  const startTime = Date.now();
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -22,6 +28,8 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const reqLog = log.child({ correlationId, userId: user.id, method: 'POST', endpoint: '/api/import/chunked-upload' });
 
     // Rate limit check
     const rateLimited = await checkRateLimit(user.id, 'upload');
@@ -32,7 +40,7 @@ export async function POST(req: NextRequest) {
     const totalSize = parseInt(req.headers.get('X-Total-Size') || '0');
     const uploadId = req.headers.get('X-Upload-Id') || `${user.id}-${Date.now()}`;
 
-    console.log(`[ChunkedUpload API] Receiving chunk ${chunkIndex + 1}/${totalChunks} for upload ${uploadId}`);
+    reqLog.debug({ chunkIndex: chunkIndex + 1, totalChunks, uploadId }, 'Receiving chunk');
 
     // Read chunk data
     const arrayBuffer = await req.arrayBuffer();
@@ -51,15 +59,16 @@ export async function POST(req: NextRequest) {
     session.chunks[chunkIndex] = chunkBuffer;
     session.receivedChunks++;
 
-    console.log(`[ChunkedUpload API] Stored chunk ${chunkIndex + 1}, received ${session.receivedChunks}/${totalChunks}`);
+    reqLog.debug({ received: session.receivedChunks, total: totalChunks }, 'Chunk stored');
 
     // If all chunks received, assemble and upload to Supabase
     if (session.receivedChunks === totalChunks) {
-      console.log('[ChunkedUpload API] All chunks received, assembling...');
+      reqLog.info('All chunks received, assembling');
 
       // Combine all chunks
       const fullFile = Buffer.concat(session.chunks);
-      console.log(`[ChunkedUpload API] Assembled file: ${(fullFile.length / 1024 / 1024).toFixed(1)}MB`);
+      const fileSizeMB = (fullFile.length / 1024 / 1024).toFixed(1);
+      reqLog.info({ sizeMB: fileSizeMB }, 'File assembled');
 
       // Clean up immediately (successful upload)
       uploadCache.delete(uploadId);
@@ -76,11 +85,12 @@ export async function POST(req: NextRequest) {
         });
 
       if (error) {
-        console.error('[ChunkedUpload API] Supabase upload error:', error);
+        reqLog.error({ error: error.message }, 'Supabase upload error');
         return NextResponse.json({ error: `Storage upload failed: ${error.message}` }, { status: 500 });
       }
 
-      console.log('[ChunkedUpload API] Upload complete:', data);
+      const duration = Date.now() - startTime;
+      reqLog.info({ duration, status: 200, path: data.path, size: fullFile.length }, 'Upload complete');
 
       return NextResponse.json({
         success: true,
@@ -98,7 +108,13 @@ export async function POST(req: NextRequest) {
       total: totalChunks,
     });
   } catch (err) {
-    console.error('[ChunkedUpload API] Error:', err);
+    const duration = Date.now() - startTime;
+    log.error({
+      correlationId,
+      duration,
+      error: err instanceof Error ? { message: err.message, name: err.name } : String(err)
+    }, 'Chunked upload failed');
+
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Upload failed' },
       { status: 500 }

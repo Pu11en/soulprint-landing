@@ -13,6 +13,9 @@ import { learnFromChat } from '@/lib/memory/learning';
 import { shouldAttemptRLM, recordSuccess, recordFailure } from '@/lib/rlm/health';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { parseRequestBody, chatRequestSchema } from '@/lib/api/schemas';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('API:Chat');
 
 // Initialize Bedrock client
 const bedrockClient = new BedrockRuntimeClient({
@@ -60,11 +63,12 @@ Reply with ONLY the name, nothing else.` }],
     const textBlock = response.output?.message?.content?.find(
       (block): block is ContentBlock.TextMember => 'text' in block
     );
-    
+
+
     const name = textBlock?.text?.trim().replace(/['"]/g, '') || 'Echo';
     return name.slice(0, 20); // Safety limit
   } catch (error) {
-    console.error('[Chat] Name generation failed:', error);
+    log.warn({ error: error instanceof Error ? error.message : String(error) }, 'Name generation failed');
     return 'Echo'; // Fallback name
   }
 }
@@ -120,12 +124,12 @@ async function tryRLMService(
 
   // Circuit breaker check - skip RLM if it's known to be down
   if (!shouldAttemptRLM()) {
-    console.log('[Chat] RLM circuit open - using fallback');
+    log.debug('RLM circuit open - using fallback');
     return null;
   }
 
   try {
-    console.log('[Chat] Calling RLM service...');
+    log.debug('Calling RLM service');
     const response = await fetch(`${rlmUrl}/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -140,22 +144,22 @@ async function tryRLMService(
     });
 
     if (!response.ok) {
-      console.log('[Chat] RLM service error:', response.status);
+      log.warn({ status: response.status }, 'RLM service error');
       recordFailure();
       return null;
     }
 
     const data = await response.json();
-    console.log('[Chat] RLM success:', data.method, data.latency_ms + 'ms');
+    log.debug({ method: data.method, latency: data.latency_ms }, 'RLM success');
     recordSuccess();
     return data;
   } catch (error) {
     if (error instanceof Error && error.name === 'TimeoutError') {
-      console.error('[Chat] RLM timed out after 15s - falling back to Bedrock');
+      log.warn('RLM timed out after 15s - falling back to Bedrock');
       recordFailure();
       return null;
     }
-    console.log('[Chat] RLM service unavailable:', error instanceof Error ? error.message : error);
+    log.warn({ error: error instanceof Error ? error.message : String(error) }, 'RLM service unavailable');
     recordFailure();
     return null;
   }
@@ -164,17 +168,25 @@ async function tryRLMService(
 // Search is user-triggered only via Web Search toggle
 
 export async function POST(request: NextRequest) {
+  // Extract correlation ID for request tracing
+  const correlationId = request.headers.get('x-correlation-id') || undefined;
+  const startTime = Date.now();
+
   try {
     // Get authenticated user
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
+
+    // Create request logger with correlation ID and user ID
+    const reqLog = log.child({ correlationId, userId: user.id, method: 'POST', endpoint: '/api/chat' });
+    reqLog.info('Chat request started');
 
     // Rate limit check
     const rateLimited = await checkRateLimit(user.id, 'expensive');
@@ -185,7 +197,7 @@ export async function POST(request: NextRequest) {
     if (result instanceof Response) return result;
     const { message, history, voiceVerified, deepSearch } = result;
 
-    console.log('[Chat] Voice verified:', voiceVerified, '| Deep Search:', deepSearch);
+    reqLog.debug({ voiceVerified, deepSearch }, 'Request parameters');
 
     // Get user profile for soulprint context
     const adminSupabase = getSupabaseAdmin();
@@ -194,43 +206,43 @@ export async function POST(request: NextRequest) {
       .select('soulprint_text, import_status, ai_name')
       .eq('user_id', user.id)
       .single();
-    
-    console.log('[Chat] User:', user.id);
-    console.log('[Chat] Profile error:', profileError?.message || 'none');
+
+    if (profileError) {
+      reqLog.warn({ error: profileError.message }, 'Profile fetch error');
+    }
 
     // Safely validate profile data (defensive against unexpected DB data)
     const userProfile = validateProfile(profile);
     const hasSoulprint = !!userProfile?.soulprint_text;
-    console.log('[Chat] Has soulprint:', hasSoulprint);
+    reqLog.debug({ hasSoulprint, importStatus: userProfile?.import_status }, 'User profile loaded');
 
     // Search conversation chunks for memory context
     let memoryContext = '';
     if (hasSoulprint) {
       try {
-        console.log('[Chat] Searching memories...');
         const { contextText, chunks, method } = await getMemoryContext(user.id, message, 5);
         if (chunks.length > 0) {
           memoryContext = contextText;
-          console.log(`[Chat] Found ${chunks.length} memories via ${method}`);
+          reqLog.debug({ chunksFound: chunks.length, method }, 'Memory search completed');
         }
       } catch (error) {
-        console.log('[Chat] Memory search failed:', error);
+        reqLog.warn({ error: error instanceof Error ? error.message : String(error) }, 'Memory search failed');
       }
     }
 
     // Auto-name the AI if not set
     let aiName = userProfile?.ai_name;
     if (!aiName && userProfile?.soulprint_text) {
-      console.log('[Chat] No AI name set, auto-generating...');
+      reqLog.debug('Auto-generating AI name');
       aiName = await generateAIName(userProfile.soulprint_text);
-      
+
       // Save the generated name
       await adminSupabase
         .from('user_profiles')
         .update({ ai_name: aiName })
         .eq('user_id', user.id);
-      
-      console.log('[Chat] Auto-named AI:', aiName);
+
+      reqLog.info({ aiName }, 'AI auto-named');
     }
     aiName = aiName || 'SoulPrint';
 
@@ -249,16 +261,23 @@ export async function POST(request: NextRequest) {
       if (searchResult.performed) {
         webSearchContext = searchResult.context;
         webSearchCitations = searchResult.citations;
-        console.log(`[Chat] Smart Search: ${searchResult.source} | ${searchResult.reason} | ${searchResult.citations.length} citations`);
+        reqLog.info({
+          source: searchResult.source,
+          reason: searchResult.reason,
+          citationCount: searchResult.citations.length
+        }, 'Smart search performed');
       } else if (searchResult.needed) {
         // Search was needed but failed
-        console.log(`[Chat] Smart Search: needed but failed - ${searchResult.error || searchResult.reason}`);
+        reqLog.warn({
+          reason: searchResult.reason,
+          error: searchResult.error
+        }, 'Smart search needed but failed');
       } else {
         // Search not needed - static knowledge is fine
-        console.log(`[Chat] Smart Search: skipped - ${searchResult.reason}`);
+        reqLog.debug({ reason: searchResult.reason }, 'Smart search skipped');
       }
     } catch (error) {
-      console.error('[Chat] Smart Search error:', error);
+      reqLog.error({ error: error instanceof Error ? error.message : String(error) }, 'Smart search error');
       // Continue without web search - graceful degradation
     }
 
@@ -275,9 +294,18 @@ export async function POST(request: NextRequest) {
       // RLM worked - learn and return
       if (rlmResponse.response && rlmResponse.response.length > 0) {
         learnFromChat(user.id, message, rlmResponse.response).catch(err => {
-          console.log('[Chat] Learning failed (non-blocking):', err);
+          reqLog.warn({ error: err instanceof Error ? err.message : String(err) }, 'Learning failed (non-blocking)');
         });
       }
+
+      const duration = Date.now() - startTime;
+      reqLog.info({
+        duration,
+        status: 200,
+        method: rlmResponse.method,
+        chunksUsed: rlmResponse.chunks_used,
+        responseLength: rlmResponse.response.length
+      }, 'Chat request completed (RLM)');
 
       // Return SSE format
       const stream = new ReadableStream({
@@ -299,8 +327,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: Bedrock FALLBACK (only if RLM failed)
-    console.log('[Chat] RLM failed, falling back to Bedrock...');
-    
+    reqLog.info('RLM failed, falling back to Bedrock');
+
     const systemPrompt = buildSystemPrompt(
       userProfile?.soulprint_text || null,
       memoryContext,
@@ -323,8 +351,8 @@ export async function POST(request: NextRequest) {
     ];
 
     // Simple call - no tool loop needed (search only via Deep Search toggle)
-    console.log('[Chat] Calling Bedrock...');
-    
+    reqLog.debug('Calling Bedrock');
+
     const command = new ConverseCommand({
       modelId: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
       system: [{ text: systemPrompt }],
@@ -338,7 +366,7 @@ export async function POST(request: NextRequest) {
     const outputMessage = response.output?.message;
 
     if (!outputMessage) {
-      console.error('[Chat] No output message');
+      reqLog.error('No output message from Bedrock');
       throw new Error('No response from model');
     }
 
@@ -348,12 +376,19 @@ export async function POST(request: NextRequest) {
     ) || [];
 
     const finalResponse = textBlocks.map(b => b.text).join('');
-    console.log('[Chat] Response length:', finalResponse.length);
+    const duration = Date.now() - startTime;
+
+    reqLog.info({
+      duration,
+      status: 200,
+      responseLength: finalResponse.length,
+      fallback: 'bedrock'
+    }, 'Chat request completed (Bedrock fallback)');
 
     // Learn from this conversation asynchronously
     if (finalResponse.length > 0) {
       learnFromChat(user.id, message, finalResponse).catch(err => {
-        console.log('[Chat] Learning failed (non-blocking):', err);
+        reqLog.warn({ error: err instanceof Error ? err.message : String(err) }, 'Learning failed (non-blocking)');
       });
     }
 
@@ -376,7 +411,13 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Chat error:', error);
+    const duration = Date.now() - startTime;
+    log.error({
+      correlationId,
+      duration,
+      error: error instanceof Error ? { message: error.message, name: error.name } : String(error)
+    }, 'Chat request failed');
+
     return new Response(
       JSON.stringify({ error: 'Failed to process chat' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }

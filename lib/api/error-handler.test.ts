@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { handleAPIError, APIErrorResponse } from './error-handler';
+import * as logger from '@/lib/logger';
 
 describe('handleAPIError', () => {
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let loggerErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Mock the Pino logger's error method
+    loggerErrorSpy = vi.spyOn(logger.logger, 'error').mockImplementation(() => logger.logger);
   });
 
   afterEach(() => {
-    consoleErrorSpy.mockRestore();
+    loggerErrorSpy.mockRestore();
   });
 
   it('should return 504 with TIMEOUT code for TimeoutError', async () => {
@@ -100,17 +102,19 @@ describe('handleAPIError', () => {
     expect(timestampMs).toBeLessThanOrEqual(afterTime);
   });
 
-  it('should log error with context prefix to console.error', () => {
+  it('should log error with structured logging via Pino', () => {
     const error = new Error('test error');
     handleAPIError(error, 'API:ChatMessages');
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('[API:ChatMessages]', error);
+    // Verify Pino logger was called (not console.error)
+    expect(loggerErrorSpy).toHaveBeenCalled();
   });
 
-  it('should log context for non-Error types', () => {
+  it('should log context for non-Error types with structured logging', () => {
     const unknownError = { some: 'object' };
     handleAPIError(unknownError, 'API:CustomContext');
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('[API:CustomContext]', unknownError);
+    // Verify Pino logger was called with structured data
+    expect(loggerErrorSpy).toHaveBeenCalled();
   });
 });

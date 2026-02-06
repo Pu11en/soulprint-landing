@@ -12,6 +12,9 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
 import { gzipSync } from 'zlib';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('API:ImportProcessServer');
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
@@ -41,7 +44,9 @@ interface ParsedConversation {
 export async function POST(request: Request) {
   const adminSupabase = getSupabaseAdmin();
   let userId: string | null = null;
-  
+  const correlationId = request.headers.get('x-correlation-id') || undefined;
+  const startTime = Date.now();
+
   try {
     // Auth check - support both normal auth and internal server-to-server calls
     const internalUserId = request.headers.get('X-Internal-User-Id');
@@ -61,14 +66,16 @@ export async function POST(request: Request) {
       if (rateLimited) return rateLimited;
     }
 
+    const reqLog = log.child({ correlationId, userId, method: 'POST', endpoint: '/api/import/process-server' });
+
     const body = await request.json();
     const storagePath = body.storagePath;
-    
+
     if (!storagePath) {
       return NextResponse.json({ error: 'storagePath required' }, { status: 400 });
     }
 
-    console.log(`[ProcessServer] Starting for user ${userId}, path: ${storagePath}`);
+    reqLog.info({ storagePath }, 'Import processing started');
     
     // Update status to processing with timestamp (for stuck detection)
     const processingStartedAt = new Date().toISOString();
@@ -81,28 +88,28 @@ export async function POST(request: Request) {
     }, { onConflict: 'user_id' });
 
     if (statusError) {
-      console.error('[ProcessServer] Failed to set processing status:', statusError);
+      reqLog.error({ error: statusError.message }, 'Failed to set processing status');
     }
-    
+
     // Download from storage
     const pathParts = storagePath.split('/');
     const bucket = pathParts[0];
     const filePath = pathParts.slice(1).join('/');
-    
-    console.log(`[ProcessServer] Downloading from ${bucket}/${filePath}...`);
-    
+
+    reqLog.debug({ bucket, filePath }, 'Downloading from storage');
+
     const { data: fileData, error: downloadError } = await adminSupabase.storage
       .from(bucket)
       .download(filePath);
-    
+
     if (downloadError || !fileData) {
-      console.error('[ProcessServer] Download error:', downloadError);
+      reqLog.error({ error: downloadError?.message }, 'Download error');
       throw new Error('Failed to download file from storage');
     }
-    
+
     const arrayBuffer = await fileData.arrayBuffer();
     const sizeMB = arrayBuffer.byteLength / 1024 / 1024;
-    console.log(`[ProcessServer] Downloaded ${sizeMB.toFixed(1)}MB`);
+    reqLog.info({ sizeMB: sizeMB.toFixed(1) }, 'File downloaded');
     
     // Check file size limit
     if (sizeMB > MAX_FILE_SIZE_MB) {
@@ -116,25 +123,25 @@ export async function POST(request: Request) {
     
     // Check if it's JSON directly or a ZIP
     if (filePath.endsWith('.json')) {
-      console.log('[ProcessServer] Parsing JSON directly...');
+      reqLog.debug('Parsing JSON directly');
       const text = new TextDecoder().decode(arrayBuffer);
       rawJsonString = text;
       rawConversations = JSON.parse(text);
     } else {
-      console.log('[ProcessServer] Extracting from ZIP...');
+      reqLog.debug('Extracting from ZIP');
       const zip = await JSZip.loadAsync(arrayBuffer);
       const conversationsFile = zip.file('conversations.json');
-      
+
       if (!conversationsFile) {
-        adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
+        adminSupabase.storage.from(bucket).remove([filePath]).catch(e => reqLog.warn({ error: String(e) }, 'Cleanup failed'));
         throw new Error('conversations.json not found in ZIP. Make sure you exported from ChatGPT correctly.');
       }
-      
+
       rawJsonString = await conversationsFile.async('string');
       rawConversations = JSON.parse(rawJsonString);
     }
-    
-    console.log(`[ProcessServer] Parsed ${rawConversations.length} conversations`);
+
+    reqLog.info({ conversationCount: rawConversations.length }, 'Conversations parsed');
 
     // ============================================================
     // VALIDATION: Ensure this is a valid ChatGPT export
@@ -166,16 +173,15 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`[ProcessServer] ✓ Valid ChatGPT format detected`);
+    reqLog.debug('Valid ChatGPT format detected');
 
     // Store raw JSON (compressed) to user-exports before deleting from imports
     let rawExportPath: string | null = null;
     if (rawJsonString && userId) {
       try {
-        console.log(`[ProcessServer] Compressing raw JSON (${rawJsonString.length} chars)...`);
+        reqLog.debug({ chars: rawJsonString.length }, 'Compressing raw JSON');
         const compressed = gzipSync(Buffer.from(rawJsonString, 'utf-8'));
         const compressionRatio = ((1 - compressed.length / rawJsonString.length) * 100).toFixed(1);
-        console.log(`[ProcessServer] Compressed to ${compressed.length} bytes (${compressionRatio}% reduction)`);
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         rawExportPath = `${userId}/conversations-${timestamp}.json.gz`;
@@ -188,13 +194,13 @@ export async function POST(request: Request) {
           });
 
         if (uploadError) {
-          console.warn('[ProcessServer] Raw export storage failed:', uploadError);
+          reqLog.warn({ error: uploadError.message }, 'Raw export storage failed');
           rawExportPath = null;
         } else {
-          console.log(`[ProcessServer] Raw JSON stored at: ${rawExportPath}`);
+          reqLog.info({ path: rawExportPath, compressionRatio }, 'Raw JSON stored');
         }
       } catch (e) {
-        console.warn('[ProcessServer] Raw export compression failed:', e);
+        reqLog.warn({ error: String(e) }, 'Raw export compression failed');
       }
     }
     
@@ -226,8 +232,8 @@ export async function POST(request: Request) {
         createdAt: conv.create_time ? new Date(conv.create_time * 1000).toISOString() : new Date().toISOString(),
       };
     }).filter((c: ParsedConversation) => c.messages.length > 0);
-    
-    console.log(`[ProcessServer] Extracted ${conversations.length} conversations with messages`);
+
+    reqLog.info({ conversationsWithMessages: conversations.length }, 'Conversations extracted');
     
     if (conversations.length === 0) {
       throw new Error('No valid conversations found in export. The file may be empty or in an unsupported format.');
@@ -250,8 +256,8 @@ export async function POST(request: Request) {
       pending: true, // Flag for async generation
     };
     const archetype = 'Analyzing...';
-    
-    console.log(`[ProcessServer] Placeholder soulprint set - async generation will follow after embeddings`);
+
+    reqLog.debug('Placeholder soulprint set - async generation will follow after embeddings');
     
     // Save soulprint to user profile
     await adminSupabase.from('user_profiles').upsert({
@@ -277,13 +283,14 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }).eq('user_id', userId);
 
-    console.log(`[ProcessServer] Sending ${rawConversations.length} raw conversations to RLM for full processing...`);
+    reqLog.info({ rawConversationCount: rawConversations.length }, 'Sending to RLM for full processing');
 
     // Store RAW ChatGPT JSON to Supabase Storage (bypasses Vercel 4.5MB body limit)
     // RLM gets full data including timestamps, metadata - not the simplified version
     const parsedJsonPath = `${userId}/raw-${Date.now()}.json`;
     const rawJsonData = JSON.stringify(rawConversations);
-    console.log(`[ProcessServer] Storing raw JSON (${(rawJsonData.length / 1024 / 1024).toFixed(2)}MB) to storage...`);
+    const rawSizeMB = (rawJsonData.length / 1024 / 1024).toFixed(2);
+    reqLog.debug({ sizeMB: rawSizeMB }, 'Storing raw JSON to storage');
 
     const { error: rawUploadError } = await adminSupabase.storage
       .from('user-imports')
@@ -293,11 +300,11 @@ export async function POST(request: Request) {
       });
 
     if (rawUploadError) {
-      console.error('[ProcessServer] Failed to store raw JSON:', rawUploadError);
+      reqLog.error({ error: rawUploadError.message }, 'Failed to store raw JSON');
       throw new Error('Failed to store raw conversations for processing.');
     }
 
-    console.log(`[ProcessServer] Raw JSON stored at: user-imports/${parsedJsonPath}`);
+    reqLog.info({ path: `user-imports/${parsedJsonPath}` }, 'Raw JSON stored');
 
     // Call RLM with storage path (not full conversations - handles 10,000+ conversations)
     // IMPORTANT: Fire-and-forget! Don't await - RLM processes async and updates DB when done
@@ -324,23 +331,30 @@ export async function POST(request: Request) {
       // We only check if RLM accepted the job - actual processing is async
       if (!rlmResponse.ok) {
         const errorText = await rlmResponse.text().catch(() => 'Unknown error');
-        console.error(`[ProcessServer] RLM returned ${rlmResponse.status}: ${errorText}`);
-        // Don't throw - let user proceed to chat while we retry later
-        console.warn(`[ProcessServer] RLM may be slow - user can start chatting while processing continues`);
+        reqLog.error({ status: rlmResponse.status, error: errorText }, 'RLM returned error');
+        reqLog.warn('RLM may be slow - user can start chatting while processing continues');
       } else {
-        console.log(`[ProcessServer] RLM accepted job for user ${userId}`);
+        reqLog.info('RLM accepted job');
       }
     } catch (e: any) {
       // Even if RLM call fails/times out, don't block the user
       // They can chat with basic soulprint while embeddings process later
       if (e.name === 'AbortError') {
-        console.warn(`[ProcessServer] RLM job submission timed out - will retry in background`);
+        reqLog.warn('RLM job submission timed out - will retry in background');
       } else {
-        console.error(`[ProcessServer] Failed to call RLM:`, e);
+        reqLog.error({ error: String(e) }, 'Failed to call RLM');
       }
       // Don't throw - continue to success response
     }
-    
+
+    const duration = Date.now() - startTime;
+    reqLog.info({
+      duration,
+      status: 200,
+      conversationCount: conversations.length,
+      messageCount: totalMessages
+    }, 'Import processing completed');
+
     return NextResponse.json({
       success: true,
       status: 'processing',
@@ -356,7 +370,14 @@ export async function POST(request: Request) {
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Processing failed';
-    console.error('[ProcessServer] Error:', errorMessage);
+    const duration = Date.now() - startTime;
+
+    log.error({
+      correlationId,
+      userId,
+      duration,
+      error: error instanceof Error ? { message: error.message, name: error.name } : String(error)
+    }, 'Import processing failed');
 
     // Update status to failed with error message
     if (userId) {
@@ -367,7 +388,7 @@ export async function POST(request: Request) {
       }).eq('user_id', userId);
 
       if (updateError) {
-        console.error('[ProcessServer] Failed to update status to failed:', updateError);
+        log.error({ error: updateError.message }, 'Failed to update status to failed');
       }
     }
 
