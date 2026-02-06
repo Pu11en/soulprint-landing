@@ -17,11 +17,14 @@ export async function middleware(request: NextRequest) {
   // Inject correlation ID into request headers (for API routes to read)
   request.headers.set('x-correlation-id', correlationId)
 
+  // Skip CSRF for internal server-to-server calls (e.g., queue-processing → process-server)
+  const isInternalCall = request.headers.get('X-Internal-User-Id') !== null
+
   // Apply CSRF protection (validates token on POST/PUT/DELETE, sets cookie on GET)
   const csrfResponse = await csrfMiddleware(request)
 
-  // If CSRF validation failed, return 403 immediately
-  if (csrfResponse.status === 403) {
+  // If CSRF validation failed and this is NOT an internal call, return 403
+  if (csrfResponse.status === 403 && !isInternalCall) {
     return csrfResponse
   }
 
