@@ -67,13 +67,15 @@ export async function DELETE() {
       .eq('user_id', userId);
     results.raw_conversations = rawError ? rawError.message : `${rawCount ?? 0} deleted`;
 
-    // 5. Reset user profile (don't delete, just reset import status)
+    // 5. Reset user profile (don't delete, just reset import status + stats)
     const { error: profileError } = await adminSupabase
       .from('user_profiles')
       .update({
         import_status: 'none',
         embedding_status: null,
         total_chunks: 0,
+        total_conversations: 0,
+        total_messages: 0,
         soulprint_text: null,
         import_error: null,
         processing_started_at: null,
@@ -81,7 +83,25 @@ export async function DELETE() {
       .eq('user_id', userId);
     results.user_profiles = profileError ? profileError.message : 'reset';
 
-    // 6. Delete storage files
+    // 6. Reset gamification stats
+    const { error: statsError } = await adminSupabase
+      .from('user_stats')
+      .update({
+        total_xp: 0,
+        level: 1,
+        messages_sent: 0,
+        memories_created: 0,
+        current_streak: 0,
+        longest_streak: 0,
+        total_chats: 0,
+        total_facts_learned: 0,
+        last_active_date: null,
+        last_chat_at: null,
+      })
+      .eq('user_id', userId);
+    results.user_stats = statsError ? statsError.message : 'reset';
+
+    // 7. Delete storage files
     const { data: files } = await adminSupabase.storage
       .from('imports')
       .list(userId);
