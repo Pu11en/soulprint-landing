@@ -1,17 +1,15 @@
 /**
  * POST /api/pillars/stories
- * Generate micro-stories for voice capture from pillar summaries
+ * Generate micro-stories for voice capture using Claude via AWS Bedrock
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import OpenAI from 'openai';
+import { bedrockChat } from '@/lib/bedrock';
 import { PILLAR_NAMES, MicroStory } from '@/lib/soulprint/types';
 
 export const maxDuration = 60;
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(request: NextRequest) {
   try {
@@ -68,7 +66,9 @@ Each story should be:
 - Avoid clichés and generic statements
 - Feel authentic and personal, not performative
 
-The story will be read aloud by the user for voice cadence capture. It should feel natural to speak.`;
+The story will be read aloud by the user for voice cadence capture. It should feel natural to speak.
+
+Just output the story text, nothing else. No quotes, no labels, just the story.`;
 
     console.log(`[Pillars Stories] Generating for user ${user.id}...`);
 
@@ -88,31 +88,23 @@ The story will be read aloud by the user for voice cadence capture. It should fe
 Write a first-person micro-story (3-5 sentences) that embodies this trait. The story should capture a moment that reveals this aspect of their personality. Make it feel authentic and speakable.
 
 Example format (but be creative):
-"When [situation], I [response]. [Insight about self]. [Deeper reflection]."
+"When [situation], I [response]. [Insight about self]. [Deeper reflection]."`;
 
-Just output the story text, nothing else.`;
-
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
+      const storyText = await bedrockChat({
+        model: 'SONNET',
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
         temperature: 0.8,
-        max_tokens: 300,
+        maxTokens: 300,
       });
 
-      const storyText = completion.choices[0]?.message?.content?.trim();
-      if (!storyText) {
-        throw new Error(`Failed to generate story for ${pillarName}`);
-      }
-
-      const wordCount = storyText.split(/\s+/).length;
+      const cleanedStory = storyText.trim().replace(/^["']|["']$/g, '');
+      const wordCount = cleanedStory.split(/\s+/).length;
 
       stories.push({
         pillar: pillarNum,
         pillarName,
-        storyText,
+        storyText: cleanedStory,
         wordCount,
       });
 
@@ -123,9 +115,9 @@ Just output the story text, nothing else.`;
           user_id: user.id,
           pillar: pillarNum,
           pillar_name: pillarName,
-          story_text: storyText,
+          story_text: cleanedStory,
           word_count: wordCount,
-          model_used: 'gpt-4o',
+          model_used: 'claude-3.5-sonnet-bedrock',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id,pillar' });
     }
@@ -137,7 +129,7 @@ Just output the story text, nothing else.`;
       data: {
         stories,
         totalWordCount: stories.reduce((sum, s) => sum + s.wordCount, 0),
-        modelUsed: 'gpt-4o',
+        modelUsed: 'claude-3.5-sonnet-bedrock',
       },
     });
 

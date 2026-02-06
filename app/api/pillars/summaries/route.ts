@@ -1,18 +1,16 @@
 /**
  * POST /api/pillars/summaries
- * Generate pillar summaries from answers using LLM
+ * Generate pillar summaries from answers using Claude via AWS Bedrock
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import OpenAI from 'openai';
+import { bedrockChatJSON } from '@/lib/bedrock';
 import { PILLAR_NAMES, QUESTIONS, PillarSummary, CoreAlignment } from '@/lib/soulprint/types';
 import { Mem0Client } from '@/lib/mem0';
 
 export const maxDuration = 60;
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 interface PillarAnswerRow {
   question_index: number;
@@ -98,7 +96,9 @@ export async function POST(request: NextRequest) {
     // Format answers for LLM
     const formattedAnswers = formatAnswersForPrompt(answers);
 
-    // Generate summaries with OpenAI
+    console.log(`[Pillars Summaries] Generating for user ${user.id}...`);
+
+    // Generate summaries with Claude via Bedrock
     const systemPrompt = `You are a psychological profiler for SoulPrint, an AI identity system. 
 Your task is to analyze questionnaire responses and generate precise psychological summaries.
 
@@ -137,27 +137,15 @@ Respond with this exact JSON structure:
   }
 }`;
 
-    console.log(`[Pillars Summaries] Generating for user ${user.id}...`);
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-    });
-
-    const responseText = completion.choices[0]?.message?.content;
-    if (!responseText) {
-      throw new Error('No response from OpenAI');
-    }
-
-    const parsed = JSON.parse(responseText) as {
+    const parsed = await bedrockChatJSON<{
       summaries: PillarSummary;
       coreAlignment: CoreAlignment;
-    };
+    }>({
+      model: 'SONNET',
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+      temperature: 0.7,
+    });
 
     // Validate response structure
     const requiredKeys = ['communication', 'emotional', 'decision', 'social', 'cognitive', 'conflict'];
@@ -182,7 +170,7 @@ Respond with this exact JSON structure:
         instinct_vs_analysis: parsed.coreAlignment.instinctVsAnalysis,
         autonomy_vs_collaboration: parsed.coreAlignment.autonomyVsCollaboration,
         raw_analysis: parsed,
-        model_used: 'gpt-4o',
+        model_used: 'claude-3.5-sonnet-bedrock',
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
 
@@ -224,7 +212,7 @@ Respond with this exact JSON structure:
       data: {
         summaries: parsed.summaries,
         coreAlignment: parsed.coreAlignment,
-        modelUsed: 'gpt-4o',
+        modelUsed: 'claude-3.5-sonnet-bedrock',
       },
     });
 
