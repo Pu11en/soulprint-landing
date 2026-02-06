@@ -8,9 +8,9 @@
 ### Bug Fixes
 
 - [x] **BUG-01**: Chunked upload cleans up stale in-memory chunks after 30 minutes
-- [ ] **BUG-02**: Starting a new import cancels any existing processing job (no duplicates)
-- [ ] **BUG-03**: Failed chat message saves retry with exponential backoff and show error indicator
-- [ ] **BUG-04**: Memory status polling ignores out-of-order responses using sequence tracking
+- [x] **BUG-02**: Starting a new import cancels any existing processing job (no duplicates)
+- [x] **BUG-03**: Failed chat message saves retry with exponential backoff and show error indicator
+- [x] **BUG-04**: Memory status polling ignores out-of-order responses using sequence tracking
 
 ### Security
 
@@ -75,9 +75,9 @@
 | BUG-01 | Phase 2 | Complete |
 | REL-01 | Phase 2 | Complete |
 | REL-02 | Phase 2 | Complete |
-| BUG-02 | Phase 3 | Pending |
-| BUG-03 | Phase 3 | Pending |
-| BUG-04 | Phase 3 | Pending |
+| BUG-02 | Phase 3 | Complete |
+| BUG-03 | Phase 3 | Complete |
+| BUG-04 | Phase 3 | Complete |
 | SEC-01 | Phase 4 | Pending |
 | SEC-02 | Phase 4 | Pending |
 | SEC-03 | Phase 4 | Pending |
