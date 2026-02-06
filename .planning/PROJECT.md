@@ -39,12 +39,12 @@ The import-to-chat flow must work reliably every time on production — no stuck
 
 ### Active
 
-- [ ] Restructure soulprint into SOUL (personality/tone) + USER (profile facts) + MEMORY (preferences/knowledge) sections
-- [ ] Generate SOUL + USER from ChatGPT export during import (Bedrock analysis)
-- [ ] Build structured system prompt from SOUL + USER + MEMORY + dynamic context
-- [ ] Gate chat on SOUL + USER being ready (brief "Analyzing..." loading screen)
+- [ ] 7-section structured context (OpenClaw-inspired): SOUL, IDENTITY, USER, AGENTS, TOOLS, MEMORY, daily memory
+- [ ] Two-pass generation: quick pass (Haiku 4.5, ~30s) for SOUL/IDENTITY/USER/AGENTS/TOOLS, full pass (RLM) for MEMORY + v2 regeneration
+- [ ] System prompt composed from all 7 sections + dynamic chunks
+- [ ] Gate chat on quick pass completion (brief "Analyzing..." loading screen)
 - [ ] Remove "SoulPrint is ready" email from import flow (keep waitlist email)
-- [ ] Memory chunks + MEMORY section build in background while user chats
+- [ ] After full pass, silently upgrade all sections to v2 with complete data
 
 ### Out of Scope
 

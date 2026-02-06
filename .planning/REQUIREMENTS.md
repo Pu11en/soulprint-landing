@@ -5,20 +5,34 @@
 
 ## v1.2 Requirements
 
-### Structured Context (OpenClaw-inspired)
+### Structured Context -- 7 Sections (OpenClaw-inspired)
 
-- [ ] **CTX-01**: Import generates a SOUL section (communication style, personality traits, tone preferences, boundaries) from ChatGPT export
-- [ ] **CTX-02**: Import generates a USER section (name, location, occupation, relationships, life context) from ChatGPT export
-- [ ] **CTX-03**: Import generates a MEMORY section (preferences, active projects, important dates, beliefs, decisions) from ChatGPT export
-- [ ] **CTX-04**: AI name and archetype are derived from SOUL analysis
-- [ ] **CTX-05**: Chat system prompt is composed from SOUL + USER + MEMORY + dynamic chunks + learned facts
+- [ ] **CTX-01**: Import generates a **SOUL** section (persona, tone, boundaries -- communication style, personality traits, tone preferences) from ChatGPT export
+- [ ] **CTX-02**: Import generates an **IDENTITY** section (AI name, archetype, vibe, emoji style) derived from SOUL analysis
+- [ ] **CTX-03**: Import generates a **USER** section (name, location, occupation, relationships, life context, how they want to be addressed) from ChatGPT export
+- [ ] **CTX-04**: Import generates an **AGENTS** section (operating instructions, behavioral rules, response style, memory directives -- customized to user's personality)
+- [ ] **CTX-05**: Import generates a **TOOLS** section (AI capabilities, what it can do, customized to user's likely usage patterns)
+- [ ] **CTX-06**: Background processing generates a **MEMORY** section (curated durable facts -- preferences, projects, dates, beliefs, decisions) from full export
+- [ ] **CTX-07**: Chat interactions generate **daily memory** entries (learned facts per session, running context from SoulPrint chats)
 
-### Import UX
+### Two-Pass Generation Pipeline
 
-- [ ] **IMP-01**: After upload, user sees "Analyzing your conversations..." loading screen while SOUL + USER are generated
-- [ ] **IMP-02**: Chat opens only after SOUL + USER sections are ready (not placeholder text)
+- [ ] **GEN-01**: Quick pass (Vercel, Haiku 4.5): sample richest conversations -> generate SOUL, IDENTITY, USER, AGENTS, TOOLS (~15-30s)
+- [ ] **GEN-02**: Full pass (RLM background): map-reduce all conversations -> generate MEMORY + conversation chunks/embeddings
+- [ ] **GEN-03**: After full pass completes, regenerate SOUL v2, IDENTITY v2, USER v2, AGENTS v2, TOOLS v2 with complete data
+- [ ] **GEN-04**: Use Haiku 4.5 (us.anthropic.claude-haiku-4-5-20251001-v1:0) for all generation calls
+
+### System Prompt Composition
+
+- [ ] **PROMPT-01**: Chat system prompt is composed from all 7 sections: SOUL + IDENTITY + USER + AGENTS + TOOLS + MEMORY + daily memory + dynamic chunks
+
+### Import UX Flow
+
+- [ ] **IMP-01**: After upload, user sees "Analyzing your conversations..." loading screen while quick pass generates SOUL + IDENTITY + USER + AGENTS + TOOLS
+- [ ] **IMP-02**: Chat opens only after quick pass sections are ready (not placeholder text)
 - [ ] **IMP-03**: MEMORY section and conversation chunks build in background after chat opens
 - [ ] **IMP-04**: Chat shows memory progress indicator while background processing continues
+- [ ] **IMP-05**: After full pass completes, all sections silently upgrade to v2 (richer, more nuanced)
 
 ### Email Cleanup
 
@@ -43,33 +57,40 @@
 
 | Feature | Reason |
 |---------|--------|
-| Multi-platform channels | v2+ — need solid single-platform first |
-| Per-user cloud instances | v2+ — architecture not ready |
+| Multi-platform channels | v2+ -- need solid single-platform first |
+| Per-user cloud instances | v2+ -- architecture not ready |
 | BOOTSTRAP.md one-time ritual | OpenClaw feature, not needed for web chat |
-| Daily memory files (YYYY-MM-DD.md) | OpenClaw pattern for local-first, we use DB |
 | On-device processing | We're cloud-first on Vercel/Supabase |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CTX-01 | TBD | Pending |
-| CTX-02 | TBD | Pending |
-| CTX-03 | TBD | Pending |
-| CTX-04 | TBD | Pending |
-| CTX-05 | TBD | Pending |
-| IMP-01 | TBD | Pending |
-| IMP-02 | TBD | Pending |
-| IMP-03 | TBD | Pending |
-| IMP-04 | TBD | Pending |
-| EMAIL-01 | TBD | Pending |
-| EMAIL-02 | TBD | Pending |
+| CTX-01 | Phase 1 | Pending |
+| CTX-02 | Phase 1 | Pending |
+| CTX-03 | Phase 1 | Pending |
+| CTX-04 | Phase 1 | Pending |
+| CTX-05 | Phase 1 | Pending |
+| CTX-06 | Phase 2 | Pending |
+| CTX-07 | Phase 3 | Pending |
+| GEN-01 | Phase 1 | Pending |
+| GEN-02 | Phase 2 | Pending |
+| GEN-03 | Phase 2 | Pending |
+| GEN-04 | Phase 1 | Pending |
+| PROMPT-01 | Phase 3 | Pending |
+| IMP-01 | Phase 3 | Pending |
+| IMP-02 | Phase 3 | Pending |
+| IMP-03 | Phase 3 | Pending |
+| IMP-04 | Phase 3 | Pending |
+| IMP-05 | Phase 3 | Pending |
+| EMAIL-01 | Phase 3 | Pending |
+| EMAIL-02 | Phase 3 | Pending |
 
 **Coverage:**
-- v1.2 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11
+- v1.2 requirements: 19 total
+- Mapped to phases: 19
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after initial definition*
+*Last updated: 2026-02-06 -- traceability updated with 3-phase roadmap*
