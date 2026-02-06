@@ -2,89 +2,64 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-05)
+See: .planning/PROJECT.md (updated 2026-02-06)
 
-**Core value:** Your AI should know you — import once, never repeat yourself.
-**Current focus:** Phase 2 - Production Hardening
+**Core value:** The import-to-chat flow must work reliably every time on production
+**Current focus:** Phase 1 - Testing Foundation
 
 ## Current Position
 
-Phase: 2 of 5 (Production Hardening)
-Plan: 1 of 3 in current phase
-Status: **Debugging import freeze**
-Last activity: 2026-02-05 09:07 — XHR upload implementation
+Phase: 1 of 7 (Testing Foundation)
+Plan: 0 of 2 in current phase
+Status: Ready to plan
+Last activity: 2026-02-06 — Roadmap created with 7 phases covering 17 v1 requirements
 
-Progress: [████░░░░░░] 40%
-
-### Active Debug
-**Issue:** Import freezes at 50%  
-**Doc:** `.planning/debug/import-freeze-2026-02-05.md`  
-**Status:** XHR upload deployed, awaiting test
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (Phase 1)
-- Average duration: ~45 min
-- Total execution time: ~3 hours
+- Total plans completed: 0
+- Average duration: N/A
+- Total execution time: 0 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Core MVP | 4/4 | 3h | 45min |
-| 2. Hardening | 0/3 | - | - |
+| - | - | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 30m, 45m, 60m, 45m
-- Trend: Stable
+- Last 5 plans: None yet
+- Trend: N/A
+
+*Updated after each plan completion*
 
 ## Accumulated Context
 
 ### Decisions
 
+Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
-- Phase 1: Client-side parsing for large files (10GB+)
-- Phase 1: Multi-tier chunking (100/500/2000 chars)
-- Phase 2: Added logging to silent catch blocks
 
-Full log: PROJECT.md Key Decisions
+- Stabilization approach: Fix everything from audit before adding new features
+- Testing strategy: User validates on deployed Vercel production (not localhost)
+- Scope: Exclude voice/pillar features to focus purely on bug fixes and hardening
 
 ### Pending Todos
 
-- [x] Test with Drew's 1.8GB ChatGPT export ✅ (fixed import freeze)
-- [x] Add upload progress indicator ✅ (XHR real progress)
-- [ ] Improve error toasts for user feedback
-- [ ] Add network timeout handling to /api/chat
-
-### Open Specs (need Drew input)
-
-- [ ] **SOULPRINT-INSTRUCTIONS** — Base AI personality/behavior (`.planning/specs/SOULPRINT-INSTRUCTIONS.md`)
-  - Waiting on answers to 6 questions
-
-- [ ] **MOBILE-UX-REDESIGN** — Fix bad mobile UX + UI (`.planning/specs/MOBILE-UX-REDESIGN.md`)
-  - Need Drew to identify worst screens
-  - Check if Figma designs exist to match
+None yet.
 
 ### Blockers/Concerns
 
-- RLM cold start on Render can be slow (~10s after idle)
-- Large imports may timeout on slower connections
+None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-05 07:24 CST
-Stopped at: Bug fixes committed, deployed to Vercel
-Resume file: None (clean state)
+Last session: 2026-02-06 (roadmap creation)
+Stopped at: Roadmap files written, ready to plan Phase 1
+Resume file: None
 
 ---
-
-## Session Log
-
-### 2026-02-05 (Asset)
-- Cloned soulprint-landing repo
-- Analyzed full codebase structure
-- Fixed 5 silent catch blocks with logging
-- Created docs/ARCHITECTURE.md
-- Committed and pushed to GitHub → Vercel deploy triggered
-- Set up GSD planning structure
+*Created: 2026-02-06*
+*Last updated: 2026-02-06*

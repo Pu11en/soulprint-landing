@@ -71,29 +71,29 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | - | Pending |
-| BUG-02 | - | Pending |
-| BUG-03 | - | Pending |
-| BUG-04 | - | Pending |
-| SEC-01 | - | Pending |
-| SEC-02 | - | Pending |
-| SEC-03 | - | Pending |
-| SEC-04 | - | Pending |
-| REL-01 | - | Pending |
-| REL-02 | - | Pending |
-| REL-03 | - | Pending |
-| REL-04 | - | Pending |
-| TYPE-01 | - | Pending |
-| TEST-01 | - | Pending |
-| TEST-02 | - | Pending |
-| TEST-03 | - | Pending |
-| TEST-04 | - | Pending |
+| TEST-01 | Phase 1 | Pending |
+| BUG-01 | Phase 2 | Pending |
+| REL-01 | Phase 2 | Pending |
+| REL-02 | Phase 2 | Pending |
+| BUG-02 | Phase 3 | Pending |
+| BUG-03 | Phase 3 | Pending |
+| BUG-04 | Phase 3 | Pending |
+| SEC-01 | Phase 4 | Pending |
+| SEC-02 | Phase 4 | Pending |
+| SEC-03 | Phase 4 | Pending |
+| SEC-04 | Phase 4 | Pending |
+| REL-03 | Phase 5 | Pending |
+| REL-04 | Phase 5 | Pending |
+| TEST-02 | Phase 6 | Pending |
+| TEST-03 | Phase 6 | Pending |
+| TEST-04 | Phase 6 | Pending |
+| TYPE-01 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after initial definition*
+*Last updated: 2026-02-06 after roadmap creation*

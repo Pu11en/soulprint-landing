@@ -1,115 +1,154 @@
-# Roadmap: SoulPrint
+# Roadmap: SoulPrint Stabilization
 
 ## Overview
 
-From MVP to production-ready AI personalization platform. Phase 1 (Core MVP) is complete. Now hardening for real users, adding polish, and preparing for launch.
+This stabilization milestone hardens the SoulPrint import-to-chat flow through systematic bug fixes, security improvements, and comprehensive testing. The journey begins with establishing testing infrastructure (Phase 1), then addresses critical resource leaks and race conditions (Phases 2-3), hardens security boundaries (Phase 4), adds production observability (Phase 5), completes test coverage (Phase 6), and finishes with TypeScript strict refinement (Phase 7). Each phase delivers verifiable improvements to reliability and security.
 
 ## Phases
 
-- [x] **Phase 1: Core MVP** - Auth, import, chat with memory ✓
-- [ ] **Phase 2: Production Hardening** - Error handling, monitoring, reliability
-- [ ] **Phase 3: Polish & UX** - UI improvements, mobile optimization
-- [ ] **Phase 4: Analytics & Metrics** - Tracking, dashboards, insights
-- [ ] **Phase 5: Launch Prep** - Marketing site, onboarding, docs
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 1: Testing Foundation** - Vitest setup enabling verification of all fixes
+- [ ] **Phase 2: Memory & Resource Cleanup** - Fix leaks, timeouts, and error handling
+- [ ] **Phase 3: Race Condition Fixes** - Eliminate out-of-order state updates
+- [ ] **Phase 4: Security Hardening** - CSRF, rate limiting, RLS audit, input validation
+- [ ] **Phase 5: Observability** - Structured logging and health checks
+- [ ] **Phase 6: Comprehensive Testing** - Integration and E2E test coverage
+- [ ] **Phase 7: Type Safety Refinement** - Replace `any` with proper types
 
 ## Phase Details
 
-### Phase 1: Core MVP ✓ COMPLETE
-**Goal**: Working end-to-end flow: signup → import → chat with memory
-**Depends on**: Nothing
-**Requirements**: Auth, import parsing, embeddings, chat
-**Success Criteria**:
-  1. User can sign up with email or Google ✓
-  2. User can upload ChatGPT ZIP and see it processed ✓
-  3. User can chat and AI references their history ✓
-**Plans**: 4/4 complete
+### Phase 1: Testing Foundation
+**Goal**: Vitest and React Testing Library configured and running with passing tests
+**Depends on**: Nothing (first phase)
+**Requirements**: TEST-01
+**Success Criteria** (what must be TRUE):
+  1. Vitest runs successfully with `npm test` command
+  2. At least one unit test passes (sample test for critical utility function)
+  3. Test configuration supports Next.js 16 App Router components
+  4. MSW configured for API mocking in tests
+**Plans**: TBD
 
 Plans:
-- [x] 01-01: Auth setup (Supabase, Google OAuth)
-- [x] 01-02: Import flow (client-side parsing, chunking)
-- [x] 01-03: RLM integration (embeddings, soulprint gen)
-- [x] 01-04: Chat with memory (streaming, context injection)
+- [ ] 01-01: Install and configure Vitest, React Testing Library, MSW
+- [ ] 01-02: Create test directory structure and sample passing tests
 
----
-
-### Phase 2: Production Hardening
-**Goal**: Bulletproof reliability for real users
+### Phase 2: Memory & Resource Cleanup
+**Goal**: Application memory usage plateaus under load with no resource leaks
 **Depends on**: Phase 1
-**Requirements**: Error handling, timeouts, monitoring
-**Success Criteria**:
-  1. All API routes have proper error handling
-  2. Network failures show user-friendly messages
-  3. Import can recover from interruptions
-  4. Admin can monitor system health
-**Plans**: 3 plans
+**Requirements**: BUG-01, REL-01, REL-02
+**Success Criteria** (what must be TRUE):
+  1. Chunked upload cleanup removes stale chunks after 30-minute TTL (verified by test)
+  2. RLM service calls timeout after 15 seconds maximum (down from 60s)
+  3. All API routes catch exceptions and return proper error responses (no 500s without error payload)
+  4. Memory usage plateaus in load testing (autocannon shows stable baseline)
+**Plans**: TBD
 
 Plans:
-- [ ] 02-01: Error handling audit (all API routes)
-- [ ] 02-02: Network resilience (timeouts, retries, offline)
-- [ ] 02-03: Monitoring setup (health checks, alerts)
+- [ ] 02-01: Implement TTL-based cleanup for chunked upload Map
+- [ ] 02-02: Reduce RLM timeout to 15s with circuit breaker fallback
+- [ ] 02-03: Add comprehensive error handling to all API routes
 
----
-
-### Phase 3: Polish & UX
-**Goal**: Delightful user experience, mobile-ready
+### Phase 3: Race Condition Fixes
+**Goal**: All async operations handle cancellation and out-of-order responses correctly
 **Depends on**: Phase 2
-**Requirements**: UI polish, mobile optimization, accessibility
-**Success Criteria**:
-  1. Import has progress indicator
-  2. Chat feels responsive on mobile
-  3. Animations are smooth, not janky
-  4. Accessibility audit passes
-**Plans**: 3 plans
+**Requirements**: BUG-02, BUG-03, BUG-04
+**Success Criteria** (what must be TRUE):
+  1. Starting a new import cancels any existing processing job (verified by test)
+  2. Failed chat message saves retry with exponential backoff and show error indicator
+  3. Memory status polling ignores out-of-order responses using sequence tracking
+  4. All fetch calls implement cancellation via AbortController
+**Plans**: TBD
 
 Plans:
-- [ ] 03-01: Import UX (progress bar, better feedback)
-- [ ] 03-02: Chat UX (mobile layout, touch gestures)
-- [ ] 03-03: Visual polish (animations, micro-interactions)
+- [ ] 03-01: Add duplicate import detection and cancellation logic
+- [ ] 03-02: Implement message save retry with exponential backoff
+- [ ] 03-03: Fix polling race conditions with AbortController or request ID tracking
 
----
-
-### Phase 4: Analytics & Metrics
-**Goal**: Understand users, measure success
+### Phase 4: Security Hardening
+**Goal**: Production-ready security posture with defense in depth
 **Depends on**: Phase 3
-**Requirements**: Event tracking, dashboards, user insights
-**Success Criteria**:
-  1. Key events tracked (signup, import, chat)
-  2. Dashboard shows daily/weekly metrics
-  3. Can identify drop-off points in funnel
-**Plans**: 2 plans
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04
+**Success Criteria** (what must be TRUE):
+  1. All state-changing API endpoints validate CSRF tokens (POST, PUT, DELETE)
+  2. API endpoints enforce per-user rate limits and return 429 with Retry-After header
+  3. All Supabase tables have RLS enabled (verified by SQL query)
+  4. All API route request bodies validated with Zod schemas before processing
+  5. Security headers configured (X-Frame-Options, CSP, Permissions-Policy)
+**Plans**: TBD
 
 Plans:
-- [ ] 04-01: Event tracking setup (GA, custom events)
-- [ ] 04-02: Admin dashboard (metrics, user stats)
+- [ ] 04-01: Implement CSRF protection with @edge-csrf/nextjs
+- [ ] 04-02: Add per-user rate limiting with @upstash/ratelimit
+- [ ] 04-03: Audit and verify RLS policies on all tables
+- [ ] 04-04: Add Zod validation schemas for all API routes
 
----
-
-### Phase 5: Launch Prep
-**Goal**: Ready for public launch
+### Phase 5: Observability
+**Goal**: Production monitoring with structured logs and health checks
 **Depends on**: Phase 4
-**Requirements**: Marketing, docs, onboarding
-**Success Criteria**:
-  1. Landing page converts visitors
-  2. Onboarding guides new users
-  3. Help docs answer common questions
-  4. Social proof / testimonials ready
-**Plans**: 3 plans
+**Requirements**: REL-03, REL-04
+**Success Criteria** (what must be TRUE):
+  1. All API routes log with correlation IDs for request tracing
+  2. Structured logging includes user ID, endpoint, duration, status code
+  3. Health check endpoint reports status of Supabase, Bedrock, and RLM service
+  4. Health check returns degraded status when dependencies are unhealthy
+**Plans**: TBD
 
 Plans:
-- [ ] 05-01: Marketing site refresh
-- [ ] 05-02: Onboarding flow (tooltips, guided tour)
-- [ ] 05-03: Documentation and FAQ
+- [ ] 05-01: Implement structured logging with correlation IDs
+- [ ] 05-02: Create health check endpoint with dependency status
 
----
+### Phase 6: Comprehensive Testing
+**Goal**: Critical user flows covered by integration and E2E tests
+**Depends on**: Phase 5
+**Requirements**: TEST-02, TEST-03, TEST-04
+**Success Criteria** (what must be TRUE):
+  1. Import flow has end-to-end test (upload → process → complete)
+  2. All API routes have integration tests with mocked dependencies
+  3. Critical user flows tested with Playwright (auth → import → chat)
+  4. Tests run offline in under 30 seconds with no external API calls
+**Plans**: TBD
+
+Plans:
+- [ ] 06-01: Write integration tests for all API routes
+- [ ] 06-02: Write end-to-end test for import flow
+- [ ] 06-03: Install Playwright and write E2E tests for critical flows
+
+### Phase 7: Type Safety Refinement
+**Goal**: Replace `any` types with proper interfaces and runtime validation
+**Depends on**: Phase 6
+**Requirements**: TYPE-01
+**Success Criteria** (what must be TRUE):
+  1. Import and chat code has no `any` types (replaced with typed interfaces)
+  2. External service responses validated with Zod at boundaries
+  3. noUncheckedIndexedAccess enabled in tsconfig.json (API routes fixed first)
+  4. TypeScript build succeeds with strict mode and no type errors
+**Plans**: TBD
+
+Plans:
+- [ ] 07-01: Add noUncheckedIndexedAccess and fix API route type errors
+- [ ] 07-02: Replace `any` types in import flow with proper interfaces
+- [ ] 07-03: Replace `any` types in chat flow with proper interfaces
 
 ## Progress
 
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core MVP | 4/4 | ✓ Complete | 2026-02-04 |
-| 2. Hardening | 0/3 | In Progress | - |
-| 3. Polish | 0/3 | Not started | - |
-| 4. Analytics | 0/2 | Not started | - |
-| 5. Launch | 0/3 | Not started | - |
+| 1. Testing Foundation | 0/2 | Not started | - |
+| 2. Memory & Resource Cleanup | 0/3 | Not started | - |
+| 3. Race Condition Fixes | 0/3 | Not started | - |
+| 4. Security Hardening | 0/4 | Not started | - |
+| 5. Observability | 0/2 | Not started | - |
+| 6. Comprehensive Testing | 0/3 | Not started | - |
+| 7. Type Safety Refinement | 0/3 | Not started | - |
 
-**Total Progress: 4/15 plans (27%)**
+---
+*Created: 2026-02-06*
+*Last updated: 2026-02-06*
