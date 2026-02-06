@@ -11,6 +11,12 @@ const csrfMiddleware = createCsrfMiddleware({
 })
 
 export async function middleware(request: NextRequest) {
+  // Generate correlation ID for request tracing
+  const correlationId = crypto.randomUUID()
+
+  // Inject correlation ID into request headers (for API routes to read)
+  request.headers.set('x-correlation-id', correlationId)
+
   // Apply CSRF protection (validates token on POST/PUT/DELETE, sets cookie on GET)
   const csrfResponse = await csrfMiddleware(request)
 
@@ -32,6 +38,9 @@ export async function middleware(request: NextRequest) {
   if (csrfToken) {
     authResponse.headers.set('X-CSRF-Token', csrfToken)
   }
+
+  // Set correlation ID on response header (for client-side debugging)
+  authResponse.headers.set('x-correlation-id', correlationId)
 
   return authResponse
 }
