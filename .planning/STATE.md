@@ -10,25 +10,25 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Phase: 2 of 3 (Full Pass Pipeline)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 02-01-PLAN.md
+Last activity: 2026-02-07 -- Completed 02-02-PLAN.md
 
-Progress: [####......] 40% (4/10 plans)
+Progress: [#####.....] 50% (5/10 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 3.3min
-- Total execution time: 13min
+- Total execution time: 16.6min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Schema + Quick Pass Pipeline | 3/3 | 11min | 3.7min |
-| 2. Full Pass Pipeline | 1/3 | 2min | 2min |
+| 2. Full Pass Pipeline | 2/3 | 5.6min | 2.8min |
 
 ## Accumulated Context
 
@@ -49,6 +49,11 @@ Recent decisions affecting current work:
 - 02-01: Use FastAPI BackgroundTasks for async dispatch (cleaner than asyncio.create_task)
 - 02-01: Status updates to Supabase are best-effort (log errors, don't throw)
 - 02-01: Stub marks status as 'complete' after 1s sleep (Plan 02-02 will add real processing)
+- 02-02: Hierarchical reduction at 200K tokens (higher than 150K - preserve more context)
+- 02-02: Chunk conversations at ~2000 tokens with 200 token overlap for context continuity
+- 02-02: Concurrency limit of 10 parallel Haiku calls for fact extraction
+- 02-02: Leave embedding column NULL (backfill strategy deferred)
+- 02-02: Calculate is_recent based on 6-month threshold from conversation created_at
 
 ### Pending Todos
 
@@ -64,7 +69,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 02-01-PLAN.md
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
 
 ---
