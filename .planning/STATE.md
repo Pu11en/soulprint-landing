@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 7 (Prompt Foundation)
-Plan: 1 of 3
+Plan: 2 of 3
 Status: In progress
-Last activity: 2026-02-07 — Completed 06-01-PLAN.md (Prompt Helpers)
+Last activity: 2026-02-07 — Completed 06-05-PLAN.md (Personalized Greeting)
 
-Progress: [████████░░] 81% (1/3 Phase 6 plans complete)
+Progress: [████████░░] 82% (2/3 Phase 6 plans complete, Wave 2 in progress)
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Case-insensitive regex for "not enough data" matching (06-01)
 - Sorted keys in formatSection for deterministic output (06-01)
 - Defensive filtering: formatSection filters placeholders even if cleanSection wasn't called (06-01)
+- Local variables capture pattern: async API data captured as local vars before React state updates (06-05)
 
 ### Pending Todos
 
@@ -72,8 +73,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 06-01-PLAN.md (Prompt Helpers)
+Stopped at: Completed 06-05-PLAN.md (Personalized Greeting)
 Resume file: None
 
 ---
-*Last updated: 2026-02-07 — Completed 06-01 (Prompt Helpers), ready for 06-02*
+*Last updated: 2026-02-07 — Completed 06-05 (Personalized Greeting), Wave 2 plan complete*
