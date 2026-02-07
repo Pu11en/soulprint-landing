@@ -38,7 +38,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md`
 
 **Phase Numbering:** Milestone-scoped (1, 2, 3). Decimal phases (1.1, 1.2) reserved for urgent insertions.
 
-- [ ] **Phase 1: Schema + Quick Pass Pipeline** -- Database schema for 7 sections, Haiku 4.5 quick pass generates SOUL/IDENTITY/USER/AGENTS/TOOLS from sampled conversations
+- [x] **Phase 1: Schema + Quick Pass Pipeline** (3/3 plans) -- completed 2026-02-07
 - [ ] **Phase 2: Full Pass Pipeline** -- RLM background map-reduce generates MEMORY section + conversation chunks, then regenerates all sections as v2
 - [ ] **Phase 3: Chat Integration + UX** -- Compose system prompt from all sections, daily memory from chat, import UX flow, email cleanup
 
@@ -57,9 +57,9 @@ See: `.planning/milestones/v1.1-ROADMAP.md`
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Foundation: Haiku 4.5 model constant, TypeScript interfaces, Zod schema, conversation sampling, tools_md migration
-- [ ] 01-02-PLAN.md -- Quick pass generation module + wire into import pipeline + update reset route
-- [ ] 01-03-PLAN.md -- Unit tests for sampling and generation + human verification
+- [x] 01-01-PLAN.md -- Foundation: Haiku 4.5 model constant, TypeScript interfaces, Zod schema, conversation sampling, tools_md migration
+- [x] 01-02-PLAN.md -- Quick pass generation module + wire into import pipeline + update reset route
+- [x] 01-03-PLAN.md -- Unit tests for sampling and generation + human verification
 
 ### Phase 2: Full Pass Pipeline
 **Goal**: Background processing map-reduces all conversations to produce a MEMORY section and conversation chunks, then regenerates all 5 quick-pass sections with complete data (v2)
@@ -128,9 +128,9 @@ Orphans: 0
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Schema + Quick Pass Pipeline | v1.2 | 0/3 | Planned | - |
+| 1. Schema + Quick Pass Pipeline | v1.2 | 3/3 | Complete | 2026-02-07 |
 | 2. Full Pass Pipeline | v1.2 | 0/3 | Not started | - |
 | 3. Chat Integration + UX | v1.2 | 0/4 | Not started | - |
 
 ---
-*Last updated: 2026-02-06 after Phase 1 planning (3 plans in 3 waves)*
+*Last updated: 2026-02-07 after Phase 1 execution complete (3/3 plans, verified)*

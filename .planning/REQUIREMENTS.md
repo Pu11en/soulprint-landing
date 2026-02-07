@@ -66,17 +66,17 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CTX-01 | Phase 1 | Pending |
-| CTX-02 | Phase 1 | Pending |
-| CTX-03 | Phase 1 | Pending |
-| CTX-04 | Phase 1 | Pending |
-| CTX-05 | Phase 1 | Pending |
+| CTX-01 | Phase 1 | Complete |
+| CTX-02 | Phase 1 | Complete |
+| CTX-03 | Phase 1 | Complete |
+| CTX-04 | Phase 1 | Complete |
+| CTX-05 | Phase 1 | Complete |
 | CTX-06 | Phase 2 | Pending |
 | CTX-07 | Phase 3 | Pending |
-| GEN-01 | Phase 1 | Pending |
+| GEN-01 | Phase 1 | Complete |
 | GEN-02 | Phase 2 | Pending |
 | GEN-03 | Phase 2 | Pending |
-| GEN-04 | Phase 1 | Pending |
+| GEN-04 | Phase 1 | Complete |
 | PROMPT-01 | Phase 3 | Pending |
 | IMP-01 | Phase 3 | Pending |
 | IMP-02 | Phase 3 | Pending |

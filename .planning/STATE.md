@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** The import-to-chat flow must work reliably every time on production
-**Current focus:** v1.2 Import UX Streamline -- Phase 1: Schema + Quick Pass Pipeline
+**Current focus:** v1.2 Import UX Streamline -- Phase 2: Full Pass Pipeline
 
 ## Current Position
 
-Phase: 1 of 3 (Schema + Quick Pass Pipeline)
-Plan: 3 of 3 in current phase (checkpoint pending)
-Status: In progress -- awaiting human verification
-Last activity: 2026-02-07 -- Completed 01-03-PLAN.md auto tasks (checkpoint pending)
+Phase: 2 of 3 (Full Pass Pipeline)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-02-07 -- Phase 1 complete (3/3 plans, verified)
 
 Progress: [###.......] 30% (3/10 plans)
 
@@ -40,13 +40,11 @@ Recent decisions affecting current work:
 - v1.2: Two-pass pipeline -- quick pass (~30s, Haiku 4.5) for 5 sections, full pass (RLM background) for MEMORY + v2 regen
 - v1.2: Gate chat on quick pass completion only, let MEMORY build in background
 - v1.2: Remove "SoulPrint is ready" email (users are already chatting by then)
-- 01-01: Use z.preprocess for permissive Zod 4 object defaults (Zod 4's .default({}) requires fully-typed default)
-- 01-01: Promoted ParsedConversation/ConversationMessage from route-local types to shared exports in lib/soulprint/types.ts
-- 01-02: Store sections as JSON.stringify'd strings in TEXT *_md columns (matches existing schema)
+- 01-01: Use z.preprocess for permissive Zod 4 object defaults
+- 01-01: Promoted ParsedConversation/ConversationMessage to shared exports in lib/soulprint/types.ts
+- 01-02: Store sections as JSON.stringify'd strings in TEXT *_md columns
 - 01-02: Quick pass runs synchronously between conversation parsing and RLM fire-and-forget
-- 01-02: Replaced local type duplicates in process-server with shared imports from lib/soulprint/types.ts
-- 01-03: Used vi.mock for bedrockChatJSON isolation rather than MSW handlers (simpler for unit tests)
-- 01-03: Added test for Zod preprocess defaults on partial Bedrock responses (validates permissive schema from 01-01)
+- 01-02: Replaced local type duplicates in process-server with shared imports
 
 ### Pending Todos
 
@@ -60,10 +58,10 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-07T00:19:14Z
-Stopped at: 01-03-PLAN.md checkpoint:human-verify (awaiting approval)
+Last session: 2026-02-07
+Stopped at: Phase 1 complete, ready to plan Phase 2
 Resume file: None
 
 ---
 *Created: 2026-02-06*
-*Last updated: 2026-02-07T00:19:14Z*
+*Last updated: 2026-02-07*
