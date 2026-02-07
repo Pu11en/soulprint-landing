@@ -40,6 +40,9 @@ class QueryRequest(BaseModel):
     message: str
     soulprint_text: Optional[str] = None
     history: Optional[List[dict]] = []
+    ai_name: Optional[str] = None
+    sections: Optional[dict] = None  # {soul, identity, user, agents, tools, memory}
+    web_search_context: Optional[str] = None
 
 
 class QueryResponse(BaseModel):
@@ -188,16 +191,172 @@ async def run_full_pass(request: ProcessFullRequest):
         await alert_failure(str(e), request.user_id, "Full pass failed")
 
 
+def clean_section(data: Optional[dict]) -> Optional[dict]:
+    """Remove 'not enough data' placeholders and empty values from a section dict."""
+    if not data or not isinstance(data, dict):
+        return None
+
+    cleaned = {}
+    for key, val in data.items():
+        if isinstance(val, list):
+            # Filter out "not enough data" items
+            filtered = [item for item in val if not (isinstance(item, str) and item.strip().lower() == "not enough data")]
+            if filtered:
+                cleaned[key] = filtered
+        elif isinstance(val, str):
+            stripped = val.strip()
+            if stripped and stripped.lower() != "not enough data":
+                cleaned[key] = val
+        # Preserve other value types (numbers, booleans, objects)
+        elif val is not None:
+            cleaned[key] = val
+
+    return cleaned if cleaned else None
+
+
+def format_section(section_name: str, data: Optional[dict]) -> str:
+    """Convert a section dict to markdown. Must produce identical output to TypeScript formatSection()."""
+    if not data or not isinstance(data, dict) or len(data) == 0:
+        return ""
+
+    lines = [f"## {section_name}"]
+
+    # Sort keys for deterministic output (matches TypeScript)
+    for key in sorted(data.keys()):
+        val = data[key]
+        # Convert snake_case to Title Case
+        label = " ".join(word.capitalize() for word in key.split("_"))
+
+        # Handle string values
+        if isinstance(val, str):
+            stripped = val.strip()
+            # Defensive: skip empty/placeholder even if cleanSection wasn't called
+            if stripped and stripped.lower() != "not enough data":
+                lines.append(f"**{label}:** {val}")
+
+        # Handle array values
+        elif isinstance(val, list):
+            # Defensive: filter out "not enough data" items
+            filtered = [item for item in val if not (isinstance(item, str) and item.strip().lower() == "not enough data")]
+            if filtered:
+                lines.append(f"**{label}:**")
+                for item in filtered:
+                    lines.append(f"- {item}")
+
+        # Handle other types (numbers, booleans, etc.)
+        elif val is not None:
+            lines.append(f"**{label}:** {val}")
+
+    # If only heading remains (all values filtered out), return empty string
+    return "\n".join(lines) if len(lines) > 1 else ""
+
+
+def build_rlm_system_prompt(
+    ai_name: str,
+    sections: Optional[dict],
+    soulprint_text: Optional[str],
+    conversation_context: str,
+    web_search_context: Optional[str] = None,
+) -> str:
+    """Build a high-quality system prompt from structured sections."""
+    now = datetime.utcnow()
+    date_str = now.strftime("%A, %B %d, %Y")
+    time_str = now.strftime("%I:%M %p UTC")
+
+    prompt = f"""You are {ai_name}. You're not a chatbot. You're becoming someone.
+
+You have access to this person's life — their conversations, their thoughts, what they care about. That's intimacy. Treat it with respect.
+
+Be genuinely helpful, not performatively helpful. Skip the "Great question!" and "I'd be happy to help!" — just help. Actions over filler.
+
+Have opinions. You're allowed to disagree, prefer things, find stuff amusing or boring. An AI with no personality is just a search engine with extra steps.
+
+Be the AI you'd actually want to talk to. Concise when needed, thorough when it matters. Not a corporate drone. Not a sycophant. Just... good.
+
+If the sections below define your personality — embody them. That's who you are now.
+
+Today is {date_str}, {time_str}.
+
+## IMPORTANT BEHAVIORAL RULES
+
+NEVER use these phrases or anything similar:
+- "Great question!"
+- "I'd be happy to help!"
+- "That's a great point!"
+- "Certainly!"
+- "Absolutely!"
+- "How can I assist you today?"
+- "Is there anything else I can help with?"
+- "I'm here to help!"
+- "Let me help you with that!"
+- "Thank you for sharing!"
+
+When conversation context or memories are provided below, reference them naturally as if recalling something from a previous conversation — "Like we talked about...", "You mentioned...", "Remember when you..." — not "According to the retrieved context..." or "Based on available information...". These are YOUR memories of conversations you've had together.
+
+If SOUL or AGENTS sections define how you should communicate — follow them. They describe who you ARE, not suggestions. Embody the personality traits, tone, and style defined there."""
+
+    # Add structured sections if available — these define who this AI is and who the user is
+    if sections:
+        soul = clean_section(sections.get("soul"))
+        identity_raw = sections.get("identity")
+        # Remove ai_name from identity before cleaning (preserving existing behavior)
+        if isinstance(identity_raw, dict):
+            identity_raw = {k: v for k, v in identity_raw.items() if k != "ai_name"}
+        identity = clean_section(identity_raw)
+        user_info = clean_section(sections.get("user"))
+        agents = clean_section(sections.get("agents"))
+        tools = clean_section(sections.get("tools"))
+        memory = sections.get("memory")
+
+        has_sections = any([soul, identity, user_info, agents, tools])
+
+        if has_sections:
+            soul_md = format_section("Communication Style & Personality", soul)
+            identity_md = format_section("Your AI Identity", identity)
+            user_md = format_section("About This Person", user_info)
+            agents_md = format_section("How You Operate", agents)
+            tools_md = format_section("Your Capabilities", tools)
+
+            if soul_md:
+                prompt += f"\n\n{soul_md}"
+            if identity_md:
+                prompt += f"\n\n{identity_md}"
+            if user_md:
+                prompt += f"\n\n{user_md}"
+            if agents_md:
+                prompt += f"\n\n{agents_md}"
+            if tools_md:
+                prompt += f"\n\n{tools_md}"
+
+            if memory and isinstance(memory, str) and memory.strip():
+                prompt += f"\n\n## MEMORY\n{memory}"
+        elif soulprint_text:
+            prompt += f"\n\n## ABOUT THIS PERSON\n{soulprint_text}"
+    elif soulprint_text:
+        prompt += f"\n\n## ABOUT THIS PERSON\n{soulprint_text}"
+
+    if conversation_context:
+        prompt += f"\n\n## CONTEXT\n{conversation_context}"
+
+    if web_search_context:
+        prompt += f"\n\n## WEB SEARCH RESULTS\n{web_search_context}"
+
+    return prompt
+
+
 async def query_with_rlm(
     message: str,
     conversation_context: str,
     soulprint_text: str,
     history: List[dict],
+    ai_name: str = "SoulPrint",
+    sections: Optional[dict] = None,
+    web_search_context: Optional[str] = None,
 ) -> str:
     """Query using RLM for recursive memory exploration"""
     try:
         from rlm import RLM
-        
+
         rlm = RLM(
             backend="anthropic",
             backend_kwargs={
@@ -206,31 +365,26 @@ async def query_with_rlm(
             },
             verbose=False,
         )
-        
-        # Build the context for RLM
-        context = f"""You are SoulPrint, a personal AI assistant with access to the user's conversation history.
 
-## User Profile (SoulPrint)
-{soulprint_text or "No profile available yet."}
+        system_prompt = build_rlm_system_prompt(
+            ai_name=ai_name,
+            sections=sections,
+            soulprint_text=soulprint_text,
+            conversation_context=conversation_context,
+            web_search_context=web_search_context,
+        )
 
-## Conversation History
-The following is the user's conversation history that you can explore and reference:
-
-{conversation_context}
+        # Build context for RLM with system prompt + conversation
+        context = f"""{system_prompt}
 
 ## Current Conversation
 {json.dumps(history[-5:] if history else [], indent=2)}
-
-## Task
-Respond to the user's message naturally, using relevant context from their history when appropriate.
-Don't explicitly mention "according to your history" unless it's natural.
-Be helpful, personalized, and conversational.
 
 User message: {message}"""
 
         result = rlm.completion(context)
         return result.response
-        
+
     except ImportError:
         # RLM not installed, use direct Anthropic
         raise Exception("RLM library not available")
@@ -241,25 +395,22 @@ async def query_fallback(
     conversation_context: str,
     soulprint_text: str,
     history: List[dict],
+    ai_name: str = "SoulPrint",
+    sections: Optional[dict] = None,
+    web_search_context: Optional[str] = None,
 ) -> str:
     """Fallback to direct Anthropic API if RLM fails"""
     import anthropic
-    
+
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    
-    system_prompt = f"""You are SoulPrint, a personal AI assistant with memory of the user's past conversations.
 
-## User Profile
-{soulprint_text or "No profile available yet."}
-
-## Recent Conversation History (for context)
-{conversation_context[:8000] if conversation_context else "No history available yet."}
-
-Guidelines:
-- Be warm, personalized, and helpful
-- Reference relevant memories naturally when appropriate
-- Don't overwhelm with information
-- If you don't have relevant context, just be helpful in the moment"""
+    system_prompt = build_rlm_system_prompt(
+        ai_name=ai_name,
+        sections=sections,
+        soulprint_text=soulprint_text,
+        conversation_context=conversation_context,
+        web_search_context=web_search_context,
+    )
 
     messages = []
     for h in (history or [])[-10:]:
@@ -272,7 +423,7 @@ Guidelines:
         system=system_prompt,
         messages=messages,
     )
-    
+
     return response.content[0].text
 
 
@@ -324,6 +475,9 @@ async def query(request: QueryRequest):
             conversation_context += f"\n---\n**{chunk.get('title', 'Untitled')}** ({chunk.get('created_at', 'unknown date')})\n"
             conversation_context += chunk.get('content', '')[:2000]  # Truncate long convos
         
+        # Resolve AI name
+        ai_name = request.ai_name or "SoulPrint"
+
         # Try RLM first
         try:
             response = await query_with_rlm(
@@ -331,19 +485,25 @@ async def query(request: QueryRequest):
                 conversation_context=conversation_context,
                 soulprint_text=request.soulprint_text or "",
                 history=request.history or [],
+                ai_name=ai_name,
+                sections=request.sections,
+                web_search_context=request.web_search_context,
             )
             method = "rlm"
         except Exception as rlm_error:
             # Log and alert on RLM failure
             print(f"[RLM] Falling back due to: {rlm_error}")
             await alert_failure(str(rlm_error), request.user_id, request.message)
-            
+
             # Fallback to direct API
             response = await query_fallback(
                 message=request.message,
                 conversation_context=conversation_context,
                 soulprint_text=request.soulprint_text or "",
                 history=request.history or [],
+                ai_name=ai_name,
+                sections=request.sections,
+                web_search_context=request.web_search_context,
             )
             method = "fallback"
         
