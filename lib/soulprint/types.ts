@@ -3,6 +3,130 @@
  * Shared types for the entire SoulPrint system
  */
 
+import { z } from 'zod';
+
+// ============================================
+// QUICK PASS TYPES (v1.2 structured sections)
+// ============================================
+
+export interface ConversationMessage {
+  role: string;
+  content: string;
+}
+
+export interface ParsedConversation {
+  id: string;
+  title: string;
+  messages: ConversationMessage[];
+  createdAt: string;
+}
+
+export interface SoulSection {
+  communication_style: string;
+  personality_traits: string[];
+  tone_preferences: string;
+  boundaries: string;
+  humor_style: string;
+  formality_level: string;
+  emotional_patterns: string;
+}
+
+export interface IdentitySection {
+  ai_name: string;
+  archetype: string;
+  vibe: string;
+  emoji_style: string;
+  signature_greeting: string;
+}
+
+export interface UserSection {
+  name: string;
+  location: string;
+  occupation: string;
+  relationships: string[];
+  interests: string[];
+  life_context: string;
+  preferred_address: string;
+}
+
+export interface AgentsSection {
+  response_style: string;
+  behavioral_rules: string[];
+  context_adaptation: string;
+  memory_directives: string;
+  do_not: string[];
+}
+
+export interface ToolsSection {
+  likely_usage: string[];
+  capabilities_emphasis: string[];
+  output_preferences: string;
+  depth_preference: string;
+}
+
+export interface QuickPassResult {
+  soul: SoulSection;
+  identity: IdentitySection;
+  user: UserSection;
+  agents: AgentsSection;
+  tools: ToolsSection;
+}
+
+// ============================================
+// QUICK PASS ZOD SCHEMA (permissive defaults)
+// ============================================
+
+const soulSectionSchema = z.object({
+  communication_style: z.string().default(''),
+  personality_traits: z.array(z.string()).default([]),
+  tone_preferences: z.string().default(''),
+  boundaries: z.string().default(''),
+  humor_style: z.string().default(''),
+  formality_level: z.string().default(''),
+  emotional_patterns: z.string().default(''),
+});
+
+const identitySectionSchema = z.object({
+  ai_name: z.string().default(''),
+  archetype: z.string().default(''),
+  vibe: z.string().default(''),
+  emoji_style: z.string().default(''),
+  signature_greeting: z.string().default(''),
+});
+
+const userSectionSchema = z.object({
+  name: z.string().default(''),
+  location: z.string().default(''),
+  occupation: z.string().default(''),
+  relationships: z.array(z.string()).default([]),
+  interests: z.array(z.string()).default([]),
+  life_context: z.string().default(''),
+  preferred_address: z.string().default(''),
+});
+
+const agentsSectionSchema = z.object({
+  response_style: z.string().default(''),
+  behavioral_rules: z.array(z.string()).default([]),
+  context_adaptation: z.string().default(''),
+  memory_directives: z.string().default(''),
+  do_not: z.array(z.string()).default([]),
+});
+
+const toolsSectionSchema = z.object({
+  likely_usage: z.array(z.string()).default([]),
+  capabilities_emphasis: z.array(z.string()).default([]),
+  output_preferences: z.string().default(''),
+  depth_preference: z.string().default(''),
+});
+
+export const quickPassResultSchema = z.object({
+  soul: z.preprocess((val) => val ?? {}, soulSectionSchema),
+  identity: z.preprocess((val) => val ?? {}, identitySectionSchema),
+  user: z.preprocess((val) => val ?? {}, userSectionSchema),
+  agents: z.preprocess((val) => val ?? {}, agentsSectionSchema),
+  tools: z.preprocess((val) => val ?? {}, toolsSectionSchema),
+});
+
 // ============================================
 // PILLAR TYPES
 // ============================================

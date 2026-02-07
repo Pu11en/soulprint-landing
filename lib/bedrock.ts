@@ -31,6 +31,7 @@ export function getBedrockClient(): BedrockRuntimeClient {
 export const CLAUDE_MODELS = {
   SONNET: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
   HAIKU: 'anthropic.claude-3-5-haiku-20241022-v1:0',
+  HAIKU_45: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
   OPUS: 'anthropic.claude-3-opus-20240229-v1:0',
 } as const;
 
