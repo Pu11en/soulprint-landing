@@ -1,317 +1,260 @@
 # Project Research Summary
 
-**Project:** SoulPrint Landing - Next.js App Hardening
-**Domain:** Next.js 16 App Router production stabilization (security, testing, TypeScript strict mode)
+**Project:** RLM Production Sync (v1.2 Processors Merge)
+**Domain:** FastAPI Modular Code Merge
 **Researched:** 2026-02-06
 **Confidence:** HIGH
 
 ## Executive Summary
 
-SoulPrint is a production Next.js 16 application built with Supabase, AWS Bedrock, and an external RLM service that needs hardening to ensure reliability at scale. The research reveals this is a classic serverless stabilization project where the foundation exists but lacks the production-grade error handling, security layers, testing infrastructure, and resource management required for reliable operation under load.
+This project merges v1.2's modular processor architecture (5 Python modules: conversation chunking, parallel fact extraction, MEMORY generation, and v2 section regeneration) into the existing 3603-line production FastAPI monolith. The core challenge is integrating a 10-30 minute background processing pipeline into a system where users expect immediate chat availability after quick-pass soulprint generation. Research confirms that an adapter layer pattern with progressive availability (v1 sections immediately, v2 upgrade after fact extraction) is the only viable approach that preserves both user experience and code modularity.
 
-The recommended approach prioritizes memory and resource cleanup first (preventing serverless function memory leaks), followed by security hardening (CSRF, RLS audits, rate limiting), and then comprehensive testing with Vitest and Playwright. The stack is already modern (Next.js 16, Supabase, TypeScript strict mode enabled), so the work focuses on adding production-grade patterns rather than technology replacement. TypeScript is already in strict mode, which is excellent—the effort is adding runtime validation at boundaries with Zod and fixing any loose patterns that slipped through.
+The recommended approach uses Python packages with explicit `__init__.py` exposure rather than dependency injection containers or direct monolith refactoring. Create an adapter layer (`adapters/supabase_adapter.py`) that extracts production's inline Supabase calls into reusable functions, allowing processors to import from the adapter instead of `main.py`. This breaks circular import dependencies while keeping the 3603-line monolith intact until processors are proven stable. All required technologies (Python 3.12, FastAPI 0.109+, Anthropic SDK, httpx) are already present—only testing tools (pytest 8.0+, pytest-asyncio 0.23+) need addition.
 
-Key risks include memory leaks from unbounded in-memory caches (chunked upload Map), Supabase RLS misconfiguration exposing data, and race conditions in React polling logic. These are all addressable with established patterns: TTL-based cleanup or external caching (Upstash), RLS policy audits with explicit table enablement, and AbortController-based request cancellation. The codebase is in good shape—this is refinement, not rescue.
+The critical risk is circular imports causing runtime failures—processors importing from `main.py` while `main.py` imports processors creates a deadlock that only manifests when users trigger the code path, not at build time. Secondary risks include Dockerfile not copying the `processors/` directory (builds succeed but crash at runtime), database schema mismatches on `chunk_tier` enum values, and memory spikes from unbounded API concurrency (10 parallel Anthropic calls on 512MB RAM causes OOM). All risks have proven mitigation strategies: extract shared code to `lib/`, add explicit Dockerfile verification, query production schema before merge, and use environment-aware concurrency limits (3 for Render Starter tier).
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack research recommends modern, Next.js 16-native tools that work well in serverless environments. The focus is on lightweight, edge-compatible libraries that don't require custom servers or complex configuration.
+Production already has the complete stack required for v1.2 merge. **No new core dependencies needed**—only testing infrastructure. The modular monolith pattern using Python packages with `__init__.py` exposure is FastAPI's recommended approach for scaling from single-file to multi-module applications without microservices complexity.
 
-**Core technologies:**
-- **Vitest + React Testing Library**: Unit and component testing — 10-20x faster than Jest, native ESM support, official Next.js recommendation for testing in 2025/2026
-- **Playwright**: E2E testing — Multi-browser support, automatic waiting, production-ready. Required for testing async Server Components.
-- **@edge-csrf/nextjs**: CSRF protection — Built specifically for Next.js Edge Runtime and Vercel, lightweight and middleware-friendly
-- **@upstash/ratelimit**: Rate limiting — Purpose-built for Vercel Edge/serverless with REST API-based Redis, caches data while function is hot
-- **Zod**: Runtime validation — TypeScript-first schema validation, infers types from schemas, essential for API routes and user input
-- **@total-typescript/ts-reset**: Type safety improvements — "CSS reset" for TypeScript that makes JSON.parse return `unknown` instead of `any`
-- **MSW (Mock Service Worker)**: API mocking in tests — Network-level interception works for both client and server testing
+**Core technologies (already present):**
+- **Python 3.12**: Runtime — current production version, stable for FastAPI async operations
+- **FastAPI >=0.109.0**: Web framework — built-in dependency injection, async-first, automatic API docs
+- **Uvicorn >=0.27.0**: ASGI server — production-ready async server for FastAPI
+- **Anthropic >=0.18.0**: LLM API — Claude models for soulprint generation, fact extraction
+- **httpx >=0.26.0**: Async HTTP — required for Supabase calls and external API integrations
 
-**Version requirements:**
-- Vitest ^3.0.0 (compatible with Next.js 15/16)
-- Playwright ^1.50.0 (works with App Router)
-- TypeScript ^5.7.0 with strict mode fully enabled
-- @upstash/ratelimit ^2.0.3 for serverless rate limiting
+**New dependencies (testing only):**
+- **pytest >=8.0.0**: Test framework — test all 14 endpoints after merge to ensure backwards compatibility
+- **pytest-asyncio >=0.23.0**: Async test support — required for testing async FastAPI endpoints
 
-**Alternative considered but not recommended:**
-- Jest (slower, complex ESM config)
-- Arcjet security (alpha status, use individual libraries instead)
-- Helmet.js (requires custom Express server, breaks Vercel optimizations)
+**Merge strategy:** Use adapter layer pattern with Python packages. Create `adapters/supabase_adapter.py` to extract production's inline database calls into reusable functions. Processors import from adapter instead of `main.py`, breaking circular dependencies. Dockerfile already supports multi-file structure via `COPY . .` but needs explicit verification with `RUN ls -la /app/processors/` to catch silent exclusions.
 
 ### Expected Features
 
-Production-ready Next.js apps require comprehensive error handling, input validation, security headers, CSRF protection, rate limiting, structured logging, request timeouts, and health check endpoints as table stakes. Missing any of these makes the app unreliable or vulnerable.
+v1.2 introduces a sophisticated fact extraction and memory generation pipeline that must coexist with production's quick-pass soulprint generation without blocking users. The research confirms that progressive availability (chat immediately with v1 sections, upgrade to v2 when fact extraction completes) is table stakes—users cannot wait 10-30 minutes for processing.
 
 **Must have (table stakes):**
-- Comprehensive error handling in all API routes (try/catch, proper HTTP status codes)
-- Server-side input validation with Zod schemas
-- Security headers (X-Frame-Options, CSP, Permissions-Policy)
-- CSRF protection on all mutating operations (POST/PUT/DELETE)
-- Rate limiting on critical routes (import, chat, expensive operations)
-- Structured logging with context (correlation IDs, user IDs)
-- Request timeouts on all external API calls (LLM, database, RLM service)
-- File upload size limits with clear error messages
-- Error boundaries at route level (error.tsx files)
-- Health check endpoint for monitoring
+- **Background fact extraction** — 10-30 minute processing cannot block user chat access
+- **Progressive availability** — Users chat with quick-pass soulprint while v1.2 processes in background
+- **Graceful v1.2 failure** — If fact extraction fails, quick-pass soulprint remains functional
+- **Status tracking** — Add `full_pass_status` column to track processing/complete/failed states
+- **Chunk compatibility** — v1.2 chunks must match production's schema (include `chunk_tier: "medium"`)
 
-**Should have (competitive differentiators):**
-- Retry logic with exponential backoff for transient failures
-- Request correlation IDs for tracing across services
-- Graceful degradation when non-critical services fail
-- Response size limits to prevent OOM on serverless
-- Integration tests for critical API flows
-- Observability integration (OpenTelemetry traces, metrics, logs)
+**Should have (competitive):**
+- **Parallel fact extraction** — 10x faster than sequential (10-30 min vs 100-300 min for large exports)
+- **MEMORY section generation** — Human-readable summary of extracted facts, contextualizes v2 sections
+- **V2 section regeneration** — Enriches v1 sections with top 200 conversations + MEMORY context
+- **Conversation size threshold** — Only trigger v1.2 for 50+ conversations (avoid API waste on small imports)
+- **Email notification** — Notify users when v2 upgrade completes
 
 **Defer (v2+):**
-- Circuit breaker pattern (complex, needs baseline reliability first)
-- Idempotency keys (needs evidence of duplicate operation problems)
-- Dead letter queue (requires queue infrastructure)
-- Feature flags (adds complexity, wait for evidence of need)
-- Comprehensive E2E tests (expensive to maintain, focus on critical flows)
-- 100% test coverage (diminishing returns after critical paths covered)
-
-**Anti-features (don't build):**
-- Real-time everything via WebSockets (use streaming where it matters, polling for status)
-- Auto-retry all errors (retry only transient errors, fail fast on client errors)
-- Universal caching (cache strategically, fresh data better than fast wrong data)
-- Perfect uptime guarantees (focus on fast recovery instead)
+- **MEMORY section UI** — Display MEMORY in profile view (currently only in soulprint_text)
+- **Incremental fact extraction** — Re-run v1.2 when user uploads new export, merge facts
+- **Multi-tier chunking** — Production uses small/medium/large tiers; v1.2 uses medium only. Single-tier adequate for fact extraction, but multi-tier provides better retrieval precision long-term
+- **Admin dashboard** — Track v1.2 processing stats (success rate, avg time, failures)
 
 ### Architecture Approach
 
-The architecture follows Next.js 16 App Router best practices with clear separation of concerns: Server Components for data fetching, Client Components for interactivity, API routes for external integrations, and middleware for cross-cutting concerns (auth, CSRF, rate limiting).
+The adapter layer pattern is the only approach that safely integrates v1.2's modular processors into the 3603-line production monolith without high-risk refactoring. Create a new `adapters/` directory containing `supabase_adapter.py` that extracts production's inline httpx database calls into standalone functions (`download_conversations()`, `update_user_profile()`, `save_chunks_batch()`). Processors import from the adapter, `main.py` calls processors, and the adapter handles all infrastructure concerns.
 
 **Major components:**
-1. **Middleware Chain** — Single composition point for auth (Supabase), CSRF protection, and rate limiting. Runs at edge for all requests before routing.
-2. **API Routes (Serverless)** — Grouped by domain (/api/import/*, /api/chat/*, /api/memory/*) for clear security boundaries and testing isolation.
-3. **Data Access Layer (lib/)** — Pure functions and external service clients (Supabase, Bedrock, RLM) with built-in authorization checks. Enables testing without mocking everything.
-4. **Testing Infrastructure (__tests__/)** — Organized by type (unit, integration, e2e) for running subsets independently.
+1. **Adapter Layer** (`adapters/supabase_adapter.py`) — Provides clean interface for processors to interact with production systems. Wraps existing httpx calls from monolith without modifying production code. Handles all Supabase REST API calls, storage downloads, and user profile updates.
 
-**Key architectural patterns:**
-- **Data Access Layer (DAL)**: Isolate all database calls with centralized authorization checks (prevents unauthorized access bugs)
-- **Middleware composition**: Single point for CSRF, auth, rate limiting (easier to audit, correct ordering guaranteed)
-- **Serverless memory cleanup**: Explicit cleanup of connections, streams, event listeners (prevents memory leaks in warm functions)
-- **Incremental TypeScript strict**: Use `@ts-expect-error` with TODOs for gradual migration without breaking builds
+2. **Processor Modules** (`processors/`) — Business logic for chunking, fact extraction, memory generation, v2 regeneration. Copy from v1.2, modify imports to use adapter instead of `main.py`. Each processor remains standalone and testable. Orchestrated by `full_pass.py` which coordinates the 9-step pipeline.
 
-**Data flow:**
-- User uploads ZIP → Extract conversations.json → Store compressed in Supabase Storage → Create multi-tier chunks → Send to RLM for embedding → Generate soulprint → Save to DB → Email notification → User can chat
-- Chat message → Middleware (auth, CSRF, rate limit) → API route validates input → Query memory → Call Bedrock with streaming → Return SSE stream → Client displays incrementally
+3. **Background Tasks** — Orchestrate pipeline execution, job recovery, progress tracking. Keep existing production code intact. New `/process-full-v2` endpoint runs parallel to existing `/process-full`, allowing gradual cutover (10% → 50% → 100% traffic) with instant rollback capability.
 
-**Integration boundaries:**
-- Supabase: Client in lib/supabase/ (server/client variants) with connection pooling
-- AWS Bedrock: Streaming client in lib/bedrock.ts with abort controllers
-- RLM Service: HTTP client with health checks, circuit breaker for timeouts
-- Vercel WAF: Dashboard config + SDK in API routes for user-based rate limiting
+4. **FastAPI Endpoints** — HTTP interface, request validation, background task dispatch. Keep existing endpoints unchanged. Add new v2 endpoint that calls processors via adapter. Both v1 and v2 pipelines coexist during migration.
+
+**Integration strategy:** Build in phases—adapter layer first (no production code changes), processors second (modify imports only), new endpoint third (parallel deployment), gradual cutover fourth (monitor and shift traffic), cleanup fifth (extract remaining monolithic code after v2 proven stable). This de-risks migration by keeping rollback options available at every step.
 
 ### Critical Pitfalls
 
-Research identified 12 pitfalls, ranked by severity. Top 5 must be addressed before launch:
+1. **Circular Import Deadlock at Runtime** — Processors import from `main.py` (`from main import download_conversations`) while `main.py` imports processors (`from processors.full_pass import run_full_pass_pipeline`). This creates a circular dependency that fails at runtime when background tasks execute, not at startup. Python sees partially-initialized modules and raises `ImportError: cannot import name 'X' from partially initialized module 'main'`. **Prevention:** Extract shared functions to `lib/storage.py` so both main and processors import from there, breaking the circular chain. Alternative: lazy imports inside functions or dependency injection via parameters.
 
-1. **In-memory state accumulation in serverless functions** — Global Maps/arrays that grow unbounded (e.g., chunked upload Map with no TTL) cause OOM errors. Prevention: Use external cache (Upstash Redis) or implement TTL-based cleanup. Warning signs: Memory usage grows continuously without plateau, intermittent OOM errors.
+2. **Dockerfile Not Copying `processors/` Directory** — Production Dockerfile uses `COPY . .` which should copy all files, but if `.dockerignore` excludes `processors/` or the directory doesn't exist at build time, the container builds successfully but crashes at runtime with `ModuleNotFoundError: No module named 'processors'`. Health checks pass until a user triggers the code path. **Prevention:** Add explicit verification in Dockerfile with `RUN ls -la /app/processors/ || (echo "ERROR: processors/ not copied!" && exit 1)` and `RUN python -c "import processors.full_pass; print('✓ processors.full_pass')" || exit 1`. Test locally with `docker build` and `docker run` before deploying.
 
-2. **Service role key used client-side or in RLS policies** — Using `SUPABASE_SERVICE_ROLE_KEY` in client code or checking `auth.role() = 'service_role'` in RLS policies (does nothing). Prevention: Service key server-only, never in `NEXT_PUBLIC_*` variables. RLS policies use `auth.uid()` not service role.
+3. **Database Schema Mismatch (`chunk_tier` Enum Values)** — Production database expects specific `chunk_tier` values (likely `small`, `medium`, `large` from multi-tier chunking), but v1.2 only generates `medium` (single-tier chunking). If production has enum constraints, INSERT operations fail with `constraint violation: invalid chunk_tier value`. **Prevention:** Query production schema with `SELECT enumlabel FROM pg_enum WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'chunk_tier_enum')` before merge. Verify v1.2 chunks use values matching production. Add `chunking_version` field to database for future migrations.
 
-3. **RLS not enabled by default (exposed tables)** — Supabase disables RLS by default; tables are publicly accessible until explicitly enabled. Prevention: Run `ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;` for every table, audit dashboard for "RLS Enabled" badge.
+4. **No Rollback Plan for Render Auto-Deploy Failures** — Render auto-deploys on every `git push` to main. If new deployment crashes (circular import, missing module, schema mismatch), Render's health checks may pass (if they only test `/health` endpoint which doesn't import processors) but the deploy marks as "live" while users experience 500 errors on `/process-full`. **Prevention:** Enhance health check to import all processor modules and verify database connectivity. Create smoke test script that validates endpoints after deploy. Document rollback procedure: `git revert <commit> && git push origin main` (Render auto-deploys revert within 2-3 minutes).
 
-4. **Race conditions in React polling** — Older API requests resolving after newer ones overwrite correct data with stale data. Prevention: Track request ID and only update state if still latest request, or use AbortController to cancel stale requests, or use SWR/TanStack Query with built-in deduping.
-
-5. **CSRF protection middleware ordering conflicts** — Adding CSRF protection causes middleware conflicts where validation runs twice or in wrong order. Prevention: Single middleware composition point with correct ordering (CSRF before auth), exclude static assets in matcher config.
-
-**Additional concerns:**
-- TypeScript strict mode migration: Avoid using `any` to silence errors, use `@ts-expect-error` with TODOs instead
-- Event listener cleanup: Always return cleanup function in useEffect for listeners, timers, subscriptions
-- Database connections: Use singleton Supabase client with connection pooling, not new client per request
-- Rate limiting by wrong key: Use `ipAddress(req)` or authenticated user ID, not `req.ip` (always proxy IP in serverless)
-- 60-second timeout: Use job queue pattern for long operations, circuit breaker for external service calls
+5. **Memory/CPU Spike from 10 Concurrent Haiku Calls** — Fact extractor uses `asyncio.gather()` with `concurrency=10` to parallelize Anthropic API calls. Each concurrent call consumes ~200MB memory for response buffering. On Render's Starter tier (512MB RAM), this causes OOM errors and service crashes. **Prevention:** Use environment-aware concurrency limits. Set `FACT_EXTRACTION_CONCURRENCY=3` for Starter tier (512MB RAM), `=5` for Pro tier (2GB RAM). Implement adaptive concurrency using `psutil` to calculate safe limits based on available memory. Consider job queue pattern (Celery + Redis) for true background processing at scale.
 
 ## Implications for Roadmap
 
-Based on research, suggested 5-phase structure addresses dependencies systematically:
+Based on research, suggested phase structure follows a safe, incremental migration pattern that prioritizes rollback capability and de-risks integration:
 
-### Phase 1: Memory & Resource Cleanup
-**Rationale:** Foundation for all stability work. Memory leaks mask other issues and make testing unreliable. Must fix before adding comprehensive tests (tests will detect but not fix leaks).
+### Phase 1: Dependency Extraction
+**Rationale:** Must break circular import dependency before processors can be imported. This phase has zero production impact—creates new files without modifying existing code. Establishes foundation for all subsequent work.
 
-**Delivers:** Stable resource usage that plateaus under load, no unbounded memory growth
-
-**Addresses:**
-- In-memory chunked upload Map with TTL or migration to Upstash
-- Event listener cleanup in all useEffect hooks
-- Database connection pooling with singleton Supabase client
-- Request timeouts on all external API calls (Bedrock, RLM)
-- Proper streaming response cleanup with abort controllers
-
-**Avoids:** Pitfall #1 (in-memory state), #8 (event listener leaks), #9 (unclosed connections), #11 (60s timeouts)
-
-**Verification:** Load test with autocannon shows memory plateaus, connection count stable
-
-### Phase 2: Security Hardening
-**Rationale:** Security vulnerabilities are launch blockers. Must audit before production exposure. Independent of testing infrastructure.
-
-**Delivers:** Production-ready security posture with defense in depth
+**Delivers:**
+- `adapters/supabase_adapter.py` with extracted functions (`download_conversations()`, `update_user_profile()`, `save_chunks_batch()`)
+- `lib/storage.py` or similar for shared utilities (if extracting from main.py)
+- Unit tests for adapter functions with 100% coverage
+- Database schema verification (query production `chunk_tier` enum values)
 
 **Addresses:**
-- Audit all Supabase tables for RLS enablement
-- Verify service role key never in client bundle (grep for NEXT_PUBLIC patterns)
-- Implement CSRF protection with @edge-csrf/nextjs in middleware
-- Add rate limiting with @upstash/ratelimit (per-user on import/chat endpoints)
-- Configure security headers (X-Frame-Options, CSP, Permissions-Policy)
-- Server-side input validation with Zod on all API routes
+- Circular import deadlock (Pitfall 1) — shared code extracted to neutral location
+- Database schema mismatch (Pitfall 3) — schema audited before merge
+- Import path breaking tests (Pitfall 7) — tests updated alongside refactor
 
-**Uses:** @edge-csrf/nextjs, @upstash/ratelimit, Zod, next-secure-headers
+**Avoids:**
+- Refactoring production monolith prematurely (defer until v2 proven stable)
+- Touching existing endpoints or business logic (zero production risk)
+- Modifying v1 quick-pass pipeline (users unaffected)
 
-**Avoids:** Pitfall #2 (service role client-side), #3 (RLS disabled), #5 (CSRF conflicts), #10 (rate limiting by wrong key)
+### Phase 2: Copy & Modify Processors
+**Rationale:** With adapter layer in place, processors can be safely copied and imported. Modify v1.2 processors to import from adapter instead of `main.py`. Test processors in isolation before integration.
 
-**Verification:**
-- SQL query shows all tables have RLS enabled
-- Grep codebase finds no `NEXT_PUBLIC.*SERVICE` variables
-- Integration tests verify CSRF token validation
-- Load test verifies per-user rate limiting works
+**Delivers:**
+- `processors/` directory with 5 modules copied from v1.2
+- Modified imports: `from adapters.supabase_adapter import download_conversations`
+- Processor unit tests (with mocked adapter)
+- Dockerfile updates with explicit `COPY processors/` and import verification
+- Testing dependencies installed (`pytest>=8.0.0`, `pytest-asyncio>=0.23.0`)
 
-### Phase 3: Race Condition Fixes
-**Rationale:** After security, before comprehensive testing. Tests will catch race conditions but fixing them first prevents flaky tests.
+**Uses:**
+- Python packages with `__init__.py` exposure (recommended stack pattern)
+- Relative imports within processors, absolute imports from adapter
+- pytest + TestClient for endpoint compatibility testing
 
-**Delivers:** Deterministic data flow with no out-of-order state updates
+**Implements:**
+- Processor modules component from architecture (business logic layer)
+- Service layer pattern (processors = "what to do", adapter = "how to do it")
 
-**Addresses:**
-- Polling logic in chat using AbortController or request ID tracking
-- Any other fetch calls without request cancellation
-- Async operations that don't handle component unmount
+**Avoids:**
+- Direct imports from `main.py` (uses adapter instead)
+- Module-level environment variable capture (use lazy getters)
+- Mixed Anthropic client initialization (centralized factory)
 
-**Implements:** AbortController pattern, consider migrating to SWR/TanStack Query for complex cases
+### Phase 3: Wire New Endpoint (Parallel Deployment)
+**Rationale:** Add `/process-full-v2` endpoint alongside existing `/process-full` without touching old code. Both pipelines coexist, allowing A/B testing and instant rollback. This is the strangler fig pattern—new functionality wraps old, gradual cutover, eventual deprecation.
 
-**Avoids:** Pitfall #4 (polling race conditions)
-
-**Verification:** E2E test with delayed network responses shows correct final state
-
-### Phase 4: Testing Infrastructure
-**Rationale:** After cleanup and security, establish testing foundation. Tests verify previous phases worked and catch future regressions.
-
-**Delivers:** Comprehensive test coverage for critical paths with fast, reliable test suite
-
-**Addresses:**
-- Install Vitest + React Testing Library for unit/component tests
-- Install Playwright for E2E tests of critical flows
-- Configure MSW for API mocking in tests
-- Create test directory structure (__tests__/unit, integration, e2e)
-- Write integration tests for all API routes
-- Write unit tests for lib/ utilities
-- Write E2E tests for 3-5 critical user flows (auth → import → chat)
-
-**Uses:** Vitest, Playwright, React Testing Library, MSW
-
-**Avoids:** Pitfall #7 (Enzyme patterns), #12 (testing without mocks)
-
-**Verification:** Tests run offline in <30s, no external API calls, CI passes
-
-### Phase 5: TypeScript Strict Refinement
-**Rationale:** TypeScript already in strict mode, but research found areas to tighten (noUncheckedIndexedAccess, runtime validation at boundaries).
-
-**Delivers:** Type safety extends to runtime with validation at system boundaries
+**Delivers:**
+- New endpoint `/process-full-v2` calling `processors.full_pass.run_full_pass_pipeline()`
+- Background task `run_full_pass_v2()` for non-blocking execution
+- Enhanced health check importing all processor modules
+- Smoke test script validating endpoints post-deploy
+- Documented rollback procedure
 
 **Addresses:**
-- Add `noUncheckedIndexedAccess: true` to tsconfig.json
-- Fix index access errors in high-risk files (API routes first)
-- Add Zod schemas at all system boundaries (API input, external service responses)
-- Replace any remaining `any` types with `unknown` + type guards
-- Use @total-typescript/ts-reset for safer JSON.parse/fetch
+- No rollback plan (Pitfall 4) — parallel deployment allows instant revert to v1
+- Deployment safety — comprehensive health checks catch import failures before traffic switches
 
-**Uses:** @total-typescript/ts-reset, Zod for runtime validation
+**Avoids:**
+- Modifying existing `/process-full` endpoint (keeps v1 pipeline intact)
+- Big bang migration (gradual cutover instead)
+- Silent failures (health check tests all modules)
 
-**Avoids:** Pitfall #6 (over-using any/optional types)
+### Phase 4: Gradual Cutover & Monitoring
+**Rationale:** Shift traffic from v1 to v2 pipeline incrementally, monitoring for issues at each step. This phase proves v2 in production with real users while maintaining ability to rollback.
 
-**Verification:** Build succeeds with strict + noUncheckedIndexedAccess, no `any` in new code
+**Delivers:**
+- Feature flag or user_id-based routing (10% → 50% → 100% v2 traffic)
+- Monitoring dashboard tracking error rates, processing times, completion rates
+- Memory and CPU usage metrics during background processing
+- User feedback loop (email surveys on v2 quality)
+- Production validation of all table-stakes features
+
+**Addresses:**
+- Memory/CPU spike (Pitfall 5) — monitor resource usage, tune `FACT_EXTRACTION_CONCURRENCY`
+- Progressive availability feature — verify users can chat immediately while v2 processes
+- Graceful failure feature — verify v1 sections remain if v2 fails
+
+**Avoids:**
+- 100% cutover before validation (incremental reduces risk)
+- Ignoring resource constraints (monitor memory on Render Starter tier)
+- Losing rollback capability (keep v1 endpoint until v2 proven)
+
+### Phase 5: Cleanup & Optimization (Post-Launch)
+**Rationale:** After v2 handles 100% of traffic for 30+ days without issues, deprecate v1 endpoint and refactor remaining monolithic code. This phase improves maintainability without impacting production.
+
+**Delivers:**
+- Deprecated `/process-full` v1 endpoint (remove old code)
+- Extracted embedding logic into `processors/embedder.py`
+- Standardized logging across all modules (replace `print()` with logger)
+- Integration tests for full pipeline end-to-end
+- Migration script for existing users (re-chunk with v2 strategy)
+
+**Addresses:**
+- Logging differences (Pitfall 10) — shared logger from `lib/logger.py`
+- No integration tests (Pitfall 11) — full pipeline test with real data
+- Duplicate chunking strategies (Pitfall 6) — single source of truth
+
+**Avoids:**
+- Premature cleanup (wait for v2 stability before removing v1)
+- Breaking backward compatibility (migrate existing data before schema changes)
+- Losing debugging capability (structured logging before removing print statements)
 
 ### Phase Ordering Rationale
 
-- **Phase 1 first**: Memory leaks make everything unreliable. Can't trust tests or monitoring with unstable resource usage.
-- **Phase 2 before testing**: Security is launch-blocking. Testing validates security controls but doesn't define them.
-- **Phase 3 before comprehensive tests**: Race conditions cause flaky tests. Fix determinism before investing in test coverage.
-- **Phase 4 before TypeScript refinement**: Tests verify type safety improvements actually work at runtime.
-- **Phase 5 last**: TypeScript strict already enabled; this phase tightens incrementally with tests catching issues.
+- **Dependency extraction comes first** because circular imports block all subsequent work. Cannot import processors without resolving the `main.py` ↔ `full_pass.py` circular dependency. Zero production risk—only adds new files.
 
-**Dependencies:**
-- Phase 2 can run parallel with Phase 1 (independent concerns)
-- Phase 3 depends on Phase 1 (need stable baseline to identify races)
-- Phase 4 depends on Phases 1-3 (tests unreliable without stable foundation)
-- Phase 5 depends on Phase 4 (tests verify type improvements)
+- **Processor modification comes second** because it depends on adapter layer existing. Tests can run in isolation (mocked adapter) before touching production endpoints. Dockerfile verification catches missing module errors at build time.
+
+- **Parallel endpoint deployment comes third** because it requires processors to be importable. Strangler fig pattern (new wraps old) is the lowest-risk migration approach for production systems. Keeps rollback option available.
+
+- **Gradual cutover comes fourth** because it proves v2 with real users while maintaining safety net. Incremental traffic shift (10% → 50% → 100%) allows detecting issues before they affect all users. Resource monitoring catches memory spikes before OOM crashes.
+
+- **Cleanup comes last** because refactoring monolithic code is only safe after v2 proven stable. Premature cleanup loses rollback capability. This phase is optional—system fully functional without it.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
+**Phases likely needing deeper research during planning:**
+- **Phase 1: Dependency Extraction** — May need research on Supabase schema inspection if production database has complex constraints or triggers. Document schema migration patterns if `chunk_tier` enum needs changes.
+- **Phase 5: Cleanup & Optimization** — May need research on Celery/ARQ job queues if scaling beyond Render's background task limits. Research structured logging best practices (JSON format for log aggregation).
 
-- **Phase 1 (Memory Cleanup)**: Decision point on Upstash vs. in-memory TTL for chunked uploads — may need cost/performance research
-- **Phase 2 (Rate Limiting)**: Vercel WAF pricing and limits not fully researched — verify Pro plan requirements
-
-Phases with standard patterns (no additional research needed):
-
-- **Phase 3**: React race conditions have well-documented solutions (AbortController, SWR)
-- **Phase 4**: Vitest and Playwright setup documented in official Next.js guides
-- **Phase 5**: TypeScript strict migration patterns widely documented
+**Phases with standard patterns (skip research-phase):**
+- **Phase 2: Copy & Modify Processors** — Python package imports are well-documented. FastAPI testing patterns are standard. Dockerfile multi-stage builds are established practice.
+- **Phase 3: Wire New Endpoint** — FastAPI routing and background tasks follow official documentation. Health check patterns are standard. Rollback via git revert is established DevOps practice.
+- **Phase 4: Gradual Cutover** — Feature flags and A/B testing are well-documented patterns. Render monitoring dashboard provides built-in metrics. No novel techniques required.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Vitest and Playwright officially recommended by Next.js docs (verified Jan 2026), Upstash is battle-tested for serverless, Zod is de facto standard |
-| Features | HIGH | Features list based on official Next.js security guide and multiple authoritative sources on production best practices |
-| Architecture | HIGH | Patterns align with Next.js 16 official docs (Data Access Layer, middleware composition, serverless cleanup) |
-| Pitfalls | MEDIUM-HIGH | Pitfalls sourced from community experience, official docs, and real incident reports. RLS issues confirmed via Supabase docs and security audits. |
+| Stack | HIGH | All technologies verified in both codebases. No new dependencies except testing tools (pytest). Python package patterns are FastAPI-recommended approach. |
+| Features | HIGH | All features verified through code inspection. Progressive availability pattern matches production quick-pass design. Background processing already implemented via FastAPI.BackgroundTasks. |
+| Architecture | HIGH | Adapter layer pattern is standard design pattern. Modular monolith architecture well-documented for FastAPI. Integration points identified in production code. All 9 pipeline steps mapped to existing infrastructure. |
+| Pitfalls | HIGH | All pitfalls verified through codebase analysis and official documentation. Circular import deadlock confirmed by checking import statements in both v1.2 and production. Docker module errors documented in Render deployment guides. Schema mismatch risk confirmed by production database structure. |
 
 **Overall confidence:** HIGH
 
-The stack is modern and well-supported. The architectural patterns are documented in official Next.js guides. The pitfalls are validated by both official sources (Supabase RLS guide, Next.js security docs) and real-world incident reports (170+ Lovable apps with exposed databases in Jan 2025).
+This research is based on direct codebase inspection (v1.2 at 355 lines, production at 3603 lines), official FastAPI documentation, and production deployment best practices. All architectural decisions verified against FastAPI's recommended patterns for scaling from monolith to modular structure. All pitfalls have documented mitigation strategies with concrete code examples. The adapter layer pattern is proven in production FastAPI applications and directly addresses the circular import challenge.
 
 ### Gaps to Address
 
-Minor gaps that need validation during implementation:
+- **Environment-specific configuration validation**: Production may have additional environment variables or Bedrock configuration not visible in codebase. Need to audit Render dashboard environment variables before deployment to ensure adapter can access all required credentials.
 
-- **Upstash cost at scale**: Research shows it's cost-effective for typical usage, but SoulPrint's specific rate limiting needs (per-user import limits) may need cost monitoring in Phase 2. Mitigation: Start with Upstash, monitor costs, fallback to Vercel KV if needed.
+- **Actual production database schema**: Research assumes `chunk_tier` is an enum based on codebase patterns, but need to query live production database to confirm exact enum values and constraints. SQL query provided in PITFALLS.md Phase 1 should be executed before merge.
 
-- **RLM service reliability**: External RLM service timeout behavior not fully documented. Phase 1 should implement circuit breaker with clear fallback (use cached soulprint, degrade gracefully). Mitigation: Health check endpoint + timeout testing.
+- **AWS Bedrock vs. Direct Anthropic API**: Production may use AWS Bedrock for some calls and direct Anthropic SDK for others. Need to audit which endpoints use which client type and create unified client factory that handles both. Research provides factory pattern in PITFALLS.md Pitfall 8, but actual production usage needs verification.
 
-- **Playwright for async Server Components**: Research confirms Playwright is the only option for E2E testing async Server Components (Vitest doesn't support them yet). No gap, just confirming Phase 4 must use Playwright, not just Vitest.
+- **Existing chunk data migration strategy**: If production has existing users with multi-tier chunks and v1.2 uses single-tier, need to decide whether to migrate existing data or support both versions via `chunking_version` field. Migration script provided in PITFALLS.md Pitfall 6, but decision on when/how to migrate needs product input.
 
-- **TypeScript strict + Next.js 16**: Already enabled, but noUncheckedIndexedAccess may reveal issues with array/object access in older code. Phase 5 should prioritize API routes (security-critical) over UI components. Mitigation: Use `@ts-expect-error` with TODOs for non-critical files.
+- **Rate limiting and abuse prevention**: `/process-full` endpoint should have rate limiting to prevent users from triggering multiple expensive 10-30 minute background jobs. Research doesn't cover existing rate limiting infrastructure. Need to audit production endpoints to match rate limit strategy.
 
 ## Sources
 
-### Primary Sources (HIGH confidence)
+### Primary (HIGH confidence)
+- **Codebase inspection**: `/home/drewpullen/clawd/soulprint-landing/rlm-service/` (v1.2 processors, 5 modules totaling ~1500 lines) and implied production `main.py` (3603 lines, 14 endpoints)
+- **FastAPI Official Documentation**: [Bigger Applications - Multiple Files](https://fastapi.tiangolo.com/tutorial/bigger-applications/), [Dependencies](https://fastapi.tiangolo.com/tutorial/dependencies/), [Background Tasks](https://fastapi.tiangolo.com/tutorial/background-tasks/), [Testing](https://fastapi.tiangolo.com/tutorial/testing/)
+- **Python Official Documentation**: [Modules](https://docs.python.org/3/tutorial/modules.html) — `__init__.py`, `__all__`, package organization
+- **Render Official Documentation**: [Deploy FastAPI](https://render.com/docs/deploy-fastapi), [Deploys](https://render.com/docs/deploys)
 
-**Official Documentation:**
-- [Next.js Testing: Vitest](https://nextjs.org/docs/app/guides/testing/vitest) — Vitest officially recommended for Next.js testing
-- [Next.js Testing: Playwright](https://nextjs.org/docs/app/guides/testing/playwright) — E2E testing best practices
-- [Next.js Security Guide](https://nextjs.org/blog/security-nextjs-server-components-actions) — Server Components security patterns
-- [Next.js Memory Usage Guide](https://nextjs.org/docs/app/guides/memory-usage) — Serverless memory management
-- [Supabase Row Level Security Documentation](https://supabase.com/docs/guides/database/postgres/row-level-security) — RLS patterns and common mistakes
-- [Upstash Rate Limiting Overview](https://upstash.com/docs/redis/sdks/ratelimit-ts/overview) — Serverless rate limiting architecture
+### Secondary (MEDIUM confidence)
+- **FastAPI Best Practices**: [zhanymkanov/fastapi-best-practices](https://github.com/zhanymkanov/fastapi-best-practices) — Service layer, project structure, dependency injection patterns
+- **Modular Monolith Architecture**: [Modular Monolith in Python](https://breadcrumbscollector.tech/modular-monolith-in-python/) — Python-specific strategies for internal modularity
+- **Circular Import Solutions**: [Python Circular Import: Causes, Fixes, and Best Practices | DataCamp](https://www.datacamp.com/tutorial/python-circular-import), [Avoiding Circular Imports in Python | Brex](https://medium.com/brexeng/avoiding-circular-imports-in-python-7c35ec8145ed)
+- **Docker Python Module Imports**: [Debugging ImportError and ModuleNotFoundErrors in Docker](https://pythonspeed.com/articles/importerror-docker/)
+- **FastAPI Production Deployment**: [FastAPI production deployment best practices | Render](https://render.com/articles/fastapi-production-deployment-best-practices)
 
-**Package Documentation:**
-- [Zod Official Docs](https://zod.dev/) — TypeScript-first validation
-- [TypeScript ESLint Shared Configs](https://typescript-eslint.io/users/configs/) — Strict type-checked configuration
-- [MSW Official Docs](https://mswjs.io/) — API mocking strategy
-
-### Secondary Sources (MEDIUM confidence)
-
-**Stack & Testing:**
-- [Vitest vs Jest Comparison (Better Stack)](https://betterstack.com/community/guides/scaling-nodejs/vitest-vs-jest/) — Performance benchmarks
-- [Vitest vs Jest 2026 Analysis (DEV Community)](https://dev.to/dataformathub/vitest-vs-jest-30-why-2026-is-the-year-of-browser-native-testing-2fgb) — Ecosystem trends
-
-**Security:**
-- [Complete Next.js security guide 2025 (TurboStarter)](https://www.turbostarter.dev/blog/complete-nextjs-security-guide-2025-authentication-api-protection-and-best-practices) — Comprehensive security checklist
-- [Supabase Row Level Security Complete Guide 2026](https://vibeappscanner.com/supabase-row-level-security) — RLS configuration patterns
-- [Rate Limiting Your Next.js App with Vercel Edge (Upstash)](https://upstash.com/blog/edge-rate-limiting) — Serverless rate limiting implementation
-
-**Pitfalls:**
-- [Memory Leaks in React & Next.js: What Nobody Tells You](https://medium.com/@essaadani.yo/memory-leaks-in-react-next-js-what-nobody-tells-you-91c72b53d84d) — Common serverless memory issues
-- [Avoiding Race Conditions when Fetching Data with React Hooks](https://dev.to/nas5w/avoiding-race-conditions-when-fetching-data-with-react-hooks-4pi9) — React polling patterns
-- [Common mistakes with React Testing Library](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library) — Testing best practices
-- [How to Configure TypeScript Strict Mode](https://oneuptime.com/blog/post/2026-01-24-typescript-strict-mode/view) — Incremental strict migration
-
-### Real-World Validation
-
-- **RLS misconfiguration incidents**: 170+ Lovable-built apps with exposed databases in January 2025 (83% RLS configuration errors)
-- **Service role key issues**: Multiple GitHub discussions and Supabase docs troubleshooting service role in RLS policies
-- **Memory leak patterns**: Next.js official docs added memory usage guide in response to serverless memory issues
+### Tertiary (LOW confidence, needs validation)
+- **Background Processing at Scale**: [FastAPI BackgroundTasks vs ARQ](https://davidmuraya.com/blog/fastapi-background-tasks-arq-vs-built-in/) — Recommendations for migrating to Redis-backed job queue if scaling beyond Render's BackgroundTasks. Not needed for this milestone but relevant for future.
+- **Supabase Database Migrations**: [Database Migrations | Supabase Docs](https://supabase.com/docs/guides/deployment/database-migrations) — Recommended patterns if schema changes needed. Not yet verified against actual production database structure.
 
 ---
 *Research completed: 2026-02-06*

@@ -1,355 +1,353 @@
-# Feature Research: Production-Ready Next.js Stability
+# Feature Research: RLM v1.2 Production Merge
 
-**Domain:** Next.js App Router production hardening for file upload, LLM integration, and real-time chat
+**Domain:** AI personality profile generation pipeline integration
 **Researched:** 2026-02-06
 **Confidence:** HIGH
 
 ## Feature Landscape
 
-### Table Stakes (Users Expect These)
+This research analyzes how v1.2's fact extraction, MEMORY generation, and V2 section regeneration features should integrate with the existing production pipeline.
 
-Features production applications must have. Missing these = unreliable, unprofessional application.
+### Production Flow (Current State)
+
+```
+Upload → Parse → Multi-tier chunk → Embed (Bedrock Titan) → Quick Pass (Haiku 4.5) → User can chat
+                                                           ↓
+                                                    Embeddings complete in background
+```
+
+**Key characteristic:** Users can chat IMMEDIATELY after quick pass (~15-30 seconds).
+
+### v1.2 Flow (New Capabilities)
+
+```
+Upload → Parse → Single-tier chunk → Extract facts (parallel, 10-30 min) → Consolidate → Generate MEMORY → Regenerate v2 sections
+```
+
+**Key characteristic:** Fact extraction takes 10-30 minutes. This is a BACKGROUND process.
+
+## Table Stakes (Must-Have for Merge)
+
+Features required for v1.2 to successfully integrate without breaking production UX.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Comprehensive Error Handling** | API routes must gracefully handle errors and return meaningful responses | MEDIUM | Try/catch in all async operations, structured error responses with proper HTTP status codes |
-| **Input Validation** | All user input must be validated on server to prevent security issues | MEDIUM | Use Zod schemas for Server Actions and API routes. Client validation is UX only |
-| **Security Headers** | Standard web security requires proper headers to prevent common attacks | LOW | X-Frame-Options, Permissions-Policy, Content-Security-Policy |
-| **CSRF Protection** | POST mutations need protection against cross-site request forgery | LOW | Built-in to Next.js Server Actions via Origin header validation, SameSite cookies |
-| **Rate Limiting** | Prevent abuse of API endpoints and resource exhaustion | MEDIUM | Required on serverless; use @upstash/ratelimit with Vercel KV or Redis |
-| **Structured Logging** | Production debugging requires searchable, filterable logs | MEDIUM | Use Pino or Winston for JSON logs with context (correlation IDs, user IDs) |
-| **Request Timeouts** | Prevent hanging requests from consuming resources | LOW | Set timeouts on all external API calls (LLM, database, external services) |
-| **File Upload Size Limits** | Explicit limits prevent resource exhaustion | LOW | Document and enforce max file sizes, return clear errors when exceeded |
-| **Error Boundaries** | Uncaught errors must be caught to prevent app crashes | LOW | error.tsx files at route levels, global-error.tsx for root layout |
-| **Health Check Endpoint** | Monitoring systems need /health or /readyz endpoint | LOW | Simple API route returning 200 OK, check critical dependencies in readiness probe |
+| Background fact extraction | Users cannot wait 10-30 minutes to chat | MEDIUM | Already implemented in `full_pass.py` via FastAPI BackgroundTasks |
+| Progressive availability | Users must chat with quick-pass soulprint while v1.2 processes | MEDIUM | Quick pass generates v1 sections immediately, v1.2 upgrades them later |
+| Graceful v1.2 failure | If fact extraction fails, quick-pass soulprint remains functional | LOW | Already handled: quick-pass never throws, v1.2 logs but doesn't block |
+| Status tracking | Users need to know if v1.2 processing is running/complete/failed | LOW | Add `full_pass_status` column to `user_profiles` (processing/complete/failed) |
+| MEMORY section persistence | Generated MEMORY must be stored and retrievable | LOW | Add `memory_md` column to `user_profiles`, save after MEMORY generation |
+| Chunk compatibility | v1.2 chunker must produce chunks compatible with existing embedding system | MEDIUM | v1.2 chunks include `chunk_tier: "medium"`, schema already supports this |
+| Email on completion | Notify users when v1.2 finishes (or quick pass if v1.2 not triggered) | LOW | Already implemented via `/api/import/complete` callback |
 
-### Differentiators (Goes Beyond Minimum)
+## Differentiators (v1.2 Improvements)
 
-Features that elevate reliability beyond baseline expectations.
+Features that make the merged system better than production alone.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Circuit Breaker Pattern** | Prevents cascading failures from external service outages | HIGH | Stops calling failing services, provides fallbacks, auto-recovers when service restored |
-| **Retry Logic with Exponential Backoff** | Handles transient failures in external API calls gracefully | MEDIUM | Retry LLM calls, database queries with increasing delays; combine with circuit breakers |
-| **Multi-tier Observability** | OpenTelemetry integration provides traces, metrics, logs | HIGH | Industry best practice; expensive at scale but critical for debugging complex issues |
-| **Idempotency Keys** | Prevents duplicate operations from retries or user double-clicks | HIGH | Essential for payment/critical mutations; attach unique key to operations |
-| **Graceful Degradation** | App remains functional when non-critical services fail | MEDIUM | Chat works even if analytics fails; import continues if email notification fails |
-| **Request Correlation IDs** | Trace single request across logs, services, databases | MEDIUM | Generate UUID per request, pass through all operations, log everywhere |
-| **Dead Letter Queue** | Failed background jobs don't disappear; can be retried/debugged | HIGH | For async operations like import processing, email sending |
-| **Feature Flags** | Roll out changes gradually, kill switch for problematic features | MEDIUM | Environment-based or runtime toggles; useful for risky features |
-| **Audit Logging** | Track who did what when for security/compliance | MEDIUM | Log mutations with user ID, timestamp, action; separate from app logs |
-| **Response Size Limits** | Prevent OOM from unexpectedly large responses | LOW | Set maxResponseSize on fetch, LLM calls; especially important on serverless |
+| Parallel fact extraction | 10x faster than sequential (10-30 min vs 100-300 min for large exports) | LOW | Already implemented: `concurrency=10` in `extract_facts_parallel()` |
+| Structured fact categories | Facts organized into preferences/projects/dates/beliefs/decisions | LOW | Better than unstructured quick-pass text, enables smarter retrieval |
+| Hierarchical fact reduction | Handles exports up to 100K+ conversations without token overflow | MEDIUM | Automatically reduces if consolidated facts exceed 150K tokens |
+| MEMORY section | Human-readable summary of extracted facts, contextualizes v2 sections | LOW | Generated via Haiku 4.5, stored as `memory_md` |
+| V2 section regeneration | Enriches v1 sections with top 200 conversations + MEMORY context | MEDIUM | Same schema as quick pass, just richer content |
+| Single-tier chunking | Simpler than multi-tier, adequate for fact extraction and RAG | LOW | v1.2 uses 2000 token chunks with 200 token overlap |
+| Overlap-based chunking | Preserves context across chunk boundaries | LOW | 200 token overlap ensures facts aren't split mid-conversation |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+## Anti-Features (Deliberately NOT Build)
 
-Features to deliberately NOT build in a hardening pass.
+Features that seem good but create problems for this merge milestone.
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| **100% Test Coverage** | "Industry best practice" | Diminishing returns, brittle tests, slows development | Target critical paths: API routes, Server Actions, auth flows. Skip boilerplate |
-| **Real-time Everything** | "Modern apps should be instant" | WebSocket overhead on serverless, complexity, cost | Use streaming where it matters (LLM responses), polling for status checks |
-| **Perfect Uptime Guarantees** | "App should never go down" | Impossible on shared infrastructure, over-engineering | Focus on fast recovery, clear error messages, retry-ability |
-| **Auto-retry All Errors** | "Handle failures transparently" | Can amplify issues (retry storm), masks problems, expensive | Retry transient errors only; fail fast on client errors, bad auth, validation |
-| **Universal Caching** | "Cache everything for speed" | Stale data bugs, cache invalidation complexity | Cache strategically: static content, expensive queries. Fresh data > fast wrong data |
-| **Comprehensive E2E Tests** | "Test everything like a user" | Slow, flaky, expensive, hard to maintain | E2E for critical flows only. Unit test business logic, integration test API contracts |
-| **Zero Configuration** | "Should work out of the box" | Production needs explicit config (rate limits, timeouts, service URLs) | Provide sensible defaults, require explicit prod config |
-| **Automatic Rollback** | "Revert bad deploys automatically" | Complex, can hide issues, false positives from monitoring | Manual rollback with good monitoring/alerting; deploy often, roll forward |
+| Anti-Feature | Why Requested | Why Problematic | Alternative |
+|-------------|---------------|-----------------|-------------|
+| Blocking v1.2 processing | "Users should wait for full analysis before chatting" | Breaks core UX promise (immediate chat), loses users during 10-30 min wait | Progressive availability: chat with v1, upgrade to v2 when ready |
+| Synchronous fact extraction | "Fact extraction should happen during import" | 10-30 min import would feel broken, users close tab | Background processing with status tracking + email |
+| Multi-tier chunking in v1.2 | "v1.2 should use production's micro/medium/macro tiers" | Adds complexity, v1.2 only needs medium-tier chunks for fact extraction | Single medium tier (2000 tokens) adequate for all v1.2 needs |
+| Fact extraction for small exports | "Run v1.2 for all users" | Wastes API calls, small exports don't benefit from fact extraction | Threshold: only trigger v1.2 for exports with 50+ conversations |
+| Real-time MEMORY updates | "Update MEMORY as user chats" | Chat adds to conversation_chunks, not raw export. MEMORY reflects export only | Keep MEMORY static to export, use conversation_chunks for chat context |
+| Replacing quick pass with v1.2 | "v1.2 is better, remove quick pass" | Removes immediate availability, breaks UX. v1.2 complements, doesn't replace | Keep quick pass as v1 for speed, v1.2 as v2 upgrade |
 
 ## Feature Dependencies
 
 ```
-Error Handling (base requirement)
-    └──requires──> Structured Logging (to see errors)
-    └──requires──> Error Boundaries (to catch uncaught)
-    └──enhances──> Observability (traces show error context)
-
-Input Validation (base requirement)
-    └──requires──> Error Handling (to return validation errors)
-    └──enhances──> Security (prevents injection attacks)
-
-Rate Limiting (base requirement)
-    └──requires──> Error Handling (to return 429 responses)
-    └──requires──> Structured Logging (to track rate limit hits)
-
-Retry Logic
-    └──requires──> Error Handling (to detect retry-able errors)
-    └──conflicts──> Circuit Breaker (both retry, must coordinate)
-
-Circuit Breaker
-    └──requires──> Structured Logging (to log state changes)
-    └──requires──> Observability (to monitor open circuits)
-    └──enhances──> Retry Logic (prevents retry storms)
-
-Idempotency Keys
-    └──requires──> Database (to store operation keys)
-    └──requires──> Error Handling (to handle duplicate detection)
-
-Observability
-    └──requires──> Structured Logging (logs feed into traces)
-    └──requires──> Request Correlation IDs (tie logs to traces)
-    └──enhances──> All Features (makes everything debuggable)
-
-Graceful Degradation
-    └──requires──> Error Handling (to catch service failures)
-    └──requires──> Circuit Breaker (to detect service down)
-
-Health Checks
-    └──requires──> Error Handling (to report unhealthy state)
-    └──enhances──> Observability (monitoring consumes health data)
+Upload & Parse (existing)
+       ↓
+       ├──→ Quick Pass (v1 sections) ────→ User can chat immediately
+       │                                       ↓
+       │                                    Embeddings (background)
+       ↓
+Single-tier chunk (v1.2) ────→ Fact extraction (parallel, 10-30 min)
+       ↓                              ↓
+Save chunks to DB             Consolidate facts
+       ↓                              ↓
+Embedding (background)         Generate MEMORY section
+                                      ↓
+                               Save MEMORY to DB
+                                      ↓
+                               V2 section regeneration (top 200 convos + MEMORY)
+                                      ↓
+                               Replace v1 sections with v2 sections
+                                      ↓
+                               Send completion email
 ```
 
 ### Dependency Notes
 
-- **Error Handling is foundational**: Almost everything depends on it. Start here.
-- **Logging enables debugging**: Structured logs must exist before advanced features make sense
-- **Retry + Circuit Breaker must coordinate**: Don't retry when circuit is open
-- **Observability is the capstone**: Ties everything together but requires base features first
+- **Quick pass MUST complete before user can chat** (table stakes)
+- **v1.2 chunking can run in parallel with quick pass** (both read same parsed conversations)
+- **MEMORY generation requires fact consolidation** (can't generate until all facts extracted)
+- **V2 regeneration requires MEMORY** (uses MEMORY as additional context)
+- **Embeddings are independent** (can run in background regardless of v1/v2 status)
+
+### Critical Ordering
+
+1. **Quick pass FIRST** - Users waiting, must complete in 15-30s
+2. **v1.2 chunking in parallel** - While quick pass runs, start chunking for v1.2
+3. **Fact extraction AFTER chunking** - Need chunks to extract from
+4. **MEMORY AFTER facts** - Need consolidated facts to generate MEMORY
+5. **V2 regen AFTER MEMORY** - MEMORY provides context for richer sections
+6. **Email AFTER v2 regen OR quick pass** - Notify when upgrade completes (or just v1 if v1.2 not triggered)
+
+## Integration Points
+
+How v1.2 features connect to existing production systems.
+
+### 1. Import Orchestration
+
+**Production:** `app/api/soulprint/generate/route.ts` triggers quick pass
+**v1.2:** Add `/process-full` endpoint call to RLM service
+
+```typescript
+// After quick pass succeeds:
+if (conversationCount >= 50) {
+  // Trigger v1.2 background processing
+  await fetch(`${RLM_SERVICE_URL}/process-full`, {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id: userId,
+      storage_path: storagePath,
+      conversation_count: conversationCount,
+    })
+  });
+}
+```
+
+### 2. Chunk Schema Compatibility
+
+**Production schema:** `conversation_chunks` table with columns:
+- `id`, `user_id`, `conversation_id`, `title`, `content`, `message_count`, `chunk_tier`, `is_recent`, `created_at`, `embedding`
+
+**v1.2 chunks:** Must include all required columns
+- v1.2 sets `chunk_tier: "medium"` (existing column)
+- v1.2 sets `is_recent: true/false` based on `created_at > 6 months ago`
+- v1.2 leaves `embedding: null` (background embedder fills this later)
+
+**Integration:** v1.2 chunks are drop-in compatible with production schema.
+
+### 3. User Profile Extensions
+
+**New columns needed in `user_profiles`:**
+
+| Column | Type | Purpose | When Set |
+|--------|------|---------|----------|
+| `memory_md` | text | Structured MEMORY section from v1.2 | After MEMORY generation |
+| `full_pass_status` | text | 'processing', 'complete', 'failed' | Throughout v1.2 pipeline |
+| `full_pass_started_at` | timestamptz | When v1.2 started | At `/process-full` trigger |
+| `full_pass_completed_at` | timestamptz | When v1.2 finished | After v2 regeneration |
+| `full_pass_error` | text | Error message if failed | On any v1.2 failure |
+
+**Backward compatibility:** All new columns nullable, existing users unaffected.
+
+### 4. Section Storage Migration
+
+**Production:** Quick pass stores sections as:
+- `soul_md`, `identity_md`, `user_md`, `agents_md`, `tools_md` (JSON)
+- `soulprint_text` (markdown concatenation)
+
+**v1.2:** Overwrites same columns with v2 sections
+- Same schema, just richer content (200 convos vs 30-50)
+- Includes MEMORY section at end of `soulprint_text`
+
+**Migration path:**
+1. v1 sections written immediately (quick pass)
+2. v2 sections overwrite when ready (v1.2)
+3. Chat route reads from same columns (no code change)
+
+### 5. Callback Flow
+
+**Production:** RLM calls `/api/import/complete` when embeddings finish
+**v1.2:** RLM calls `/api/import/complete` when v2 regeneration finishes
+
+```typescript
+// Updated callback payload:
+{
+  user_id: string,
+  soulprint_ready: true,      // Quick pass completed
+  memory_building: boolean,   // v1.2 still processing
+  chunks_embedded: number,    // Background embedding progress
+  processing_time: number
+}
+```
 
 ## MVP Definition
 
-### Launch With (Hardening v1)
+### Launch With (This Milestone)
 
-Minimum viable stability - what's needed to say "this is production-ready."
+Minimum viable integration of v1.2 into production.
 
-- [x] **Error Handling in API Routes** - Try/catch all async operations, return proper HTTP status codes
-- [x] **Error Boundaries at Route Level** - error.tsx files to catch React errors, global-error.tsx for root
-- [x] **Input Validation with Zod** - Validate all Server Actions and API route inputs server-side
-- [x] **Security Headers** - X-Frame-Options, Permissions-Policy configured in next.config.js
-- [x] **Rate Limiting on Critical Routes** - /api/import/*, /api/chat/* limited with @upstash/ratelimit
-- [x] **Structured Logging** - Pino configured for JSON logs in production, context-aware
-- [x] **Request Timeouts** - Set on all fetch() calls, LLM invocations, database queries
-- [x] **Health Check Endpoint** - /api/health returns service status
-- [x] **File Upload Error Handling** - Graceful handling of size limits, corrupt files, network failures
-- [x] **Streaming Response Error Handling** - Abort controllers, cleanup on disconnect for LLM streams
+- [x] Background v1.2 processing (non-blocking)
+- [x] Progressive availability (chat with v1, upgrade to v2 when ready)
+- [x] Single-tier chunking (2000 tokens, 200 overlap)
+- [x] Parallel fact extraction (concurrency=10)
+- [x] MEMORY generation from consolidated facts
+- [x] V2 section regeneration with MEMORY context
+- [x] Status tracking (`full_pass_status` column)
+- [x] Email notification on v1.2 completion
+- [x] Graceful v1.2 failure (v1 sections remain)
 
-**Why these are essential:**
-Without error handling, users see crashes. Without validation, security is compromised. Without rate limiting, abuse is trivial. Without logging, debugging is impossible. Without timeouts, hanging requests consume resources.
+### Add After Validation (Post-Merge)
 
-### Add After Validation (v1.1)
+Features to add once v1.2 merge is stable.
 
-Features to add once core stability is working and monitoring shows where problems occur.
-
-- [ ] **Retry Logic for External APIs** - Trigger: seeing transient LLM/RLM failures in logs
-- [ ] **Request Correlation IDs** - Trigger: difficulty tracing requests across logs
-- [ ] **Graceful Degradation** - Trigger: non-critical service failures taking down whole app
-- [ ] **Response Size Limits** - Trigger: OOM errors from large LLM/API responses
-- [ ] **Observability Integration** - Trigger: production issues hard to debug with logs alone
-- [ ] **Integration Tests for Critical Flows** - Trigger: regressions in import/chat after changes
+- [ ] **Conversation size threshold** - Only trigger v1.2 for 50+ conversations (avoid API waste)
+- [ ] **Incremental fact extraction** - Re-run v1.2 when user uploads new export (merge facts)
+- [ ] **MEMORY section UI** - Display MEMORY in profile view (currently only in soulprint_text)
+- [ ] **v1 vs v2 comparison** - Show users how v2 sections improved over v1
+- [ ] **Admin dashboard** - Track v1.2 processing stats (success rate, avg time, failures)
 
 ### Future Consideration (v2+)
 
-Features to defer until product has been stable in production.
+Features to defer until v1.2 merge proves valuable.
 
-- [ ] **Circuit Breaker Pattern** - Defer: complex, needs baseline reliability first
-- [ ] **Idempotency Keys** - Defer: needs clear evidence of duplicate operation problems
-- [ ] **Dead Letter Queue** - Defer: requires queue infrastructure, justify with failure data
-- [ ] **Feature Flags** - Defer: adds complexity, wait for evidence of need
-- [ ] **Audit Logging** - Defer: unless compliance requirement, focus on app logs first
-- [ ] **Comprehensive E2E Tests** - Defer: expensive, maintain critical flow tests only
+- [ ] **Multi-language fact extraction** - Extract facts from non-English exports
+- [ ] **Custom fact categories** - Let users define additional fact types beyond 5 defaults
+- [ ] **Fact confidence scores** - Rate how certain each extracted fact is
+- [ ] **Fact source citations** - Link each fact back to source conversation
+- [ ] **Interactive fact review** - Let users correct/remove incorrect facts before MEMORY generation
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Error Handling in API Routes | HIGH | MEDIUM | P1 |
-| Input Validation (Zod) | HIGH | MEDIUM | P1 |
-| Rate Limiting | HIGH | MEDIUM | P1 |
-| Structured Logging | HIGH | MEDIUM | P1 |
-| Error Boundaries | HIGH | LOW | P1 |
-| Security Headers | HIGH | LOW | P1 |
-| Request Timeouts | HIGH | LOW | P1 |
-| Health Check Endpoint | MEDIUM | LOW | P1 |
-| File Upload Error Handling | HIGH | MEDIUM | P1 |
-| Streaming Error Handling | HIGH | MEDIUM | P1 |
-| Retry Logic | MEDIUM | MEDIUM | P2 |
-| Request Correlation IDs | MEDIUM | MEDIUM | P2 |
-| Graceful Degradation | MEDIUM | MEDIUM | P2 |
-| Response Size Limits | MEDIUM | LOW | P2 |
-| Observability (OpenTelemetry) | HIGH | HIGH | P2 |
-| Integration Tests | MEDIUM | MEDIUM | P2 |
-| Circuit Breaker | LOW | HIGH | P3 |
-| Idempotency Keys | LOW | HIGH | P3 |
-| Dead Letter Queue | LOW | HIGH | P3 |
-| Feature Flags | LOW | MEDIUM | P3 |
+| Background processing | HIGH | LOW (already done) | P1 |
+| Progressive availability | HIGH | LOW (already done) | P1 |
+| MEMORY generation | HIGH | LOW (already done) | P1 |
+| V2 section regeneration | HIGH | LOW (already done) | P1 |
+| Status tracking | MEDIUM | LOW (add columns) | P1 |
+| Email notification | MEDIUM | LOW (already done) | P1 |
+| Conversation threshold | MEDIUM | LOW (add if-check) | P2 |
+| Graceful failure | HIGH | LOW (already done) | P1 |
+| MEMORY UI display | LOW | MEDIUM (new frontend) | P3 |
+| Incremental extraction | MEDIUM | HIGH (merge logic) | P3 |
+| Admin dashboard | LOW | MEDIUM (new routes) | P3 |
 
 **Priority key:**
-- **P1: Must have for launch** - Core stability features; app is unreliable without these
-- **P2: Should have when possible** - Add when baseline is stable and evidence shows need
-- **P3: Nice to have, future** - Sophisticated patterns for mature applications
+- P1: Must have for this milestone (merge readiness)
+- P2: Should have, add in next sprint (optimization)
+- P3: Nice to have, future enhancement (not blocking)
 
-## Production-Specific Considerations
+## Behavioral Expectations
 
-### Serverless Constraints (Vercel)
+What users should experience after the merge.
 
-1. **File Upload Limits**: 4.5MB payload limit requires client-side direct upload to storage (pre-signed URLs)
-2. **Cold Starts**: First request to function is slow; warm functions with health checks or keep-alive
-3. **Execution Time Limits**: 10s hobby, 60s pro, 900s enterprise; chunk long operations
-4. **Memory Limits**: Configure per function; default may OOM on large file processing
-5. **Rate Limiting Storage**: Use Vercel KV (Redis) or Upstash, not in-memory counters (ephemeral)
+### Scenario 1: New User Imports Large Export (500 conversations)
 
-### LLM Integration Patterns
+**Timeline:**
+1. Upload completes → `import_status = 'processing'`
+2. Quick pass runs (20s) → `import_status = 'complete'`, v1 sections saved
+3. User can chat immediately with v1 soulprint
+4. v1.2 triggers in background → `full_pass_status = 'processing'`
+5. Fact extraction runs (15 min)
+6. MEMORY generated, v2 sections regenerated → `full_pass_status = 'complete'`
+7. Email sent: "Your SoulPrint just got smarter!"
+8. Next chat uses v2 sections + MEMORY
 
-1. **Streaming Responses**: Use abort controllers, clean up on client disconnect, handle partial responses
-2. **Timeout Strategy**: LLM calls can be slow; set 30-60s timeout, show progress to user
-3. **Token Limit Handling**: Validate input size before call, truncate gracefully if needed
-4. **Cost Controls**: Rate limit per user, log token usage, alert on anomalies
-5. **Fallback Content**: Have default response if LLM fails (don't show raw error to user)
+**User perception:** "Wow, I could chat right away, and it got even better later!"
 
-### File Processing Best Practices
+### Scenario 2: New User Imports Small Export (10 conversations)
 
-1. **Chunked Upload**: Break >100MB files into chunks, reassemble server-side or use pre-signed URLs
-2. **Validation Before Processing**: Check file type, size, structure before expensive operations
-3. **Background Processing**: Long operations (import, chunking) run async, poll for status
-4. **Progress Feedback**: WebSocket or polling endpoint to show import progress to user
-5. **Cleanup on Failure**: Delete partial uploads, chunks if processing fails
+**Timeline:**
+1. Upload completes → `import_status = 'processing'`
+2. Quick pass runs (10s) → `import_status = 'complete'`, v1 sections saved
+3. User can chat immediately with v1 soulprint
+4. v1.2 NOT triggered (below 50 conversation threshold)
+5. Email sent: "Your SoulPrint is ready!"
 
-### Database Operations
+**User perception:** "Fast setup, started chatting immediately."
 
-1. **Connection Pooling**: Use connection pooler (Supabase Supavisor) to prevent exhaustion
-2. **Query Timeouts**: Set statement_timeout to prevent long-running queries
-3. **Retry on Conflict**: Handle unique constraint violations, deadlocks with retry
-4. **Bulk Operations**: Use batch inserts for chunks; 100 individual INSERTs is slow
-5. **Transaction Boundaries**: Keep transactions short; don't hold locks during LLM calls
+### Scenario 3: v1.2 Processing Fails
 
-## Testing Strategy
+**Timeline:**
+1. Upload completes → `import_status = 'processing'`
+2. Quick pass runs (20s) → `import_status = 'complete'`, v1 sections saved
+3. User can chat immediately with v1 soulprint
+4. v1.2 triggers in background → `full_pass_status = 'processing'`
+5. Fact extraction fails (API error) → `full_pass_status = 'failed'`, error logged
+6. Email sent: "Your SoulPrint is ready!" (no mention of failure)
+7. User continues chatting with v1 sections (unaware of failure)
+8. Admin sees failure in logs, can manually retry
 
-### Unit Tests (Vitest)
-- **Scope**: Pure functions, utilities, business logic
-- **Coverage Target**: 70% of lib/, utils/ code
-- **Examples**: Chunking logic, validation schemas, data transformers
+**User perception:** "Everything works fine." (v1 sections are good enough)
 
-### Integration Tests (Playwright or Cypress)
-- **Scope**: API contracts, Server Actions, database interactions
-- **Coverage Target**: All API routes, critical Server Actions
-- **Examples**: POST /api/import/upload returns 200, Server Action validates with Zod
+### Scenario 4: User Chats During v1.2 Processing
 
-### E2E Tests (Playwright)
-- **Scope**: Critical user flows only
-- **Coverage Target**: 3-5 core flows
-- **Examples**: Auth → Import → Chat, Error recovery flows
+**Timeline:**
+1. Quick pass completes, user starts chatting with v1 soulprint
+2. v1.2 processing runs in background (10 min remaining)
+3. User sends 5 messages during this time
+4. v1.2 completes, v2 sections replace v1 sections
+5. Next message uses v2 sections + MEMORY
 
-### Load Tests (k6 or Artillery)
-- **Scope**: Rate limits, performance under load
-- **Coverage Target**: All public API endpoints
-- **Examples**: 100 req/s to /api/chat doesn't degrade, rate limit at threshold
+**User perception:** "Chat got noticeably better after a few minutes." (if they notice at all)
 
-**Why Not 100% Coverage**:
-Async Server Components are hard to unit test (per Next.js docs), tests are expensive to maintain, diminishing returns after critical paths covered. Focus on integration/E2E instead.
+## Production Merge Checklist
 
-## Monitoring & Observability Requirements
+Requirements for v1.2 to safely merge into production.
 
-### Minimum Viable Monitoring
+### Code Requirements
+- [x] v1.2 processors implemented (`fact_extractor.py`, `memory_generator.py`, `v2_regenerator.py`, `conversation_chunker.py`)
+- [x] Full pass orchestrator (`full_pass.py`) coordinates all v1.2 steps
+- [x] RLM service endpoint (`/process-full`) accepts background jobs
+- [x] FastAPI BackgroundTasks used for non-blocking execution
+- [ ] Database migration adds `memory_md`, `full_pass_status`, `full_pass_started_at`, `full_pass_completed_at`, `full_pass_error` columns
+- [ ] Import API route calls `/process-full` after quick pass succeeds
+- [ ] Email template updated to mention "memory building" when v1.2 is processing
 
-| Metric | Why | How |
-|--------|-----|-----|
-| API Response Times | Detect slow endpoints | Vercel Analytics or OpenTelemetry |
-| Error Rate | Detect production issues | Log aggregation (Axiom, Datadog) |
-| Rate Limit Hits | Detect abuse or limits too low | Structured logs with alert |
-| LLM Call Latency | Detect Bedrock issues | Custom metric in logs |
-| Import Success Rate | Detect processing failures | Status transitions in DB |
-| Active WebSocket Connections | Prevent resource exhaustion | Track in handler |
+### Testing Requirements
+- [ ] v1.2 completes successfully for 100-conversation export (verify v2 sections generated)
+- [ ] v1.2 completes successfully for 1000-conversation export (verify hierarchical reduction works)
+- [ ] Quick pass completes and user can chat while v1.2 processes in background
+- [ ] v1.2 failure leaves v1 sections intact (user can still chat)
+- [ ] Email sent on v2 completion (verify both quick-pass email and v2-upgrade email)
+- [ ] Chunk schema compatibility (v1.2 chunks work with existing embedding system)
+- [ ] Status tracking updates correctly (`full_pass_status` reflects actual state)
 
-### Alerting Thresholds
-
-- **Error rate >5% over 5min** - Page on-call
-- **P95 latency >5s** - Investigate performance
-- **Rate limit hit >10 times/min** - Possible attack or bug
-- **Import failure rate >10%** - RLM service issue or validation problem
-- **Health check failing** - Service degraded
-
-### Log Levels
-
-- **ERROR**: Unhandled exceptions, failed operations
-- **WARN**: Retries, rate limits, degraded mode
-- **INFO**: Request start/end, status changes, background jobs
-- **DEBUG**: Verbose details, only in dev
-
-## Security Checklist
-
-Production security baseline (beyond CSRF/headers).
-
-- [ ] **Secrets in Environment Variables** - Never in code, use Vercel Environment Variables
-- [ ] **Validate All searchParams** - Don't trust URL params, re-verify auth on server
-- [ ] **SQL Parameterization** - Use Supabase client, not string concatenation
-- [ ] **File Type Validation** - Check mime type, not just extension
-- [ ] **Auth on Server Actions** - Every action checks session, don't trust client
-- [ ] **Rate Limit by User** - Prevent individual user abuse
-- [ ] **Input Sanitization** - Zod validation, reject malformed data
-- [ ] **CORS Configuration** - Restrict origins on public API routes
-- [ ] **Dependency Audits** - npm audit fix regularly
-- [ ] **HTTPS Only** - Enforce in production, no HTTP fallback
+### Operational Requirements
+- [ ] Monitoring alerts for v1.2 failures (Telegram webhook)
+- [ ] Admin dashboard shows v1.2 processing stats
+- [ ] Conversation threshold configurable (env var for 50+ conversations)
+- [ ] Rate limiting for `/process-full` endpoint (prevent abuse)
+- [ ] Retry logic for transient failures (API timeouts, network errors)
 
 ## Sources
 
-**Error Handling:**
-- [Next.js App Router: Error Handling (Official Docs)](https://nextjs.org/docs/app/getting-started/error-handling)
-- [Next.js Route Handlers: The Complete Guide](https://makerkit.dev/blog/tutorials/nextjs-api-best-practices)
-- [How to Handle Route Handlers in Next.js (OneUptime, Jan 2026)](https://oneuptime.com/blog/post/2026-01-24-nextjs-route-handlers/view)
-- [Next.js Error Handling Patterns (Better Stack)](https://betterstack.com/community/guides/scaling-nodejs/error-handling-nextjs/)
+**Codebase Analysis:**
+- `/home/drewpullen/clawd/soulprint-landing/rlm-service/processors/fact_extractor.py` - Parallel fact extraction implementation
+- `/home/drewpullen/clawd/soulprint-landing/rlm-service/processors/memory_generator.py` - MEMORY section generation
+- `/home/drewpullen/clawd/soulprint-landing/rlm-service/processors/v2_regenerator.py` - V2 section regeneration logic
+- `/home/drewpullen/clawd/soulprint-landing/rlm-service/processors/conversation_chunker.py` - Single-tier chunking with overlap
+- `/home/drewpullen/clawd/soulprint-landing/rlm-service/processors/full_pass.py` - Full pass orchestrator
+- `/home/drewpullen/clawd/soulprint-landing/rlm-service/main.py` - RLM service endpoints
+- `/home/drewpullen/clawd/soulprint-landing/lib/soulprint/quick-pass.ts` - Production quick pass (v1 sections)
+- `/home/drewpullen/clawd/soulprint-landing/app/api/import/complete/route.ts` - Email notification callback
+- `/home/drewpullen/clawd/soulprint-landing/app/api/embeddings/process/route.ts` - Background embedding system
 
-**Security:**
-- [Next.js Data Security Guide (Official Docs)](https://nextjs.org/docs/app/guides/data-security)
-- [Implementing CSRF Protection in Next.js](https://medium.com/@mmalishshrestha/implementing-csrf-protection-in-next-js-applications-9a29d137a12d)
-- [Next-level security: how to hack-proof your Next.js applications](https://www.vintasoftware.com/blog/security-nextjs-applications)
-- [Complete Next.js security guide 2025 (TurboStarter)](https://www.turbostarter.dev/blog/complete-nextjs-security-guide-2025-authentication-api-protection-and-best-practices)
+**Context:**
+- Milestone context provided: "Syncing v1.2 processor modules into production soulprint-rlm repo"
+- Project context: "Production lets users chat IMMEDIATELY after soulprint generation. v1.2's fact extraction takes 10-30 minutes. These need to coexist."
 
-**Rate Limiting:**
-- [Rate Limiting Your Next.js App with Vercel Edge (Upstash)](https://upstash.com/blog/edge-rate-limiting)
-- [Add Rate Limiting with Vercel (Official KB)](https://vercel.com/kb/guide/add-rate-limiting-vercel)
-- [4 Best Rate Limiting Solutions for Next.js Apps (2024)](https://dev.to/ethanleetech/4-best-rate-limiting-solutions-for-nextjs-apps-2024-3ljj)
-- [@upstash/ratelimit GitHub](https://github.com/upstash/ratelimit-js)
-
-**Testing:**
-- [Next.js Testing Guide (Official Docs)](https://nextjs.org/docs/app/guides/testing)
-- [Next.js Component Testing with Cypress](https://www.cypress.io/blog/component-testing-next-js-with-cypress)
-
-**Monitoring & Observability:**
-- [Next.js OpenTelemetry Guide (Official Docs)](https://nextjs.org/docs/app/guides/open-telemetry)
-- [Monitor NextJS with OpenTelemetry (SigNoz)](https://signoz.io/blog/opentelemetry-nextjs/)
-- [Advanced Observability for Vercel (Axiom)](https://axiom.co/blog/advanced-vercel-o11y)
-- [An in-depth guide to monitoring Next.js apps with OpenTelemetry](https://www.checklyhq.com/blog/in-depth-guide-to-monitoring-next-js-apps-with-opentelemetry/)
-
-**File Uploads:**
-- [How to Bypass Vercel Upload Limits](https://medium.com/@swerashed/how-to-bypass-vercel-upload-limits-in-next-js-using-use-client-for-client-side-file-uploads-b045ed3b65a5)
-- [Overcoming FUNCTION_PAYLOAD_TOO_LARGE](https://medium.com/@saminchandeepa/overcoming-the-413-function-payload-too-large-secure-bulk-file-uploads-using-pre-signed-s3-urls-59021570c210)
-- [Multi-file Uploads Using Next.js 13 Serverless](https://blog.bitsrc.io/multi-file-uploads-using-nextjs-13-serverless-functionality-express-4-and-amazon-s3-pre-signed-e9152d85ee3)
-
-**Streaming & LLM:**
-- [Serverless strategies for streaming LLM responses (AWS Blog)](https://aws.amazon.com/blogs/compute/serverless-strategies-for-streaming-llm-responses/)
-- [InvokeModelWithResponseStream API (AWS Bedrock)](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModelWithResponseStream.html)
-- [Prevent LLM read timeouts in Amazon Bedrock](https://repost.aws/knowledge-center/bedrock-large-model-read-timeouts)
-
-**Structured Logging:**
-- [Structured logging for Next.js (Arcjet)](https://blog.arcjet.com/structured-logging-in-json-for-next-js/)
-- [Pino Logging Guide (Better Stack)](https://betterstack.com/community/guides/logging/how-to-install-setup-and-use-pino-to-log-node-js-applications/)
-- [Better Logging with Nextjs App Directory](https://michaelangelo-io.medium.com/better-logging-with-nextjs-app-directory-60a07c96d146)
-- [Pino vs. Winston](https://dev.to/wallacefreitas/pino-vs-winston-choosing-the-right-logger-for-your-nodejs-application-369n)
-
-**Input Validation:**
-- [Using Zod to validate Next.js API Route Handlers](https://dub.co/blog/zod-api-validation)
-- [Next.js form validation with Zod](https://dev.to/bookercodes/nextjs-form-validation-on-the-client-and-server-with-zod-lbc)
-- [How to Handle Forms in Next.js with Server Actions and Zod](https://www.freecodecamp.org/news/handling-forms-nextjs-server-actions-zod/)
-
-**Resilience Patterns:**
-- [Building Resilient Systems: Circuit Breakers and Retry Patterns (Jan 2026)](https://dasroot.net/posts/2026/01/building-resilient-systems-circuit-breakers-retry-patterns/)
-- [Node.js Advanced Patterns: Implementing Robust Retry Logic](https://v-checha.medium.com/advanced-node-js-patterns-implementing-robust-retry-logic-656cf70f8ee9)
-- [How to Configure Circuit Breaker Patterns (Feb 2026)](https://oneuptime.com/blog/post/2026-02-02-circuit-breaker-patterns/view)
-
-**Race Conditions:**
-- [Understanding and Avoiding Race Conditions in Node.js](https://medium.com/@ak.akki907/understanding-and-avoiding-race-conditions-in-node-js-applications-fb80ba79d793)
-- [Node.js race conditions](https://nodejsdesignpatterns.com/blog/node-js-race-conditions/)
-- [React & Next.js Best Practices in 2026](https://fabwebstudio.com/blog/react-nextjs-best-practices-2026-performance-scale)
-
-**Health Checks:**
-- [How to Add a Health Check Endpoint to Your Next.js Application](https://hyperping.com/blog/nextjs-health-check-endpoint)
-- [Health Checks - Node.js Reference Architecture](https://github.com/nodeshift/nodejs-reference-architecture/blob/main/docs/operations/healthchecks.md)
-- [Optimizing Next.js on EKS: Tips from an SRE](https://zoelog.vercel.app/articles/infrastructure/nextjs-sre-perspective)
-
-**Server Actions:**
-- [Next.js Server Actions: Complete Guide with Examples for 2026](https://dev.to/marufrahmanlive/nextjs-server-actions-complete-guide-with-examples-for-2026-2do0)
-- [Next.js Server Actions: The Complete Guide (2026)](https://makerkit.dev/blog/tutorials/nextjs-server-actions)
-- [Next.js 15 Advanced Patterns for 2026](https://johal.in/next-js-15-advanced-patterns-app-router-server-actions-and-caching-strategies-for-2026/)
+**Confidence:** HIGH - All features verified through code inspection, integration points identified, behavioral expectations derived from existing production flow.
 
 ---
-*Feature research for: SoulPrint production hardening*
+*Feature research for: RLM v1.2 Production Merge*
 *Researched: 2026-02-06*

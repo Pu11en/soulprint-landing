@@ -1,786 +1,615 @@
-# Architecture Research: Next.js 16 App Router Stabilization
+# Architecture Research: RLM Production Sync
 
-**Domain:** Next.js App Router Stabilization & Hardening
+**Domain:** Python FastAPI monolith refactoring to modular architecture
 **Researched:** 2026-02-06
 **Confidence:** HIGH
 
-## Standard Architecture
+## Integration Challenge: v1.2 Processors → 3600-Line Production Monolith
 
-### System Overview
+### Current State
+
+**Production (soulprint-rlm/):**
+- 3603-line `main.py` (single file)
+- 14+ FastAPI endpoints
+- Background tasks via `FastAPI.BackgroundTasks`
+- Supabase REST API via httpx (all DB operations inline)
+- AWS Bedrock for embeddings + chat models
+- Job recovery system (`processing_jobs` table, resume on startup)
+- Vercel callback for email notification
+- Dockerfile: `COPY main.py .` (single file deployment)
+
+**v1.2 (soulprint-landing/rlm-service/):**
+- 355-line `main.py` + `processors/` directory
+- 5 processor modules (249-363 lines each):
+  - `conversation_chunker.py` - Splits conversations into ~2000 token segments
+  - `fact_extractor.py` - Parallel extraction via Claude Haiku 4.5
+  - `memory_generator.py` - Creates MEMORY section from facts
+  - `v2_regenerator.py` - Regenerates 5 SoulPrint sections
+  - `full_pass.py` - Orchestrates the pipeline
+- Each processor is standalone with own Anthropic client
+- `full_pass.py` imports from `main.py`:
+  ```python
+  from main import download_conversations  # Line 140
+  from main import update_user_profile     # Line 185
+  ```
+
+### Import Incompatibility (Critical Blocker)
+
+**Problem:** v1.2's `full_pass.py` imports don't exist in production `main.py`.
+
+1. **`download_conversations()` signature mismatch:**
+   - v1.2 expects: `async def download_conversations(storage_path: str) -> list`
+   - Production has inline code in `process_full_background()` (lines 2507-2517) but NO standalone function
+
+2. **`update_user_profile()` doesn't exist as standalone:**
+   - v1.2 expects: `async def update_user_profile(user_id: str, updates: dict)`
+   - Production only has inline PATCH calls scattered throughout (lines 2497-2501, 2734-2744, etc.)
+
+**Consequence:** Direct copy-paste of `processors/` into production will fail at import time.
+
+---
+
+## Recommended Architecture: Adapter Layer Pattern
+
+### Overview
+
+Insert an **adapter layer** between v1.2 processors and production monolith. This isolates the modular processors from the monolith's internal structure, allowing incremental migration.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Client Layer (Browser)                    │
+│                     FastAPI Endpoints                        │
+│  /process-full, /chat, /query, /process-import, etc.        │
 ├─────────────────────────────────────────────────────────────┤
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
-│  │  Pages  │  │ Client  │  │ Server  │  │  Route  │        │
-│  │  (TSX)  │  │  Comp   │  │  Comp   │  │ Handler │        │
-│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘        │
-│       │            │            │            │              │
-├───────┴────────────┴────────────┴────────────┴──────────────┤
-│                 Next.js Middleware Chain                     │
-│  ┌───────────┐  ┌──────────┐  ┌────────────────────┐       │
-│  │   Auth    │→ │   CSRF   │→ │  Rate Limiting     │       │
-│  │ (Supabase)│  │  Check   │  │   (WAF/Edge)       │       │
-│  └───────────┘  └──────────┘  └────────────────────┘       │
+│                      Background Tasks                        │
+│  process_full_background(), complete_embeddings_background() │
 ├─────────────────────────────────────────────────────────────┤
-│                    API Routes (Serverless)                   │
+│                      Adapter Layer (NEW)                     │
 │  ┌─────────────────────────────────────────────────────┐    │
-│  │  /api/import/*  /api/chat/*  /api/memory/*         │    │
+│  │ adapters/supabase_adapter.py                        │    │
+│  │  - download_conversations(storage_path)             │    │
+│  │  - update_user_profile(user_id, updates)            │    │
+│  │  - save_chunks_batch(user_id, chunks)               │    │
 │  └─────────────────────────────────────────────────────┘    │
 ├─────────────────────────────────────────────────────────────┤
-│                  Shared Libraries (lib/)                     │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
-│  │ Supabase │  │  Bedrock │  │   RLM    │                   │
-│  │  Client  │  │   Utils  │  │  Health  │                   │
-│  └──────────┘  └──────────┘  └──────────┘                   │
+│                    Processor Modules (v1.2)                  │
+│  ┌───────────────┐  ┌─────────────┐  ┌──────────────┐      │
+│  │ conversation_ │  │ fact_       │  │ memory_      │      │
+│  │ chunker.py    │  │ extractor.py│  │ generator.py │      │
+│  └───────────────┘  └─────────────┘  └──────────────┘      │
+│  ┌───────────────┐  ┌─────────────┐                        │
+│  │ v2_           │  │ full_pass.py│                        │
+│  │ regenerator.py│  │ (orchestr.) │                        │
+│  └───────────────┘  └─────────────┘                        │
 ├─────────────────────────────────────────────────────────────┤
-│                   External Services                          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
-│  │ Supabase │  │   AWS    │  │   RLM    │                   │
-│  │    DB    │  │ Bedrock  │  │ Service  │                   │
-│  └──────────┘  └──────────┘  └──────────┘                   │
+│                   Production Monolith Code                   │
+│  Supabase httpx calls, AWS Bedrock, job recovery, etc.      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Component Responsibilities
 
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|------------------------|
-| Pages (app/) | Route rendering, layout management | Server Components by default |
-| Client Components | Interactive UI, state management | "use client" directive |
-| Server Components | Data fetching, direct DB access | Async functions, no state |
-| Route Handlers (api/) | HTTP endpoints, JSON responses | Serverless functions on Vercel |
-| Middleware | Request interception, auth, CSRF | Edge runtime (lightweight) |
-| Server Actions | Form handling, mutations | "use server" directive |
-| Shared Libraries (lib/) | Business logic, external integrations | Pure functions, clients |
+| Component | Responsibility | Implementation |
+|-----------|---------------|----------------|
+| **Adapter Layer** | Provides clean interface for processors to interact with production systems | New file: `adapters/supabase_adapter.py` wraps existing httpx calls |
+| **Processors** | Business logic for chunking, fact extraction, memory generation | Copy from v1.2, modify imports to use adapter |
+| **Background Tasks** | Orchestrate pipeline execution, job recovery, progress tracking | Keep existing production code, call processors via adapter |
+| **FastAPI Endpoints** | HTTP interface, request validation, background task dispatch | Keep existing, wire new pipeline as option |
 
-## Recommended Project Structure for Hardening
+---
 
-```
-soulprint-landing/
-├── app/                      # Next.js App Router
-│   ├── api/                  # API Routes (serverless)
-│   │   ├── import/           # File upload/processing
-│   │   ├── chat/             # Streaming chat
-│   │   └── memory/           # Memory queries
-│   ├── (pages)/              # Page components
-│   └── middleware.ts         # CSRF, auth, rate limiting
-├── lib/                      # Shared business logic
-│   ├── supabase/             # DB client, auth
-│   ├── bedrock.ts            # AWS Bedrock integration
-│   ├── rlm/                  # External RLM service
-│   └── memory/               # Memory/chunking logic
-├── __tests__/                # Test files (Vitest)
-│   ├── unit/                 # Unit tests for lib/
-│   ├── integration/          # API route integration tests
-│   └── e2e/                  # Playwright E2E tests
-├── middleware.ts             # Global middleware chain
-├── vitest.config.mts         # Vitest configuration
-└── tsconfig.json             # TypeScript config (strict)
-```
+## Integration Strategy: Three Options Analyzed
 
-### Structure Rationale
+### Option 1: Adapter Layer (RECOMMENDED)
 
-- **__tests__/ directory**: Separate test organization by type (unit/integration/e2e) makes it easy to run subsets
-- **lib/ isolation**: Pure functions and external service clients enable easier unit testing
-- **middleware.ts at root**: Single entry point for all middleware concerns (auth, CSRF, rate limiting)
-- **API routes grouped by domain**: `/api/import/*`, `/api/chat/*` creates clear boundaries for testing and security
+**What:** Create `adapters/supabase_adapter.py` that extracts production's inline Supabase calls into reusable functions.
 
-## Architectural Patterns for Stabilization
+**Pros:**
+- Minimal risk - production code stays intact
+- Processors remain standalone and testable
+- Clear separation: processors = business logic, adapter = infrastructure
+- Easy to swap adapter implementation later (e.g., for testing)
+- Aligns with FastAPI dependency injection best practices
 
-### Pattern 1: Data Access Layer (DAL)
+**Cons:**
+- Adds one layer of indirection
+- Adapter file needs maintenance as Supabase schema evolves
 
-**What:** Isolate all database and external service calls in dedicated modules with built-in authorization checks.
+**Implementation:**
+```python
+# adapters/supabase_adapter.py
+import httpx
+import gzip
+import json
+from typing import List, Dict
 
-**When to use:** When hardening an existing app to prevent security issues and improve testability.
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-**Trade-offs:**
-- **Pros:** Centralized auth, easier to audit, testable without mocking everything
-- **Cons:** Requires refactoring existing code, slight performance overhead
+async def download_conversations(storage_path: str) -> list:
+    """Download conversations.json from Supabase Storage (extracted from line 2507-2540)"""
+    path_parts = storage_path.split("/", 1)
+    bucket = path_parts[0]
+    file_path = path_parts[1] if len(path_parts) > 1 else ""
 
-**Example:**
-```typescript
-// lib/data/auth.ts
-import { cache } from 'react';
-import { createClient } from '@/lib/supabase/server';
+    download_url = f"{SUPABASE_URL}/storage/v1/object/{bucket}/{file_path}"
 
-export const getCurrentUser = cache(async () => {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
-  return user;
-});
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        response = await client.get(
+            download_url,
+            headers={"Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+        )
+        if response.status_code != 200:
+            raise Exception(f"Storage download failed: {response.status_code}")
 
-// lib/data/user-dto.ts
-import 'server-only';
-import { getCurrentUser } from './auth';
+        content = response.content
+        try:
+            content = gzip.decompress(content)
+        except Exception:
+            pass  # Not gzipped
 
-export async function getUserProfile(userId: string) {
-  const currentUser = await getCurrentUser();
+        return json.loads(content)
 
-  // Re-authorize: ensure current user can access this profile
-  if (currentUser.id !== userId) {
-    throw new Error('Forbidden');
-  }
+async def update_user_profile(user_id: str, updates: dict):
+    """Update user_profiles table (extracted from inline PATCH calls)"""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        headers = {
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Content-Type": "application/json",
+        }
+        await client.patch(
+            f"{SUPABASE_URL}/rest/v1/user_profiles",
+            params={"user_id": f"eq.{user_id}"},
+            headers=headers,
+            json=updates,
+        )
 
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('user_profiles')
-    .select('username, soulprint_text, import_status')
-    .eq('id', userId)
-    .single();
-
-  // Return only necessary fields (DTO pattern)
-  return {
-    username: data.username,
-    hasSoulprint: !!data.soulprint_text,
-    isReady: data.import_status === 'complete'
-  };
-}
+async def save_chunks_batch(user_id: str, chunks: List[dict]):
+    """Save conversation chunks (from v1.2's full_pass.py)"""
+    # Implementation mirrors v1.2's save_chunks_batch
+    ...
 ```
 
-### Pattern 2: Middleware Chain with CSRF Protection
+**Modify v1.2 processors:**
+```python
+# processors/full_pass.py
+from adapters.supabase_adapter import download_conversations, update_user_profile
 
-**What:** Compose multiple middleware functions in a single `middleware.ts` file for auth, CSRF, and rate limiting.
-
-**When to use:** When adding security layers to an existing Next.js app without breaking existing routes.
-
-**Trade-offs:**
-- **Pros:** Single entry point, easy to audit, runs at edge
-- **Cons:** Limited runtime features (edge), must be careful with ordering
-
-**Example:**
-```typescript
-// middleware.ts
-import { type NextRequest, NextResponse } from 'next/server';
-import { updateSession } from '@/lib/supabase/middleware';
-import { createCsrfProtect } from '@edge-csrf/nextjs';
-
-// Initialize CSRF protection
-const csrfProtect = createCsrfProtect({
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-  },
-});
-
-export async function middleware(request: NextRequest) {
-  // 1. Auth check (existing)
-  const response = await updateSession(request);
-
-  // 2. CSRF protection for mutating requests
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
-    const csrfError = await csrfProtect(request, response);
-    if (csrfError) {
-      return NextResponse.json(
-        { error: 'Invalid CSRF token' },
-        { status: 403 }
-      );
-    }
-  }
-
-  // 3. Rate limiting handled by Vercel WAF (configured separately)
-
-  return response;
-}
-
-export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
-};
+# Rest of file unchanged
 ```
 
-### Pattern 3: API Route with Rate Limiting (Vercel WAF)
+**Integration point:**
+```python
+# main.py - wire into existing endpoint
+@app.post("/process-full-v2")
+async def process_full_v2(request: ProcessFullRequest, background_tasks: BackgroundTasks):
+    """NEW endpoint using v1.2 pipeline"""
+    background_tasks.add_task(run_full_pass_v2, request)
+    return {"status": "accepted", "pipeline": "v1.2"}
 
-**What:** Use `@vercel/firewall` SDK to add custom rate limiting logic in API routes.
-
-**When to use:** When you need per-user or per-organization rate limiting beyond IP-based limits.
-
-**Trade-offs:**
-- **Pros:** Flexible, can rate limit by user/org/API key, integrates with Vercel dashboard
-- **Cons:** Requires Vercel deployment, configuration in dashboard + code
-
-**Example:**
-```typescript
-// app/api/import/process/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimit } from '@vercel/firewall';
-import { createClient } from '@/lib/supabase/server';
-
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // Rate limit: 5 imports per hour per user
-  const { rateLimited } = await checkRateLimit('import-process', {
-    request,
-    rateLimitKey: user.id,
-  });
-
-  if (rateLimited) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded. Try again in an hour.' },
-      { status: 429 }
-    );
-  }
-
-  // Process import...
-  return NextResponse.json({ status: 'processing' });
-}
+async def run_full_pass_v2(request: ProcessFullRequest):
+    """Background task using v1.2 processors"""
+    from processors.full_pass import run_full_pass_pipeline
+    await run_full_pass_pipeline(
+        user_id=request.user_id,
+        storage_path=request.storage_path,
+        conversation_count=request.conversation_count,
+    )
 ```
 
-### Pattern 4: Serverless Memory Cleanup
+---
 
-**What:** Ensure proper cleanup of connections and resources since serverless functions are stateless.
+### Option 2: Inline Extraction (Refactor Monolith First)
 
-**When to use:** Always, especially for database connections, file handles, and streaming responses.
+**What:** Extract `download_conversations()` and `update_user_profile()` as standalone functions in production `main.py`, then import processors.
 
-**Trade-offs:**
-- **Pros:** Prevents memory leaks, better performance, lower costs
-- **Cons:** Requires discipline, harder to debug
+**Pros:**
+- No new files (adapter layer)
+- Production monolith becomes slightly more modular
 
-**Example:**
-```typescript
-// app/api/chat/route.ts
-import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+**Cons:**
+- HIGH RISK - modifying 3603-line monolith before testing processors
+- Harder to rollback if processors have bugs
+- Doesn't address future modularity (still importing from main.py)
+- Violates "separate concerns" principle (processors know about main.py)
 
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  let stream: ReadableStream | null = null;
+**NOT RECOMMENDED** - refactor monolith AFTER processors proven in production.
 
-  try {
-    // Your streaming logic here...
-    const response = await fetch('https://api.example.com/stream');
-    stream = response.body;
+---
 
-    return new Response(stream, {
-      headers: { 'Content-Type': 'text/event-stream' },
-    });
-  } catch (error) {
-    // Cleanup on error
-    stream?.cancel();
-    return NextResponse.json({ error: 'Stream failed' }, { status: 500 });
-  }
-  // Note: Supabase client cleanup is automatic in Next.js
-}
+### Option 3: Processors Import Adapter, Adapter Imports Main
 
-// For long-running processes, use explicit cleanup:
-export const runtime = 'nodejs'; // If needed (default is edge)
-export const maxDuration = 60; // Vercel timeout limit
+**What:** Processors import adapter, adapter imports from production `main.py` (after extracting functions).
+
+**Pros:**
+- Clear dependency chain: processors → adapter → main
+- Processors stay decoupled from main.py internals
+
+**Cons:**
+- Still requires refactoring monolith first (same risk as Option 2)
+- Circular dependency risk if main.py tries to import processors
+
+**Verdict:** Good long-term, but requires Option 2's risky refactor first. Do Option 1, migrate to Option 3 later.
+
+---
+
+## Recommended Build Order (Safe Merge Strategy)
+
+### Phase 1: Create Adapter Layer
+**Goal:** Provide clean interface without touching production logic.
+
+1. Create `adapters/` directory
+2. Create `adapters/supabase_adapter.py` with functions extracted from production inline code:
+   - `download_conversations(storage_path: str) -> list`
+   - `update_user_profile(user_id: str, updates: dict)`
+   - `save_chunks_batch(user_id: str, chunks: List[dict])`
+3. Test adapter functions in isolation (unit tests with mocked httpx)
+
+**Deliverable:** `adapters/supabase_adapter.py` with 100% test coverage
+
+---
+
+### Phase 2: Copy v1.2 Processors
+**Goal:** Get processors into production repo, modify imports.
+
+1. Create `processors/` directory
+2. Copy all 5 processor files from v1.2:
+   - `conversation_chunker.py`
+   - `fact_extractor.py`
+   - `memory_generator.py`
+   - `v2_regenerator.py`
+   - `full_pass.py`
+3. Modify `full_pass.py` imports:
+   ```python
+   # OLD (v1.2)
+   from main import download_conversations, update_user_profile
+
+   # NEW (production)
+   from adapters.supabase_adapter import download_conversations, update_user_profile
+   ```
+4. Test processors in isolation (with mocked adapter)
+
+**Deliverable:** `processors/` directory with modified imports
+
+---
+
+### Phase 3: Wire New Endpoint
+**Goal:** Add parallel endpoint for v1.2 pipeline without touching existing endpoints.
+
+1. Add new endpoint `/process-full-v2` (or rename existing to `/process-full-v1`, new as `/process-full`)
+2. Create background task `run_full_pass_v2()` that calls `processors.full_pass.run_full_pass_pipeline()`
+3. Keep existing `/process-full` endpoint using old monolithic code
+4. Test v2 endpoint with canary user (manual trigger)
+
+**Deliverable:** Two parallel pipelines (v1 monolith, v2 modular) both functional
+
+---
+
+### Phase 4: Gradual Cutover
+**Goal:** Shift traffic from v1 to v2, monitor for issues.
+
+1. Route 10% of users to v2 pipeline (feature flag or user_id % 10)
+2. Monitor error rates, processing times, completion rates
+3. If stable for 48 hours, increase to 50%
+4. If stable for 7 days, increase to 100%
+5. Deprecate v1 endpoint after 30 days of 100% v2
+
+**Deliverable:** v2 pipeline handling 100% of production traffic
+
+---
+
+### Phase 5: Clean Up Monolith (LATER)
+**Goal:** Extract remaining monolithic code into modules.
+
+1. Extract embedding logic into `processors/embedder.py`
+2. Extract SoulPrint generation into `processors/soulprint_generator.py`
+3. Move adapter functions into production `main.py` as standalone functions
+4. Processors import from `main.py` directly (Option 3 approach)
+
+**Deliverable:** Modular monolith with clean component boundaries
+
+---
+
+## Dockerfile Changes
+
+### Current Dockerfile
+```dockerfile
+# Production
+COPY main.py .
 ```
 
-### Pattern 5: Incremental TypeScript Strict Mode
-
-**What:** Enable TypeScript strict mode incrementally using `@ts-expect-error` comments and per-file enforcement.
-
-**When to use:** When migrating an existing loose TypeScript codebase to strict mode.
-
-**Trade-offs:**
-- **Pros:** Non-breaking, can prioritize high-risk files first, team can learn gradually
-- **Cons:** Takes time, creates temporary inconsistency
-
-**Example:**
-```typescript
-// tsconfig.json (initial state - already strict!)
-{
-  "compilerOptions": {
-    "strict": true,  // Already enabled
-    "noUncheckedIndexedAccess": true  // Add this for extra safety
-  }
-}
-
-// For incremental migration in files with issues:
-// lib/legacy-code.ts
-import { User } from './types';
-
-function getUser(id: string): User {
-  const users = getUsersFromDB();
-
-  // @ts-expect-error - TODO: Add proper null checking (Issue #123)
-  return users[id];
-
-  // Better approach after fix:
-  // const user = users[id];
-  // if (!user) throw new Error('User not found');
-  // return user;
-}
+### New Dockerfile (Phase 2+)
+```dockerfile
+# Production after processors added
+COPY main.py .
+COPY adapters/ ./adapters/
+COPY processors/ ./processors/
 ```
 
-## Data Flow
+**Impact:** Image size increases ~150KB (5 processor files + adapter). Negligible.
 
-### Request Flow (Page Load)
+---
 
+## Integration Points with Existing Production
+
+### 1. Job Recovery System
+**Production has:** `processing_jobs` table with resume-on-startup logic (lines 56-168)
+
+**Integration:** v1.2 pipeline respects existing job tracking.
+```python
+# In run_full_pass_v2()
+if job_id:
+    await update_job(job_id, status="processing", current_step="chunking", progress=10)
+# ... processors run ...
+await complete_job(job_id, success=True)
 ```
-User navigates to /chat
+
+**No changes needed** - job recovery system is agnostic to which pipeline runs.
+
+---
+
+### 2. Vercel Callback (Email Notification)
+**Production has:** Hardcoded callback to `https://www.soulprintengine.ai` (line 192)
+
+**Integration:** v1.2 pipeline triggers same callback after completion.
+```python
+# After full_pass.py completes
+async with httpx.AsyncClient() as client:
+    await client.post(
+        f"{VERCEL_API_URL}/api/import/complete",
+        headers={"Authorization": f"Bearer {RLM_API_KEY}"},
+        json={"user_id": user_id, "status": "complete"}
+    )
+```
+
+**No changes needed** - callback is environment variable, same for both pipelines.
+
+---
+
+### 3. Background Task Pattern
+**Production uses:** `FastAPI.BackgroundTasks` for fire-and-forget processing
+
+**v1.2 uses:** Same pattern in 355-line `main.py`
+
+**Integration:** Perfect alignment - no architectural mismatch.
+```python
+# Both use identical pattern
+background_tasks.add_task(run_full_pass_v2, request)
+```
+
+**No changes needed** - background task infrastructure already exists.
+
+---
+
+### 4. AWS Bedrock Client Sharing
+**Production has:** Global `get_bedrock_client()` function (line 258-275)
+
+**v1.2 has:** Each processor creates own `anthropic.AsyncAnthropic()` client
+
+**Integration challenge:** Processors use Anthropic API directly, production uses AWS Bedrock wrapper.
+
+**Solution:** Dependency injection via adapter.
+```python
+# adapters/supabase_adapter.py
+def get_anthropic_client():
+    """Returns Bedrock-backed client for production, direct client for v1.2"""
+    if USE_BEDROCK_CLAUDE:
+        # Return wrapper that routes to bedrock_claude_message()
+        return BedrockAnthropicAdapter()
+    else:
+        return anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+```
+
+**Changes needed:** Pass client to processors instead of hardcoding.
+```python
+# processors/full_pass.py
+async def run_full_pass_pipeline(user_id, storage_path, anthropic_client=None):
+    if not anthropic_client:
+        from adapters.supabase_adapter import get_anthropic_client
+        anthropic_client = get_anthropic_client()
+    # ... rest of pipeline uses anthropic_client
+```
+
+---
+
+## Data Flow: v1.2 Pipeline in Production
+
+### Request Flow
+```
+POST /process-full-v2 (user_id, storage_path, conversation_count)
     ↓
-Middleware: Auth check (Supabase) → CSRF token → Pass
+[FastAPI validates request]
     ↓
-Server Component: Fetch user profile (lib/data/user-dto.ts)
+background_tasks.add_task(run_full_pass_v2, request)
     ↓
-Data Access Layer: getCurrentUser() + DB query (authorized)
+[Return 202 Accepted immediately]
+```
+
+### Background Processing Flow
+```
+run_full_pass_v2(request)
     ↓
-Server Component: Render page with data
+processors.full_pass.run_full_pass_pipeline(user_id, storage_path, conversation_count)
     ↓
-Client Component: Hydrate interactive elements
-```
-
-### Request Flow (API Route)
-
-```
-Client: POST /api/chat with message
+┌─────────────────────────────────────────────────┐
+│ Step 1: Download conversations                  │
+│ adapters.supabase_adapter.download_conversations│
+│ → httpx GET from Supabase Storage               │
+└─────────────────────────────────────────────────┘
     ↓
-Middleware: Auth check → CSRF validation → Rate limit check
+┌─────────────────────────────────────────────────┐
+│ Step 2: Chunk conversations                     │
+│ processors.conversation_chunker.chunk_convos    │
+│ → Returns List[dict] (2000 token chunks)        │
+└─────────────────────────────────────────────────┘
     ↓
-API Route: Validate input (Zod/manual)
+┌─────────────────────────────────────────────────┐
+│ Step 3: Save chunks to DB                       │
+│ adapters.supabase_adapter.save_chunks_batch     │
+│ → httpx POST to conversation_chunks table       │
+└─────────────────────────────────────────────────┘
     ↓
-API Route: Re-authorize user (getCurrentUser)
+┌─────────────────────────────────────────────────┐
+│ Step 4: Extract facts (parallel)                │
+│ processors.fact_extractor.extract_facts_parallel│
+│ → Calls Claude Haiku 4.5 for each chunk         │
+│ → Returns consolidated fact dict                │
+└─────────────────────────────────────────────────┘
     ↓
-Business Logic: Query memory (lib/memory/query.ts)
+┌─────────────────────────────────────────────────┐
+│ Step 5: Generate MEMORY section                 │
+│ processors.memory_generator.generate_memory     │
+│ → Calls Claude Haiku 4.5 with consolidated facts│
+│ → Returns markdown string                       │
+└─────────────────────────────────────────────────┘
     ↓
-External Service: Call AWS Bedrock for LLM response
+┌─────────────────────────────────────────────────┐
+│ Step 6: Save MEMORY to DB                       │
+│ adapters.supabase_adapter.update_user_profile   │
+│ → httpx PATCH user_profiles.memory_md           │
+└─────────────────────────────────────────────────┘
     ↓
-Stream Response: Return ReadableStream to client
+┌─────────────────────────────────────────────────┐
+│ Step 7: V2 Section Regeneration                 │
+│ processors.v2_regenerator.regenerate_sections_v2│
+│ → Calls Claude with top 200 convos + MEMORY     │
+│ → Returns 5 sections (soul, identity, etc.)     │
+└─────────────────────────────────────────────────┘
     ↓
-Cleanup: Close connections (if any)
+┌─────────────────────────────────────────────────┐
+│ Step 8: Save all sections to DB                 │
+│ adapters.supabase_adapter.update_user_profile   │
+│ → httpx PATCH user_profiles (6 fields)          │
+└─────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────┐
+│ Step 9: Notify Vercel (triggers email)          │
+│ httpx POST to VERCEL_API_URL/api/import/complete│
+└─────────────────────────────────────────────────┘
 ```
 
-### State Management
-
-```
-[Server State]
-    ↓ (fetch on server)
-[Server Components] → Render with data
-    ↓ (pass props)
-[Client Components] ← useState/useReducer for local UI state
-    ↓ (mutations)
-[Server Actions or API Routes] → Update server state
-    ↓ (revalidate)
-[Server Components] → Re-render with fresh data
-```
-
-### Key Data Flows
-
-1. **Import Flow**: User uploads ZIP → API validates → Chunks created → Embeddings sent to RLM → SoulPrint saved → Email notification
-2. **Chat Flow**: User message → Rate limit check → Memory query (lib/memory/) → Bedrock LLM → Stream response
-3. **Auth Flow**: Login → Supabase auth → Session cookie → Middleware checks on every request
-
-## Hardening Work Structure (Build Order)
-
-### Phase 1: Testing Infrastructure (No Dependencies)
-**Rationale:** Foundation for all other work. Catch regressions early.
-
-1. Install Vitest + React Testing Library
-2. Configure `vitest.config.mts` with jsdom environment
-3. Add test script to `package.json`
-4. Create `__tests__/` directory structure
-5. Write first smoke test (lib utility function)
-
-**Component boundaries to test:**
-- `lib/` utilities (pure functions) - unit tests
-- `lib/supabase/client.ts` - mock Supabase, test error handling
-- `lib/bedrock.ts` - mock AWS SDK, test streaming
-
-### Phase 2: API Route Testing (Depends on Phase 1)
-**Rationale:** API routes are the attack surface. Need integration tests before adding security.
-
-1. Install `next-test-api-route-handler` (optional)
-2. Mock Supabase auth in tests
-3. Write integration tests for `/api/import/process`
-4. Write integration tests for `/api/chat/route`
-5. Test error cases (401, 403, 500)
-
-**Component boundaries to test:**
-- `/api/import/*` - file upload, chunking, error handling
-- `/api/chat/*` - streaming, memory queries, rate limiting
-- `/api/memory/*` - CRUD operations, authorization
-
-### Phase 3: TypeScript Strict Fixes (Parallel with Phase 2)
-**Rationale:** Already in strict mode, but add `noUncheckedIndexedAccess` for extra safety.
-
-1. Add `"noUncheckedIndexedAccess": true` to `tsconfig.json`
-2. Fix index access errors in high-risk files (API routes first)
-3. Add `@ts-expect-error` comments with TODOs for complex fixes
-4. Create tracking issue with list of files to fix
-5. Fix 5-10 files per week until clean
-
-**Priority order:**
-1. `/app/api/` routes (security-critical)
-2. `lib/data/` layer (if created)
-3. `lib/` utilities
-4. UI components (lowest risk)
-
-### Phase 4: Middleware Security (Depends on Phase 2 tests)
-**Rationale:** Add CSRF and rate limiting after tests are in place to catch breaks.
-
-1. Install `@edge-csrf/nextjs` for CSRF protection
-2. Update `middleware.ts` with CSRF checks for mutating methods
-3. Add CSRF token handling in client components
-4. Test with existing API route tests
-5. Configure Vercel WAF rate limiting rules in dashboard
-
-**Integration points:**
-- `middleware.ts` → All routes
-- `@edge-csrf/nextjs` → POST/PUT/PATCH/DELETE requests
-- Vercel WAF → IP-based rate limiting (global)
-
-### Phase 5: Custom Rate Limiting (Depends on Phase 4)
-**Rationale:** User-specific rate limiting needs middleware foundation.
-
-1. Install `@vercel/firewall` SDK
-2. Create WAF rules in Vercel dashboard
-3. Add `checkRateLimit()` calls in high-risk API routes:
-   - `/api/import/process` (5 per hour per user)
-   - `/api/chat/route` (60 per minute per user)
-   - `/api/memory/synthesize` (10 per hour per user)
-4. Add rate limit tests to integration test suite
-5. Monitor Vercel analytics for abuse patterns
-
-**Component boundaries:**
-- API routes that accept user input
-- API routes that call expensive external services (Bedrock, RLM)
-
-### Phase 6: Error Handling & Logging (Depends on all phases)
-**Rationale:** Unified error handling after security is in place.
-
-1. Create `lib/errors.ts` with custom error classes
-2. Add error boundary components for UI
-3. Standardize API error responses (JSON schema)
-4. Add structured logging (consider Axiom or Sentry)
-5. Test error flows in integration tests
+---
 
-**Integration points:**
-- All API routes (consistent error responses)
-- Server Components (error boundaries)
-- Client Components (error boundaries + user-friendly messages)
+## Architectural Patterns Applied
 
-### Phase 7: Data Access Layer Refactor (Optional, Depends on Phase 2)
-**Rationale:** Big refactor. Only needed if current code mixes auth and data access.
+### 1. Adapter Pattern (Core Pattern)
+**Source:** Extracted from production inline code → clean interface for processors
 
-1. Create `lib/data/auth.ts` with `getCurrentUser()`
-2. Create `lib/data/user-dto.ts` with profile queries
-3. Refactor API routes to use DAL instead of direct Supabase calls
-4. Add unit tests for DAL functions
-5. Add integration tests to verify auth still works
+**Why:** Decouples processors from Supabase implementation details. Processors don't know about httpx, headers, or URL construction.
 
-**Files to refactor:**
-- `/app/api/import/process/route.ts`
-- `/app/api/chat/route.ts`
-- `/app/api/memory/query/route.ts`
-- Any Server Components fetching data
+**Reference:** [FastAPI Dependency Injection](https://fastapi.tiangolo.com/tutorial/dependencies/) - adapter functions become injectable dependencies
 
-## Anti-Patterns
+---
 
-### Anti-Pattern 1: Using `any` to Bypass TypeScript Errors
+### 2. Service Layer Pattern
+**Source:** Processors = business logic, Adapter = infrastructure
 
-**What people do:** Add `as any` or `: any` to silence TypeScript errors during strict mode migration.
+**Why:** Separates "what to do" (processors) from "how to do it" (adapter). Makes testing easier.
 
-**Why it's wrong:** Defeats the purpose of strict mode. Type unsafety spreads like a virus.
+**Reference:** [FastAPI Best Practices - Service Layer](https://github.com/zhanymkanov/fastapi-best-practices#1-project-structure-consistent--predictable) - business logic separated from endpoints
 
-**Do this instead:** Use `@ts-expect-error` with a TODO comment and issue number.
+---
 
-```typescript
-// BAD
-const user = getUser(id) as any;
+### 3. Modular Monolith
+**Source:** Production stays single deployment artifact, but internally modular
 
-// GOOD
-// @ts-expect-error - TODO: Add proper User type (Issue #123)
-const user = getUser(id);
-```
+**Why:** Gets benefits of modularity (testability, maintainability) without microservices complexity.
 
-### Anti-Pattern 2: In-Memory State in Serverless Functions
+**Reference:** [Modular Monolith in Python](https://breadcrumbscollector.tech/modular-monolith-in-python/) - modules communicate through interfaces, not direct imports
 
-**What people do:** Use module-level variables to cache data in API routes.
+---
 
-**Why it's wrong:** Serverless functions are stateless. State is lost between invocations and not shared across instances.
+### 4. Parallel Deployment (Strangler Fig)
+**Source:** v1 and v2 pipelines coexist, gradual cutover
 
-**Do this instead:** Use external services (Redis, Supabase realtime, Vercel KV).
+**Why:** De-risks migration. Can rollback to v1 instantly if v2 has issues.
 
-```typescript
-// BAD
-let cachedUsers: User[] = [];
+**Reference:** [Refactoring Old Monolith Architecture](https://medium.com/insiderengineering/refactoring-old-monolith-architecture-a-comprehensive-guide-7c192d7612e8) - incremental migration strategy
 
-export async function GET() {
-  if (cachedUsers.length === 0) {
-    cachedUsers = await fetchUsers();
-  }
-  return NextResponse.json(cachedUsers);
-}
+---
 
-// GOOD
-import { kv } from '@vercel/kv';
+## Anti-Patterns to Avoid
 
-export async function GET() {
-  let users = await kv.get<User[]>('users');
-  if (!users) {
-    users = await fetchUsers();
-    await kv.set('users', users, { ex: 300 }); // 5 min TTL
-  }
-  return NextResponse.json(users);
-}
-```
+### Anti-Pattern 1: Direct Main Imports
+**What people do:** `from main import download_conversations` in processors
 
-### Anti-Pattern 3: Skipping Auth Re-checks in Server Actions
+**Why it's wrong:** Tight coupling - processors can't be tested without full main.py. Circular dependency risk.
 
-**What people do:** Assume that if a user loaded the page, they're authorized to perform the action.
+**Do this instead:** Use adapter layer - processors import from `adapters.supabase_adapter`
 
-**Why it's wrong:** Session could expire, user permissions could change, or action could be replayed.
+---
 
-**Do this instead:** Re-authorize on every Server Action call.
+### Anti-Pattern 2: Big Bang Refactor
+**What people do:** Refactor entire 3603-line main.py before testing processors
 
-```typescript
-// BAD
-"use server";
+**Why it's wrong:** High risk - if processors have bugs, can't separate "refactor bugs" from "processor bugs"
 
-export async function deletePost(postId: number) {
-  await db.posts.delete({ where: { id: postId } });
-}
+**Do this instead:** Adapter layer first, processors second, refactor monolith LAST after v2 proven stable
 
-// GOOD
-"use server";
+---
 
-import { getCurrentUser } from '@/lib/data/auth';
+### Anti-Pattern 3: Processors Create Own Clients
+**What people do:** Each processor creates `anthropic.AsyncAnthropic()` inside function
 
-export async function deletePost(postId: number) {
-  const user = await getCurrentUser();
+**Why it's wrong:** Can't control which backend (Bedrock vs direct API), can't mock for testing
 
-  const post = await db.posts.findUnique({ where: { id: postId } });
-  if (!post || post.authorId !== user.id) {
-    throw new Error('Unauthorized');
-  }
+**Do this instead:** Dependency injection - pass `anthropic_client` as parameter, create in adapter
 
-  await db.posts.delete({ where: { id: postId } });
-}
-```
+---
 
-### Anti-Pattern 4: Testing Implementation Details
+### Anti-Pattern 4: Global State Sharing
+**What people do:** Processors read from global variables (e.g., `SUPABASE_URL`)
 
-**What people do:** Test internal component state, private functions, or mock everything.
+**Why it's wrong:** Hard to test, environment-dependent, can't override per-request
 
-**Why it's wrong:** Tests break when refactoring, even if behavior is unchanged. False sense of security.
+**Do this instead:** Dependency injection - adapter reads env vars, processors receive configured clients
 
-**Do this instead:** Test user-facing behavior and API contracts.
+---
 
-```typescript
-// BAD
-import { render } from '@testing-library/react';
-import ChatInput from '@/app/chat/ChatInput';
+## Scaling Considerations
 
-test('ChatInput state updates', () => {
-  const { rerender } = render(<ChatInput />);
-  // Testing internal state - fragile!
-  expect(component.state.message).toBe('');
-});
-
-// GOOD
-import { render, screen, userEvent } from '@testing-library/react';
-import ChatInput from '@/app/chat/ChatInput';
-
-test('ChatInput calls onSubmit with message', async () => {
-  const onSubmit = vi.fn();
-  render(<ChatInput onSubmit={onSubmit} />);
-
-  await userEvent.type(screen.getByRole('textbox'), 'Hello world');
-  await userEvent.click(screen.getByRole('button', { name: /send/i }));
-
-  expect(onSubmit).toHaveBeenCalledWith('Hello world');
-});
-```
-
-### Anti-Pattern 5: No Cleanup in Streaming Responses
-
-**What people do:** Return streaming responses without handling connection close or errors.
-
-**Why it's wrong:** Leaves connections open, causes memory leaks on Vercel (hits function memory limits).
-
-**Do this instead:** Always handle abort signals and cleanup.
-
-```typescript
-// BAD
-export async function POST(request: NextRequest) {
-  const stream = await bedrockStream(prompt);
-  return new Response(stream);
-}
-
-// GOOD
-export async function POST(request: NextRequest) {
-  const abortController = new AbortController();
-
-  // Cleanup on client disconnect
-  request.signal.addEventListener('abort', () => {
-    abortController.abort();
-  });
-
-  try {
-    const stream = await bedrockStream(prompt, {
-      signal: abortController.signal
-    });
-    return new Response(stream);
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      return new Response('Client disconnected', { status: 499 });
-    }
-    throw error;
-  }
-}
-```
-
-## Integration Points
-
-### External Services
-
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Supabase | Client in `lib/supabase/` (server/client variants) | Auth automatic via middleware |
-| AWS Bedrock | Streaming client in `lib/bedrock.ts` | Requires AWS credentials (env vars) |
-| RLM Service | HTTP client in `lib/rlm/` | Health checks needed, retries |
-| Vercel WAF | Dashboard config + SDK in API routes | Rate limiting, DDOS protection |
-
-### Internal Boundaries
-
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Middleware ↔ API Routes | HTTP request/response | Middleware sets headers, API reads them |
-| Server Components ↔ Client Components | Props (RSC payload) | Cannot pass functions, only serializable data |
-| API Routes ↔ lib/ utilities | Direct function calls | Keep lib/ pure for testability |
-| Client ↔ Server Actions | Automatic RPC (Next.js) | CSRF protection automatic, still re-auth |
-
-## Testing Strategy
-
-### Unit Tests (Vitest + @testing-library/react)
-
-**What to test:**
-- `lib/` utilities (pure functions)
-- React components (user interactions, not implementation)
-- Data transformation functions
-
-**Example:**
-```typescript
-// __tests__/unit/lib/memory/query.test.ts
-import { describe, it, expect, vi } from 'vitest';
-import { queryMemory } from '@/lib/memory/query';
-
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => Promise.resolve({ data: [] }))
-      }))
-    }))
-  }))
-}));
-
-describe('queryMemory', () => {
-  it('returns empty array when no memories found', async () => {
-    const result = await queryMemory('test-user-id', 'hello');
-    expect(result).toEqual([]);
-  });
-});
-```
-
-### Integration Tests (Vitest)
-
-**What to test:**
-- API routes (request → response)
-- Auth flows (middleware integration)
-- Database queries (use test database)
-
-**Example:**
-```typescript
-// __tests__/integration/api/import/process.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
-import { POST } from '@/app/api/import/process/route';
-import { NextRequest } from 'next/server';
-
-describe('POST /api/import/process', () => {
-  beforeEach(async () => {
-    // Setup test user in test DB
-  });
-
-  it('returns 401 without auth', async () => {
-    const request = new NextRequest('http://localhost/api/import/process', {
-      method: 'POST',
-    });
-    const response = await POST(request);
-    expect(response.status).toBe(401);
-  });
-
-  it('processes valid import with auth', async () => {
-    const request = new NextRequest('http://localhost/api/import/process', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer test-token' },
-      body: JSON.stringify({ file: 'valid-export.zip' })
-    });
-    const response = await POST(request);
-    expect(response.status).toBe(200);
-  });
-});
-```
-
-### E2E Tests (Playwright - Optional)
-
-**What to test:**
-- Critical user flows (signup → import → chat)
-- Server Components + Client Components working together
-- Async Server Components (not supported in Vitest)
-
-**Not covered in this research** - Defer to separate E2E testing phase.
-
-## Scalability Considerations
-
-| Concern | Current (100 users) | At 10K users | At 1M users |
-|---------|---------------------|--------------|-------------|
-| **API Rate Limiting** | IP-based WAF rules | User-based + IP-based | Multi-tier (free/paid), Redis-backed |
-| **Serverless Costs** | Free tier sufficient | Monitor Vercel usage, optimize functions | Consider dedicated infrastructure |
-| **Database Connections** | Supabase connection pooling | Increase pool size, optimize queries | Read replicas, caching layer |
-| **Memory/Embeddings** | RLM service handles | Monitor RLM performance | Consider vector DB migration |
-| **File Storage** | Supabase Storage (S3-backed) | CDN for static assets | Multi-region replication |
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| 0-1000 users | Adapter layer sufficient - monolith handles load |
+| 1K-10K users | Consider separating embedding worker from main API (separate Render service) |
+| 10K-100K users | Separate background workers (Celery/ARQ + Redis), async job queue |
+| 100K+ users | Split into microservices - processors become standalone service, adapter becomes API client |
 
 ### Scaling Priorities
 
-1. **First bottleneck:** API routes hitting rate limits → Add user-specific rate limiting with Vercel WAF
-2. **Second bottleneck:** Database query performance → Add indexes, use Supabase read replicas
-3. **Third bottleneck:** File upload processing time → Move to background jobs (Inngest, Vercel Cron)
+1. **First bottleneck:** Background task queue (FastAPI.BackgroundTasks has no persistence)
+   - **Fix:** Migrate to ARQ (async Redis queue) - integrates seamlessly with FastAPI async
+   - **Reference:** [FastAPI BackgroundTasks vs ARQ](https://davidmuraya.com/blog/fastapi-background-tasks-arq-vs-built-in/)
+
+2. **Second bottleneck:** Anthropic API rate limits (20 req/min for Claude)
+   - **Fix:** Already using AWS Bedrock (1000 req/min for Nova models) - no change needed
+
+---
 
 ## Sources
 
-**Testing:**
-- [Next.js Vitest Guide](https://nextjs.org/docs/app/guides/testing/vitest) - Official Next.js testing documentation (HIGH confidence)
-- [Next.js with Vitest Example](https://github.com/vercel/next.js/tree/canary/examples/with-vitest) - Official example repository (HIGH confidence)
-- [NextJs Unit Testing and End-to-End Testing](https://strapi.io/blog/nextjs-testing-guide-unit-and-e2e-tests-with-vitest-and-playwright) - Comprehensive guide (MEDIUM confidence)
-- [Next.js application testing with Vitest and testing library](https://medium.com/@rational_cardinal_ant_861/next-js-application-testing-with-vitest-and-testing-library-592948bb039c) - Community guide (MEDIUM confidence)
-- [Test Strategy in the Next.js App Router Era](https://shinagawa-web.com/en/blogs/nextjs-app-router-testing-setup) - App Router specific patterns (MEDIUM confidence)
+### FastAPI Architecture
+- [FastAPI Best Practices](https://github.com/zhanymkanov/fastapi-best-practices)
+- [Structuring a FastAPI Project: Best Practices](https://dev.to/mohammad222pr/structuring-a-fastapi-project-best-practices-53l6)
+- [FastAPI Bigger Applications - Multiple Files](https://fastapi.tiangolo.com/tutorial/bigger-applications/)
+- [FastAPI Modular Monolith Starter](https://github.com/arctikant/fastapi-modular-monolith-starter-kit)
 
-**Security & Middleware:**
-- [How to Think About Security in Next.js](https://nextjs.org/blog/security-nextjs-server-components-actions) - Official security guide (HIGH confidence)
-- [Complete Next.js security guide 2025](https://www.turbostarter.dev/blog/complete-nextjs-security-guide-2025-authentication-api-protection-and-best-practices) - Comprehensive security patterns (MEDIUM confidence)
-- [Edge-CSRF: CSRF protection for Next.js middleware](https://github.com/vercel/next.js/discussions/38257) - Community discussion (MEDIUM confidence)
-- [@csrf-armor/nextjs](https://www.npmjs.com/package/@csrf-armor/nextjs) - CSRF protection package (MEDIUM confidence)
+### Modular Monolith Patterns
+- [Modular Monolith in Python](https://breadcrumbscollector.tech/modular-monolith-in-python/)
+- [Modular Monoliths: The Architecture Pattern We Don't Talk Enough About](https://backendengineeringadventures.substack.com/p/modular-monoliths-the-architecture)
+- [Refactoring Old Monolith Architecture](https://medium.com/insiderengineering/refactoring-old-monolith-architecture-a-comprehensive-guide-7c192d7612e8)
 
-**Rate Limiting:**
-- [Rate Limiting SDK](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting-sdk) - Official Vercel documentation (HIGH confidence)
-- [Add Rate Limiting with Vercel](https://vercel.com/kb/guide/add-rate-limiting-vercel) - Vercel Knowledge Base (HIGH confidence)
-- [Rate Limiting Your Next.js App with Vercel Edge](https://upstash.com/blog/edge-rate-limiting) - Community guide with Upstash (MEDIUM confidence)
+### Background Tasks
+- [FastAPI Background Tasks](https://fastapi.tiangolo.com/tutorial/background-tasks/)
+- [Managing Background Tasks in FastAPI: BackgroundTasks vs ARQ + Redis](https://davidmuraya.com/blog/fastapi-background-tasks-arq-vs-built-in/)
+- [Managing Background Tasks and Long-Running Operations in FastAPI](https://leapcell.io/blog/managing-background-tasks-and-long-running-operations-in-fastapi)
 
-**TypeScript:**
-- [How to Incrementally Migrate an Angular Project to TypeScript Strict Mode](https://www.bitovi.com/blog/how-to-incrementally-migrate-an-angular-project-to-typescript-strict-mode) - Incremental migration patterns (MEDIUM confidence)
-- [How to Configure TypeScript Strict Mode](https://oneuptime.com/blog/post/2026-01-24-typescript-strict-mode/view) - Recent guide (MEDIUM confidence)
-- [typescript-strict-plugin](https://github.com/allegro/typescript-strict-plugin) - Per-file strict mode tool (MEDIUM confidence)
-
-**Serverless & Memory:**
-- [Memory Leak Prevention in Next.js](https://medium.com/@nextjs101/memory-leak-prevention-in-next-js-47b414907a43) - Community guide (MEDIUM confidence)
-- [Memory Explosion in Next.js API Routes](https://community.vercel.com/t/memory-explosion-in-next-js-api-routes/25561) - Community discussion (LOW confidence, but valuable real-world issue)
-- [Vercel Serverless Function Memory Limit](https://github.com/vercel/next.js/discussions/40248) - Community discussion (LOW confidence)
-
-**Next.js 16:**
-- [Next.js 16 Official Release](https://nextjs.org/blog/next-16) - Official changelog (HIGH confidence)
-- [Next.js 16 Middleware & Edge Functions](https://medium.com/@mernstackdevbykevin/next-js-16-middleware-edge-functions-latest-patterns-in-2025-8ab2653bc9de) - Community guide (MEDIUM confidence)
+### Dependency Injection
+- [FastAPI Dependencies](https://fastapi.tiangolo.com/tutorial/dependencies/)
+- [Mastering Dependency Injection in FastAPI](https://medium.com/@azizmarzouki/mastering-dependency-injection-in-fastapi-clean-scalable-and-testable-apis-5f78099c3362)
+- [Dependencies with yield - FastAPI](https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-with-yield/)
 
 ---
-*Architecture research for: Next.js 16 App Router Stabilization*
+
+*Architecture research for: RLM Production Sync (v1.2 processors → production monolith)*
 *Researched: 2026-02-06*

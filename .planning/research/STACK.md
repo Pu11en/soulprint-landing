@@ -1,297 +1,316 @@
-# Technology Stack for Next.js App Hardening
+# Stack Research: RLM Production Sync
 
-**Project:** SoulPrint Landing
-**Domain:** Next.js 16 + Supabase + AWS Bedrock Application Security & Testing
+**Domain:** FastAPI Modular Code Merge
 **Researched:** 2026-02-06
 **Confidence:** HIGH
 
 ## Recommended Stack
 
-### Testing Framework
+### Core Technologies (Already Present)
+
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Vitest | ^3.0.0 | Unit & Component Testing | 10-20x faster than Jest in watch mode, native ESM support, no heavy config needed. Official Next.js docs now recommend it. Works seamlessly with Next.js 15/16. |
-| React Testing Library | ^16.0.0 | Component Testing | Industry standard for testing React components. Focuses on user behavior over implementation details. Essential with Vitest. |
-| Playwright | ^1.50.0 | E2E Testing | Multi-browser support (Chromium, Firefox, WebKit), built-in automatic waiting, production-ready. Official Next.js recommendation for E2E tests. Required for testing async Server Components. |
-| MSW (Mock Service Worker) | ^2.6.0 | API Mocking | Network-level API mocking works for both client and server. Framework-agnostic, intercepts fetch/axios/etc regardless of implementation. |
+| Python | 3.12 | Runtime | Current production version, stable for FastAPI async operations |
+| FastAPI | >=0.109.0 | Web framework | Built-in dependency injection, async-first, automatic API docs |
+| Uvicorn | >=0.27.0 | ASGI server | Production-ready async server for FastAPI |
+| Anthropic | >=0.18.0 | LLM API | Claude models for soulprint generation, fact extraction |
+| httpx | >=0.26.0 | Async HTTP | Required for Supabase calls and external API integrations |
+| python-dotenv | >=1.0.0 | Config | Environment variable management |
 
-### CSRF Protection
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| @edge-csrf/nextjs | ^2.1.0 | CSRF Token Protection | Built specifically for Next.js Edge Runtime and Vercel. Lightweight, works with API routes and Server Actions. Better than next-csrf for serverless. |
+**No new dependencies needed.** All required libraries already present in requirements.txt.
 
-### Rate Limiting
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| @upstash/ratelimit | ^2.0.3 | Serverless Rate Limiting | Purpose-built for Vercel Edge/serverless. Uses Upstash Redis (REST API-based, no connection overhead). Caches data while function is "hot" to reduce Redis calls. |
-| @arcjet/next | ^1.0.0-alpha.28 | Comprehensive Security (Alternative) | All-in-one security: rate limiting, bot detection, Shield WAF, email validation. Runs in Next.js middleware. More opinionated than Upstash. |
+### Testing Tools (New - Required for Merge Validation)
 
-### TypeScript Type Safety
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| TypeScript | ^5.7.0 | Static Type Checking | Core language. Use strict mode with all flags enabled. |
-| @total-typescript/ts-reset | ^0.6.1 | Type System Improvements | "CSS reset" for TypeScript. Changes JSON.parse to return `unknown` instead of `any`, forcing proper validation. Makes fetch, localStorage safer. |
-| zod | ^3.24.1 | Runtime Validation | TypeScript-first schema validation. Infers types from schemas. Essential for API routes, user input, external data. Zero dependencies. |
-| @typescript-eslint/eslint-plugin | ^8.19.0 | Lint Rules | Type-aware linting. Use `strict-type-checked` config for maximum safety. Catches bugs that TypeScript compiler misses. |
-
-### Security Headers & Protection
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| next-secure-headers | ^2.2.0 | Security Headers | Sets CSP, HSTS, X-Frame-Options, etc. for Next.js without custom server. Retains Automatic Static Optimization. |
-| eslint-plugin-no-unsanitized | ^4.1.2 | XSS Prevention | Blocks unsafe innerHTML, outerHTML, insertAdjacentHTML. Critical for preventing XSS attacks. |
-
-### Memory Leak Detection
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| memlab | ^1.2.2 | Browser Memory Leak Detection | Meta's tool for finding memory leaks in web apps. Works with Playwright/Puppeteer. Built-in leak detectors. |
-| Chrome DevTools | Built-in | Node.js Memory Profiling | Both Node.js and Chrome run V8, so DevTools can profile Node apps. Heap snapshots, allocation timelines. Best for server-side leaks. |
-
-### Supporting Testing Libraries
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| @testing-library/jest-dom | ^6.6.3 | Custom Matchers | Adds toBeInTheDocument(), toHaveValue(), etc. Improves test readability. |
-| @vitejs/plugin-react | ^4.3.4 | Vite React Support | Required by Vitest for React component testing. Handles JSX transformation. |
-| vite-tsconfig-paths | ^5.1.4 | Path Alias Resolution | Makes Vitest understand tsconfig path mappings like `@/components`. |
-| jsdom | ^25.0.1 | DOM Environment | Simulates browser DOM in Node.js for Vitest component tests. |
+| Tool | Version | Purpose | When to Use |
+|------|---------|---------|-------------|
+| pytest | >=8.0.0 | Test framework | Test all 14 endpoints after merge to ensure backwards compatibility |
+| pytest-asyncio | >=0.23.0 | Async test support | Required for testing async FastAPI endpoints |
+| httpx[testing] | (included with httpx) | TestClient | FastAPI's recommended testing client |
 
 ### Development Tools
-| Tool | Version | Purpose | Notes |
-|------|---------|---------|-------|
-| @typescript-eslint/parser | ^8.19.0 | TypeScript ESLint Parser | Required for linting TypeScript with type information. |
-| eslint-config-next | ^15.1.6 | Next.js ESLint Config | Pre-configured rules for Next.js best practices. |
+
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| Docker | Containerization | Already configured for Render deployment |
+| .dockerignore | Build optimization | Exclude __pycache__, .git, tests from image |
 
 ## Installation
 
-### Core Testing Setup
 ```bash
-# Vitest + React Testing Library
-npm install -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/dom @testing-library/jest-dom vite-tsconfig-paths
+# Core dependencies (already installed)
+pip install -r requirements.txt
 
-# Playwright E2E
-npm install -D @playwright/test
-npx playwright install --with-deps
+# Testing dependencies (NEW - add for merge validation)
+pip install pytest>=8.0.0 pytest-asyncio>=0.23.0
 
-# API Mocking
-npm install -D msw
+# Or update requirements.txt:
+echo "pytest>=8.0.0" >> requirements.txt
+echo "pytest-asyncio>=0.23.0" >> requirements.txt
 ```
 
-### Security & Rate Limiting
-```bash
-# CSRF Protection
-npm install @edge-csrf/nextjs
+## Merge Strategy: Modular Monolith Pattern
 
-# Rate Limiting (choose one)
-npm install @upstash/ratelimit @upstash/redis
-# OR
-npm install @arcjet/next
+### Recommended Approach: Package-Based Organization
 
-# Security Headers
-npm install next-secure-headers
+**Use Python packages with explicit `__init__.py` exposure** instead of adapter pattern or dependency injection containers.
+
+| Aspect | Approach | Why |
+|--------|----------|-----|
+| Directory Structure | processors/ as Python package | Clean separation, relative imports prevent circular dependencies |
+| Function Exposure | Explicit imports in processors/__init__.py | Clear public API, hides implementation details |
+| Import Resolution | Relative imports in processors, absolute in main.py | FastAPI-recommended pattern, avoids circular imports |
+| Integration | Import processors.* in main.py | Monolith endpoints call modular processors directly |
+
+### Concrete Implementation Pattern
+
+```python
+# processors/__init__.py
+"""
+Public API for SoulPrint processing modules.
+Exposes only the functions that main.py needs.
+"""
+from .conversation_chunker import chunk_conversations
+from .fact_extractor import extract_facts_parallel, consolidate_facts, hierarchical_reduce
+from .memory_generator import generate_memory_section
+from .v2_regenerator import regenerate_sections_v2, sections_to_soulprint_text
+
+__all__ = [
+    'chunk_conversations',
+    'extract_facts_parallel',
+    'consolidate_facts',
+    'hierarchical_reduce',
+    'generate_memory_section',
+    'regenerate_sections_v2',
+    'sections_to_soulprint_text',
+]
+
+# main.py (production monolith)
+from processors import (
+    chunk_conversations,
+    extract_facts_parallel,
+    consolidate_facts,
+    hierarchical_reduce,
+    generate_memory_section,
+    regenerate_sections_v2,
+    sections_to_soulprint_text,
+)
 ```
 
-### Type Safety
-```bash
-# Zod Runtime Validation
-npm install zod
+### Import Incompatibility Resolution
 
-# TypeScript Reset
-npm install -D @total-typescript/ts-reset
+**Problem:** full_pass.py imports `download_conversations` and `update_user_profile` from main — but these functions exist in both v1.2 main.py (355 lines) and production main.py (3603 lines) with **identical signatures**.
 
-# Strict ESLint
-npm install -D @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint-plugin-no-unsanitized
+**Solution:** No adapter needed. The functions are compatible.
+
+```python
+# Both versions have identical signatures (verified via grep):
+
+# v1.2 main.py
+async def download_conversations(storage_path: str) -> list
+
+# Production main.py
+async def download_conversations(storage_path: str) -> list
+
+# v1.2 main.py
+async def update_user_profile(user_id: str, updates: dict)
+
+# Production main.py
+async def update_user_profile(user_id: str, updates: dict)
 ```
 
-### Memory Leak Detection
+**Action:** Replace v1.2 main.py imports with production main.py imports. No signature changes needed.
+
+```python
+# processors/full_pass.py - BEFORE (v1.2)
+from main import download_conversations, update_user_profile
+
+# processors/full_pass.py - AFTER (merged into production)
+# No changes needed - same imports work with production main.py
+from main import download_conversations, update_user_profile
+```
+
+## Dockerfile Changes
+
+**Current Dockerfile already supports multi-file structure.** Line 14: `COPY . .` copies entire rlm-service directory including processors/.
+
+**Recommended optimization:**
+
+```dockerfile
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install git for pip install from GitHub
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
+# Copy and install dependencies FIRST (cache optimization)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir git+https://github.com/alexzhang13/rlm.git
+
+# Copy application code LAST (frequently changes, invalidates cache)
+COPY main.py .
+COPY processors/ ./processors/
+
+# Expose port (Render uses PORT env var, default 10000)
+EXPOSE 10000
+
+# Run - use PORT env var from Render
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}
+```
+
+**Why this order:** Dependencies change rarely (cache hit), application code changes frequently (cache miss acceptable). This saves ~30-60 seconds per rebuild during development.
+
+## Testing Strategy for Merge Validation
+
+### Phase 1: Endpoint Compatibility Tests
+
+Create tests/test_endpoints.py to verify all 14 existing endpoints work after merge.
+
+```python
+from fastapi.testclient import TestClient
+from main import app
+
+client = TestClient(app)
+
+def test_health_endpoint():
+    """Verify /health still works (table stakes)"""
+    response = client.get("/health")
+    assert response.status_code == 200
+
+def test_query_endpoint():
+    """Verify /query still works with RLM"""
+    response = client.post("/query", json={
+        "user_id": "test-user",
+        "message": "Hello",
+        "history": []
+    })
+    assert response.status_code in [200, 422]  # 422 = validation error OK
+
+def test_process_full_endpoint():
+    """Verify NEW /process-full endpoint exists"""
+    response = client.post("/process-full", json={
+        "user_id": "test-user",
+        "storage_path": "test/path.json"
+    })
+    # Endpoint should exist (not 404)
+    assert response.status_code != 404
+```
+
+### Phase 2: Processor Unit Tests
+
+Test individual processors independently.
+
+```python
+# tests/test_processors.py
+from processors import chunk_conversations, consolidate_facts
+
+def test_chunk_conversations():
+    """Verify chunker creates expected output"""
+    conversations = [{"id": "1", "title": "Test", "mapping": {}}]
+    chunks = chunk_conversations(conversations, target_tokens=2000)
+    assert len(chunks) >= 1
+    assert all("content" in chunk for chunk in chunks)
+```
+
+### Phase 3: Integration Tests
+
+Test full_pass_pipeline end-to-end with mock data.
+
+```python
+# tests/test_integration.py
+import pytest
+from processors.full_pass import run_full_pass_pipeline
+
+@pytest.mark.asyncio
+async def test_full_pass_pipeline_with_mock_data():
+    """Test complete pipeline with minimal mock data"""
+    # Requires mocking Supabase/Anthropic calls
+    # Verifies pipeline doesn't crash on integration
+    pass  # Implementation depends on mocking strategy
+```
+
+### Running Tests
+
 ```bash
-# Memlab
-npm install -D memlab
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run specific test file
+pytest tests/test_endpoints.py
+
+# Run with coverage
+pytest --cov=. --cov-report=term-missing
 ```
 
 ## Alternatives Considered
 
-| Category | Recommended | Alternative | Why Not Alternative |
-|----------|-------------|-------------|---------------------|
-| Unit Testing | Vitest | Jest | Jest is slower (20x in watch mode), requires heavy config for ESM, Babel transforms add overhead. Jest 30 improved but still behind Vitest. |
-| E2E Testing | Playwright | Cypress | Playwright has better multi-browser support, faster, works with Server Components. Cypress has licensing concerns for teams. |
-| Rate Limiting | @upstash/ratelimit | Vercel WAF | Vercel WAF requires Pro/Enterprise plan. Upstash works on Hobby tier. More control over logic. |
-| CSRF | @edge-csrf/nextjs | next-csrf | next-csrf doesn't support Edge Runtime. @edge-csrf designed specifically for Vercel Edge. |
-| Runtime Validation | Zod | Yup | Zod is TypeScript-first (infer types from schema), zero dependencies, better DX. Yup requires separate type definitions. |
-| Memory Profiling | Chrome DevTools + memlab | Clinic.js | Clinic.js is unmaintained as of 2025, breaks with newer Node versions. Chrome DevTools is always current. |
-| Security | @arcjet/next | Individual libraries | Arcjet is all-in-one but opinionated and still alpha. Use individual libraries for production stability. Consider Arcjet post-beta. |
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Import Strategy | Python packages with __init__.py | Dependency Injection container (python-dependency-injector) | Adds complexity, external dependency. FastAPI's built-in DI sufficient for endpoints, not needed for internal processor calls |
+| Import Strategy | Relative imports in processors/ | Adapter pattern for incompatible functions | Functions are already compatible. Adapter adds unnecessary indirection |
+| Testing | pytest + TestClient | Manual curl testing | Not repeatable, doesn't catch regressions, slow feedback |
+| Dockerfile COPY | Explicit COPY main.py + processors/ | COPY . . (wildcard) | Current approach works but less cache-efficient. Explicit is better for build time optimization |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Jest (new projects) | Slow, complex ESM config, Babel overhead. Next.js moved to Vitest in docs. | Vitest |
-| Helmet.js | Requires custom Express server, Next.js team discourages custom servers. Breaks Vercel optimizations. | next-secure-headers |
-| Clinic.js | Unmaintained since 2024, breaks with Node 20+. Tied to Node internals. | Chrome DevTools, memlab |
-| Generic rate limiting (express-rate-limit, etc.) | Stateful, requires connection pooling. Doesn't work in serverless. | @upstash/ratelimit (Redis REST API) |
-| TypeScript without strict mode | Allows implicit `any`, unsafe null handling, weak type checking. Technical debt grows fast. | tsconfig.json with `"strict": true` |
-| Mixing Jest and Vitest | Different mocking APIs, config conflicts, confusing for team. Pick one. | Vitest (new standard) |
-
-## Configuration Examples
-
-### Vitest Setup (vitest.config.mts)
-```typescript
-import { defineConfig } from 'vitest/config'
-import react from '@vitejs/plugin-react'
-import tsconfigPaths from 'vite-tsconfig-paths'
-
-export default defineConfig({
-  plugins: [tsconfigPaths(), react()],
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['./vitest.setup.ts'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-    },
-  },
-})
-```
-
-### TypeScript Strict Config (tsconfig.json)
-```json
-{
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
-  }
-}
-```
-
-### ts-reset Import (src/reset.d.ts)
-```typescript
-import '@total-typescript/ts-reset'
-```
-
-### ESLint Strict Config (.eslintrc.json)
-```json
-{
-  "extends": [
-    "next/core-web-vitals",
-    "plugin:@typescript-eslint/strict-type-checked",
-    "plugin:no-unsanitized/recommended"
-  ],
-  "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "project": true
-  },
-  "plugins": ["@typescript-eslint", "no-unsanitized"],
-  "rules": {
-    "@typescript-eslint/no-explicit-any": "error",
-    "@typescript-eslint/no-unsafe-assignment": "error",
-    "@typescript-eslint/no-unsafe-member-access": "error"
-  }
-}
-```
-
-### Upstash Rate Limiting (middleware.ts)
-```typescript
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
-
-const ratelimit = new Ratelimit({
-  redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(10, "10 s"),
-  analytics: true,
-});
-
-export async function middleware(request: Request) {
-  const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
-  const { success } = await ratelimit.limit(ip);
-
-  if (!success) {
-    return new Response("Too Many Requests", { status: 429 });
-  }
-
-  return NextResponse.next();
-}
-```
+| `from processors.full_pass import *` | Wildcard imports obscure what's actually used, break static analysis | Explicit imports: `from processors import run_full_pass_pipeline` |
+| `async def` in pytest tests | TestClient is synchronous, mixing async complicates test execution | Regular `def test_*()` functions with synchronous TestClient calls |
+| `import main` in processors without circular import checks | Can cause circular import if main also imports processors | Use relative imports within processors/, absolute for main.py imports |
+| Copying `__pycache__/` or `.git/` to Docker | Bloats image size by 10-50MB, slows builds | Add .dockerignore with common exclusions |
 
 ## Stack Patterns by Variant
 
-**If you need comprehensive security (CSRF + rate limiting + bot detection + WAF):**
-- Use @arcjet/next once it reaches stable (currently alpha)
-- Implements all security in middleware with single SDK
-- Trade-off: More opinionated, newer library, less community examples
+**If processors need to call each other (processor-to-processor):**
+- Use relative imports: `from .conversation_chunker import chunk_conversations`
+- Keeps processors directory self-contained
+- Example: memory_generator.py might call fact_extractor.py utilities
 
-**If you need granular control and production stability:**
-- Use @edge-csrf/nextjs + @upstash/ratelimit + next-secure-headers separately
-- More configuration but battle-tested libraries
-- Better for large-scale production apps today
+**If main.py needs to call processors (endpoint-to-processor):**
+- Use absolute imports: `from processors import chunk_conversations`
+- Clear API boundary between monolith and modules
+- Example: /process-full endpoint calls run_full_pass_pipeline
 
-**If you have existing Jest tests:**
-- Keep Jest for now, add Vitest incrementally
-- Don't rewrite all tests at once
-- New tests in Vitest, migrate old tests over time
-
-**If testing async Server Components:**
-- Use Playwright E2E tests exclusively
-- Vitest doesn't support async Server Components yet
-- This is a React ecosystem limitation, not Vitest-specific
+**If processors need utilities from main.py (processor-to-monolith):**
+- Import directly: `from main import download_conversations, update_user_profile`
+- Only import shared utilities, never import the FastAPI app instance
+- Example: full_pass.py needs Supabase helper functions
 
 ## Version Compatibility
 
 | Package | Compatible With | Notes |
 |---------|-----------------|-------|
-| Vitest ^3.0.0 | Next.js 15, 16 | Requires @vitejs/plugin-react ^4.3+ |
-| Playwright ^1.50.0 | Next.js 15, 16 | Works with App Router and Pages Router |
-| @upstash/ratelimit ^2.0.0 | Vercel Edge, Next.js Middleware | Requires @upstash/redis ^1.34+ |
-| @arcjet/next ^1.0.0-alpha | Next.js 15, 16 | ESM only, alpha stability |
-| @typescript-eslint/eslint-plugin ^8.0.0 | TypeScript ^5.6+ | Use with @typescript-eslint/parser same version |
-| zod ^3.24.0 | TypeScript ^5.0+ | Zero peer dependencies |
-| @total-typescript/ts-reset ^0.6.0 | TypeScript ^5.0+ | Import once in .d.ts file |
-
-## Confidence Assessment
-
-| Area | Level | Source | Notes |
-|------|-------|--------|-------|
-| Testing (Vitest) | HIGH | Official Next.js docs, verified with WebFetch | Next.js docs explicitly recommend Vitest as of 2025/2026 |
-| Testing (Playwright) | HIGH | Official Next.js docs, verified with WebFetch | Official E2E testing recommendation |
-| Rate Limiting (Upstash) | HIGH | Multiple sources, GitHub verified | Purpose-built for serverless, 3.6k+ GitHub stars |
-| CSRF Protection | MEDIUM | WebSearch + npm docs | @edge-csrf/nextjs is specialized but less documented than alternatives |
-| Type Safety (Zod) | HIGH | Multiple authoritative sources | De facto standard for runtime validation in TS ecosystem |
-| Type Safety (ts-reset) | HIGH | Total TypeScript (Matt Pocock), verified docs | Well-known in TS community, 7k+ GitHub stars |
-| Memory Profiling | MEDIUM | WebSearch + GitHub | Memlab is Meta-maintained but less widely adopted. Chrome DevTools is universal. |
-| Security (Arcjet) | LOW | WebSearch only, alpha version | Still in alpha, not production-ready, but promising future option |
+| fastapi>=0.109.0 | uvicorn>=0.27.0 | FastAPI 0.109+ requires Uvicorn 0.27+ for optimal async performance |
+| anthropic>=0.18.0 | python>=3.8 | Async client requires Python 3.8+; using 3.12 is ideal |
+| pytest>=8.0.0 | pytest-asyncio>=0.23.0 | Newer pytest versions have better async support |
+| httpx>=0.26.0 | fastapi.testclient | TestClient uses httpx internally, version must align |
 
 ## Sources
 
-### Official Documentation
-- [Next.js Testing: Vitest](https://nextjs.org/docs/app/guides/testing/vitest) - HIGH confidence
-- [Next.js Testing: Playwright](https://nextjs.org/docs/app/guides/testing/playwright) - HIGH confidence
-- [Next.js Security Guide](https://nextjs.org/blog/security-nextjs-server-components-actions) - HIGH confidence
-- [Zod Official Docs](https://zod.dev/) - HIGH confidence
-- [TypeScript ESLint Shared Configs](https://typescript-eslint.io/users/configs/) - HIGH confidence
+**Official Documentation (HIGH confidence):**
+- [FastAPI Multi-File Applications](https://fastapi.tiangolo.com/tutorial/bigger-applications/) — Package structure, APIRouter, relative imports
+- [FastAPI Dependency Injection](https://fastapi.tiangolo.com/tutorial/dependencies/) — DI system for avoiding circular imports
+- [FastAPI Testing](https://fastapi.tiangolo.com/tutorial/testing/) — TestClient usage, pytest conventions
+- [FastAPI Docker Deployment](https://fastapi.tiangolo.com/deployment/docker/) — COPY order for cache optimization
+- [Python Modules Documentation](https://docs.python.org/3/tutorial/modules.html) — __init__.py, __all__, package organization
 
-### Package Documentation
-- [Upstash Rate Limiting Overview](https://upstash.com/docs/redis/sdks/ratelimit-ts/overview) - HIGH confidence
-- [Upstash Blog: Rate Limiting with Vercel Edge](https://upstash.com/blog/edge-rate-limiting) - HIGH confidence
-- [@edge-csrf/nextjs npm](https://www.npmjs.com/package/@edge-csrf/nextjs) - MEDIUM confidence
-- [@arcjet/next npm](https://www.npmjs.com/package/@arcjet/next) - MEDIUM confidence
-- [Memlab GitHub](https://github.com/facebook/memlab) - MEDIUM confidence
-- [MSW Official Docs](https://mswjs.io/) - HIGH confidence
-- [ts-reset Official Docs](https://www.totaltypescript.com/ts-reset) - HIGH confidence
+**Community Best Practices (MEDIUM confidence, verified with official docs):**
+- [FastAPI Project Structure for Large Applications (2026)](https://medium.com/@devsumitg/the-perfect-structure-for-a-large-production-ready-fastapi-app-78c55271d15c) — Modular monolith patterns
+- [Dependency Injection in FastAPI: 2026 Playbook](https://thelinuxcode.com/dependency-injection-in-fastapi-2026-playbook-for-modular-testable-apis/) — DI vs external containers
+- [Resolving FastAPI Circular References Error](https://www.slingacademy.com/article/resolving-fastapi-circular-references-error/) — Circular import solutions
+- [Real Python: What Is Python's __init__.py For?](https://realpython.com/python-init-py/) — Package organization patterns
+- [pytest with FastAPI Testing](https://pytest-with-eric.com/pytest-advanced/pytest-fastapi-testing/) — Testing patterns for refactoring
 
-### Community & Comparisons
-- [Vitest vs Jest Comparison (Better Stack)](https://betterstack.com/community/guides/scaling-nodejs/vitest-vs-jest/) - MEDIUM confidence
-- [Vitest vs Jest 2026 Analysis (DEV Community)](https://dev.to/dataformathub/vitest-vs-jest-30-why-2026-is-the-year-of-browser-native-testing-2fgb) - MEDIUM confidence
-- [React Testing Library Guide 2026](https://thinksys.com/qa-testing/react-testing-library-complete-guide-2023/) - MEDIUM confidence
-- [Next.js Security Checklist (Arcjet Blog)](https://blog.arcjet.com/next-js-security-checklist/) - MEDIUM confidence
-- [TypeScript Strict Mode Best Practices](https://betterstack.com/community/guides/scaling-nodejs/typescript-strict-option/) - MEDIUM confidence
+**Architecture Patterns (MEDIUM confidence):**
+- [Modular Monolith Architecture](https://breadcrumbscollector.tech/modular-monolith-in-python/) — Python-specific modular monolith strategies
+- [FastAPI Modular Monolith Starter Kit](https://github.com/arctikant/fastapi-modular-monolith-starter-kit) — Reference implementation
+- [Refactoring Guru: Adapter Pattern in Python](https://refactoring.guru/design-patterns/adapter/python/example) — When adapter pattern is appropriate (not needed here)
 
 ---
-*Stack research for: Next.js 16 Application Security & Testing Hardening*
+*Stack research for: RLM Production Sync (v1.2 processors/ merge)*
 *Researched: 2026-02-06*
-*Researcher: GSD Project Researcher*
