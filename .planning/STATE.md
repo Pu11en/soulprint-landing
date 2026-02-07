@@ -10,25 +10,25 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Phase: 2 of 3 (Full Pass Pipeline)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-07 -- Completed 02-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-02-07 -- Completed 02-03-PLAN.md
 
-Progress: [#####.....] 50% (5/10 plans)
+Progress: [######....] 60% (6/10 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 3.3min
-- Total execution time: 16.6min
+- Total plans completed: 6
+- Average duration: 3.1min
+- Total execution time: 19.1min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Schema + Quick Pass Pipeline | 3/3 | 11min | 3.7min |
-| 2. Full Pass Pipeline | 2/3 | 5.6min | 2.8min |
+| 2. Full Pass Pipeline | 3/3 | 8.1min | 2.7min |
 
 ## Accumulated Context
 
@@ -54,6 +54,10 @@ Recent decisions affecting current work:
 - 02-02: Concurrency limit of 10 parallel Haiku calls for fact extraction
 - 02-02: Leave embedding column NULL (backfill strategy deferred)
 - 02-02: Calculate is_recent based on 6-month threshold from conversation created_at
+- 02-03: Use same 5-section schema for v2 as quick pass (only input changes)
+- 02-03: Sample top 200 conversations for v2 (vs 30-50 for quick pass)
+- 02-03: V2 regeneration failure is non-fatal (v1 sections stay, MEMORY still saved)
+- 02-03: Store sections with json.dumps() to match Phase 1 convention
 
 ### Pending Todos
 
@@ -69,7 +73,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 02-02-PLAN.md
+Stopped at: Completed 02-03-PLAN.md -- Phase 2 Complete
 Resume file: None
 
 ---
