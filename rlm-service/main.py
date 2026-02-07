@@ -154,46 +154,37 @@ async def download_conversations(storage_path: str) -> list:
 
 
 async def run_full_pass(request: ProcessFullRequest):
-    """Background task for full pass processing (stub for now)"""
+    """Background task: run the complete full pass pipeline."""
     try:
-        # Mark processing started
-        await update_user_profile(
-            request.user_id,
-            {
-                "full_pass_status": "processing",
-                "full_pass_started_at": datetime.utcnow().isoformat(),
-                "full_pass_error": None,
-            },
+        await update_user_profile(request.user_id, {
+            "full_pass_status": "processing",
+            "full_pass_started_at": datetime.utcnow().isoformat(),
+            "full_pass_error": None,
+        })
+
+        from processors.full_pass import run_full_pass_pipeline
+        memory_md = await run_full_pass_pipeline(
+            user_id=request.user_id,
+            storage_path=request.storage_path,
+            conversation_count=request.conversation_count,
         )
 
-        # Stub processing - Plan 02-02 will fill in real logic
-        print(f"[FULL_PASS] Starting for user {request.user_id} (storage: {request.storage_path})")
-        await asyncio.sleep(1)  # Simulate work
-        print(f"[FULL_PASS] Full pass stub complete for user {request.user_id}")
+        # V2 regeneration will be wired in Plan 02-03
+        # For now, mark as complete after MEMORY generation
+        await update_user_profile(request.user_id, {
+            "full_pass_status": "complete",
+            "full_pass_completed_at": datetime.utcnow().isoformat(),
+        })
 
-        # Mark success (stub - real completion in 02-02)
-        await update_user_profile(
-            request.user_id,
-            {
-                "full_pass_status": "complete",
-                "full_pass_completed_at": datetime.utcnow().isoformat(),
-            },
-        )
+        print(f"[FullPass] Complete for user {request.user_id}")
 
     except Exception as e:
-        # Mark failure
-        error_msg = str(e)
-        print(f"[FULL_PASS] Failed for user {request.user_id}: {error_msg}")
-
-        await update_user_profile(
-            request.user_id,
-            {
-                "full_pass_status": "failed",
-                "full_pass_error": error_msg,
-            },
-        )
-
-        await alert_failure(error_msg, request.user_id, "Full pass failed")
+        print(f"[FullPass] Failed for user {request.user_id}: {e}")
+        await update_user_profile(request.user_id, {
+            "full_pass_status": "failed",
+            "full_pass_error": str(e)[:500],
+        })
+        await alert_failure(str(e), request.user_id, "Full pass failed")
 
 
 async def query_with_rlm(
