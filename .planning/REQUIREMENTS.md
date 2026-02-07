@@ -71,11 +71,11 @@
 | CTX-03 | Phase 1 | Complete |
 | CTX-04 | Phase 1 | Complete |
 | CTX-05 | Phase 1 | Complete |
-| CTX-06 | Phase 2 | Pending |
+| CTX-06 | Phase 2 | Complete |
 | CTX-07 | Phase 3 | Pending |
 | GEN-01 | Phase 1 | Complete |
-| GEN-02 | Phase 2 | Pending |
-| GEN-03 | Phase 2 | Pending |
+| GEN-02 | Phase 2 | Complete |
+| GEN-03 | Phase 2 | Complete |
 | GEN-04 | Phase 1 | Complete |
 | PROMPT-01 | Phase 3 | Pending |
 | IMP-01 | Phase 3 | Pending |
@@ -93,4 +93,4 @@
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 -- traceability updated with 3-phase roadmap*
+*Last updated: 2026-02-07 -- Phase 2 requirements (CTX-06, GEN-02, GEN-03) marked Complete*

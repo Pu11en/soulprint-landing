@@ -39,7 +39,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md`
 **Phase Numbering:** Milestone-scoped (1, 2, 3). Decimal phases (1.1, 1.2) reserved for urgent insertions.
 
 - [x] **Phase 1: Schema + Quick Pass Pipeline** (3/3 plans) -- completed 2026-02-07
-- [ ] **Phase 2: Full Pass Pipeline** -- RLM background map-reduce generates MEMORY section + conversation chunks, then regenerates all sections as v2
+- [x] **Phase 2: Full Pass Pipeline** (3/3 plans) -- completed 2026-02-07
 - [ ] **Phase 3: Chat Integration + UX** -- Compose system prompt from all sections, daily memory from chat, import UX flow, email cleanup
 
 ## Phase Details
@@ -73,9 +73,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Schema migration (memory_md, full_pass_status) + /process-full endpoint skeleton with background task dispatch
-- [ ] 02-02-PLAN.md -- Map-reduce pipeline: conversation chunking, parallel fact extraction, MEMORY section generation
-- [ ] 02-03-PLAN.md -- V2 section regeneration from complete data + MEMORY context, final status flow
+- [x] 02-01-PLAN.md -- Schema migration (memory_md, full_pass_status) + /process-full endpoint skeleton with background task dispatch
+- [x] 02-02-PLAN.md -- Map-reduce pipeline: conversation chunking, parallel fact extraction, MEMORY section generation
+- [x] 02-03-PLAN.md -- V2 section regeneration from complete data + MEMORY context, final status flow
 
 ### Phase 3: Chat Integration + UX
 **Goal**: Users experience a seamless import-to-chat flow where chat opens after quick pass, system prompt is composed from all 7 sections, memory builds visibly in background, and daily memory accumulates from chat sessions
@@ -129,8 +129,8 @@ Orphans: 0
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Schema + Quick Pass Pipeline | v1.2 | 3/3 | Complete | 2026-02-07 |
-| 2. Full Pass Pipeline | v1.2 | 0/3 | Planned | - |
+| 2. Full Pass Pipeline | v1.2 | 3/3 | Complete | 2026-02-07 |
 | 3. Chat Integration + UX | v1.2 | 0/4 | Not started | - |
 
 ---
-*Last updated: 2026-02-07 after Phase 1 execution complete (3/3 plans, verified)*
+*Last updated: 2026-02-07 after Phase 2 execution complete (3/3 plans, verified)*
