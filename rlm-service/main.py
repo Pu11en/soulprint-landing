@@ -169,8 +169,7 @@ async def run_full_pass(request: ProcessFullRequest):
             conversation_count=request.conversation_count,
         )
 
-        # V2 regeneration will be wired in Plan 02-03
-        # For now, mark as complete after MEMORY generation
+        # Mark complete after full pipeline (MEMORY + v2 regeneration)
         await update_user_profile(request.user_id, {
             "full_pass_status": "complete",
             "full_pass_completed_at": datetime.utcnow().isoformat(),
@@ -180,6 +179,8 @@ async def run_full_pass(request: ProcessFullRequest):
 
     except Exception as e:
         print(f"[FullPass] Failed for user {request.user_id}: {e}")
+        import traceback
+        traceback.print_exc()
         await update_user_profile(request.user_id, {
             "full_pass_status": "failed",
             "full_pass_error": str(e)[:500],

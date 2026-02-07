@@ -181,9 +181,34 @@ async def run_full_pass_pipeline(
     memory_md = await generate_memory_section(reduced, client)
     print(f"[FullPass] Generated MEMORY section ({len(memory_md)} chars)")
 
-    # Step 8: Save MEMORY to database
+    # Step 8: Save MEMORY to database (early save so user benefits even if v2 regen fails)
     from main import update_user_profile
     await update_user_profile(user_id, {"memory_md": memory_md})
+    print(f"[FullPass] Saved MEMORY section to database")
+
+    # Step 9: V2 Section Regeneration
+    from processors.v2_regenerator import regenerate_sections_v2, sections_to_soulprint_text
+
+    print(f"[FullPass] Starting v2 section regeneration for user {user_id}")
+    v2_sections = await regenerate_sections_v2(conversations, memory_md, client)
+
+    if v2_sections:
+        # Build soulprint_text from v2 sections + MEMORY
+        soulprint_text = sections_to_soulprint_text(v2_sections, memory_md)
+
+        # Save all v2 sections + soulprint_text to database atomically
+        await update_user_profile(user_id, {
+            "soul_md": json.dumps(v2_sections["soul"]),
+            "identity_md": json.dumps(v2_sections["identity"]),
+            "user_md": json.dumps(v2_sections["user"]),
+            "agents_md": json.dumps(v2_sections["agents"]),
+            "tools_md": json.dumps(v2_sections["tools"]),
+            "soulprint_text": soulprint_text,
+        })
+        print(f"[FullPass] V2 sections saved for user {user_id}")
+    else:
+        print(f"[FullPass] V2 regeneration failed -- keeping v1 sections for user {user_id}")
+        # V1 sections stay, MEMORY already saved above
 
     print(f"[FullPass] Pipeline complete for user {user_id}")
 
