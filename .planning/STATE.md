@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 4 of 5 (Pipeline Integration)
-Plan: 1 of TBD in current phase
-Status: In progress
-Last activity: 2026-02-07 — Completed 04-01-PLAN.md (pipeline hardening)
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-07 — Completed 04-02-PLAN.md (pipeline integration tests)
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6 (v1.3)
-- Average duration: 8.2 minutes
-- Total execution time: 0.75 hours
+- Total plans completed: 7 (v1.3)
+- Average duration: 8.4 minutes
+- Total execution time: 1.0 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [███████░░░] 71%
 | 01-dependency-extraction | 1 | 4 min | 4 min |
 | 02-copy-modify-processors | 2 | 5 min | 2.5 min |
 | 03-wire-new-endpoint | 2 | 28 min | 14 min |
-| 04-pipeline-integration | 1 | 9 min | 9 min |
+| 04-pipeline-integration | 2 | 19 min | 9.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (3min), 02-02 (2min), 03-01 (3.5min), 03-02 (24min), 04-01 (9min)
-- Trend: Execution time varies by complexity (testing phases longer, implementation phases faster)
+- Last 5 plans: 02-02 (2min), 03-01 (3.5min), 03-02 (24min), 04-01 (9min), 04-02 (10min)
+- Trend: Testing phases consistently ~10 minutes, implementation phases faster (~3-4 min)
 
 *Updated after each plan completion*
 
@@ -66,6 +66,7 @@ Recent decisions affecting current work:
 | PIPE-02 | Default concurrency to 3 for Render Starter | Render Starter has 512MB RAM, concurrency=10 would OOM | FACT_EXTRACTION_CONCURRENCY env var controls parallel fact extraction (1-50, default 3) | 04-01 |
 | MON-01 | Structured logging with user_id and step name | Enables production debugging via Render logs | All 9 pipeline steps log user_id and step name at boundaries | 04-01 |
 | MON-03 | V2 regeneration failure is non-fatal | MEMORY section is core value, v2 sections are enhancement | Pipeline marks complete if MEMORY saved, even if v2 regen fails | 04-01 |
+| TEST-05 | Mock Anthropic client with content-based prompt matching | Keeps mocks maintainable while verifying prompt construction | Integration tests match signature strings in prompt content | 04-02 |
 
 **Project-level decisions:**
 - v1.3: Separate soulprint-rlm repo — Production RLM deploys from Pu11en/soulprint-rlm, not soulprint-landing/rlm-service/ (Pending)
@@ -78,22 +79,30 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None - Plan 04-01 complete.
+None - Phase 4 complete.
 
-**Readiness for next plan:**
+**Phase 4 Completion Status:**
+- ✅ Pipeline hardening complete (04-01)
+- ✅ Integration tests complete (04-02)
+- ✅ 61 tests passing (54 existing + 7 new integration tests)
+- ✅ SQL migration file ready for deployment
+- ✅ No regressions
+
+**Readiness for Phase 5 (Production Sync):**
 - ✅ Pipeline has configurable concurrency (safe for Render Starter)
 - ✅ Structured logging at all major steps (ready for monitoring)
 - ✅ Status tracking in user_profiles (UI can show progress)
 - ✅ Error messages include step context (debugging-friendly)
-- ✅ All 54 tests passing (no regressions)
+- ✅ Integration test coverage for concurrency, logging, and full pipeline flow
+- 🔄 SQL migration needs to be run in Supabase (idempotent, may already exist from v1.2)
 
-**Note:** Processors not yet tested end-to-end with real Supabase data. Phase 4 should include smoke test.
+**Note:** Processors tested with mocked dependencies. Phase 5 should include smoke test with real Supabase data.
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 04-01-PLAN.md (pipeline hardening)
+Stopped at: Completed 04-02-PLAN.md (pipeline integration tests) - Phase 4 complete
 Resume file: None
 
 ---
-*Last updated: 2026-02-07 after 04-01 execution*
+*Last updated: 2026-02-07 after 04-02 execution*
