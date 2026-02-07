@@ -4,7 +4,7 @@
 
 - SHIPPED **v1.0 MVP** -- Phases 1 (shipped 2026-02-01)
 - SHIPPED **v1.1 Stabilization** -- Phases 1-7, 22 plans (shipped 2026-02-06)
-- IN PROGRESS **v1.2 Import UX Streamline** -- Phases 1-3
+- SHIPPED **v1.2 Import UX Streamline** -- Phases 1-3, 9 plans (shipped 2026-02-07)
 
 ## Phases
 
@@ -40,7 +40,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md`
 
 - [x] **Phase 1: Schema + Quick Pass Pipeline** (3/3 plans) -- completed 2026-02-07
 - [x] **Phase 2: Full Pass Pipeline** (3/3 plans) -- completed 2026-02-07
-- [ ] **Phase 3: Chat Integration + UX** -- Compose system prompt from all sections, daily memory from chat, import UX flow, email cleanup
+- [x] **Phase 3: Chat Integration + UX** (3/3 plans) -- completed 2026-02-07
 
 ## Phase Details
 
@@ -90,9 +90,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- System prompt composition from 7 structured sections + daily memory
-- [ ] 03-02-PLAN.md -- Memory status endpoint update + import page UX (loading screen, redirect on quick_ready)
-- [ ] 03-03-PLAN.md -- Chat page UX (memory progress indicator, import gating) + email cleanup
+- [x] 03-01-PLAN.md -- System prompt composition from 7 structured sections + daily memory
+- [x] 03-02-PLAN.md -- Memory status endpoint update + import page UX (loading screen, redirect on quick_ready)
+- [x] 03-03-PLAN.md -- Chat page UX (memory progress indicator, import gating) + email cleanup
 
 ## Coverage
 
@@ -129,7 +129,7 @@ Orphans: 0
 |-------|-----------|----------------|--------|-----------|
 | 1. Schema + Quick Pass Pipeline | v1.2 | 3/3 | Complete | 2026-02-07 |
 | 2. Full Pass Pipeline | v1.2 | 3/3 | Complete | 2026-02-07 |
-| 3. Chat Integration + UX | v1.2 | 0/3 | Not started | - |
+| 3. Chat Integration + UX | v1.2 | 3/3 | Complete | 2026-02-07 |
 
 ---
-*Last updated: 2026-02-07 after Phase 3 planning complete (3 plans in 2 waves)*
+*Last updated: 2026-02-07 after Phase 3 execution complete (3/3 plans, verified)*

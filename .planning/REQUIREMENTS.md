@@ -72,19 +72,19 @@
 | CTX-04 | Phase 1 | Complete |
 | CTX-05 | Phase 1 | Complete |
 | CTX-06 | Phase 2 | Complete |
-| CTX-07 | Phase 3 | Pending |
+| CTX-07 | Phase 3 | Complete |
 | GEN-01 | Phase 1 | Complete |
 | GEN-02 | Phase 2 | Complete |
 | GEN-03 | Phase 2 | Complete |
 | GEN-04 | Phase 1 | Complete |
-| PROMPT-01 | Phase 3 | Pending |
-| IMP-01 | Phase 3 | Pending |
-| IMP-02 | Phase 3 | Pending |
-| IMP-03 | Phase 3 | Pending |
-| IMP-04 | Phase 3 | Pending |
-| IMP-05 | Phase 3 | Pending |
-| EMAIL-01 | Phase 3 | Pending |
-| EMAIL-02 | Phase 3 | Pending |
+| PROMPT-01 | Phase 3 | Complete |
+| IMP-01 | Phase 3 | Complete |
+| IMP-02 | Phase 3 | Complete |
+| IMP-03 | Phase 3 | Complete |
+| IMP-04 | Phase 3 | Complete |
+| IMP-05 | Phase 3 | Complete |
+| EMAIL-01 | Phase 3 | Complete |
+| EMAIL-02 | Phase 3 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 19 total
@@ -93,4 +93,4 @@
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-07 -- Phase 2 requirements (CTX-06, GEN-02, GEN-03) marked Complete*
+*Last updated: 2026-02-07 -- All 19 requirements marked Complete (v1.2 milestone shipped)*
