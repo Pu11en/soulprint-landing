@@ -70,12 +70,12 @@ Plans:
   2. Full pass handles large exports (88MB, 5000+ conversations) via map-reduce without hitting Vercel's 5-minute timeout
   3. After full pass, all 5 quick-pass sections (SOUL, IDENTITY, USER, AGENTS, TOOLS) are regenerated as v2 with richer, more nuanced content from complete data
   4. Full pass runs entirely in the background without blocking the user's ability to chat
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Map-reduce pipeline for full export processing via RLM
-- [ ] 02-02: MEMORY section generation from map-reduce output
-- [ ] 02-03: v2 regeneration of SOUL/IDENTITY/USER/AGENTS/TOOLS after full pass
+- [ ] 02-01-PLAN.md -- Schema migration (memory_md, full_pass_status) + /process-full endpoint skeleton with background task dispatch
+- [ ] 02-02-PLAN.md -- Map-reduce pipeline: conversation chunking, parallel fact extraction, MEMORY section generation
+- [ ] 02-03-PLAN.md -- V2 section regeneration from complete data + MEMORY context, final status flow
 
 ### Phase 3: Chat Integration + UX
 **Goal**: Users experience a seamless import-to-chat flow where chat opens after quick pass, system prompt is composed from all 7 sections, memory builds visibly in background, and daily memory accumulates from chat sessions
@@ -129,7 +129,7 @@ Orphans: 0
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Schema + Quick Pass Pipeline | v1.2 | 3/3 | Complete | 2026-02-07 |
-| 2. Full Pass Pipeline | v1.2 | 0/3 | Not started | - |
+| 2. Full Pass Pipeline | v1.2 | 0/3 | Planned | - |
 | 3. Chat Integration + UX | v1.2 | 0/4 | Not started | - |
 
 ---
