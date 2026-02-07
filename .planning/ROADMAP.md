@@ -73,10 +73,11 @@ Plans:
   2. Dockerfile builds successfully and imports all processor modules at build time
   3. Processor unit tests pass in isolation with mocked adapter
   4. pytest and pytest-asyncio installed and working
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] TBD
+- [ ] 02-01-PLAN.md — Copy 5 processor modules to production, modify full_pass.py imports, update Dockerfile
+- [ ] 02-02-PLAN.md — Write processor unit tests and update pytest coverage config
 
 ### Phase 3: Wire New Endpoint
 **Goal**: /process-full-v2 endpoint exists alongside /process-full v1 with parallel deployment capability
@@ -130,7 +131,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Dependency Extraction | v1.3 | 1/1 | Complete | 2026-02-06 |
-| 2. Copy & Modify Processors | v1.3 | 0/TBD | Not started | - |
+| 2. Copy & Modify Processors | v1.3 | 0/2 | Planned | - |
 | 3. Wire New Endpoint | v1.3 | 0/TBD | Not started | - |
 | 4. Pipeline Integration | v1.3 | 0/TBD | Not started | - |
 | 5. Gradual Cutover | v1.3 | 0/TBD | Not started | - |
