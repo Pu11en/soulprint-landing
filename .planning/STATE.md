@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** The import-to-chat flow must work reliably every time on production — no stuck imports, no memory leaks, no silent failures.
-**Current focus:** Phase 4 - Pipeline Integration (v1.3 RLM Production Sync)
+**Current focus:** Phase 5 - Gradual Cutover (v1.3 RLM Production Sync)
 
 ## Current Position
 
-Phase: 4 of 5 (Pipeline Integration)
-Plan: 2 of 2 in current phase
-Status: Phase complete, verified (12/12 must-haves)
-Last activity: 2026-02-07 — Phase 4 (Pipeline Integration) complete, verified
+Phase: 5 of 5 (Gradual Cutover)
+Plan: 2 of 4 in current phase
+Status: In progress
+Last activity: 2026-02-07 — Completed 05-02-PLAN.md (Deprecation Headers)
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (v1.3)
-- Average duration: 8.4 minutes
+- Total plans completed: 9 (v1.3)
+- Average duration: 6.8 minutes
 - Total execution time: 1.0 hours
 
 **By Phase:**
@@ -31,10 +31,11 @@ Progress: [████████░░] 80%
 | 02-copy-modify-processors | 2 | 5 min | 2.5 min |
 | 03-wire-new-endpoint | 2 | 28 min | 14 min |
 | 04-pipeline-integration | 2 | 19 min | 9.5 min |
+| 05-gradual-cutover | 2 | 5 min | 2.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (2min), 03-01 (3.5min), 03-02 (24min), 04-01 (9min), 04-02 (10min)
-- Trend: Testing phases consistently ~10 minutes, implementation phases faster (~3-4 min)
+- Last 5 plans: 03-02 (24min), 04-01 (9min), 04-02 (10min), 05-01 (4min), 05-02 (1min)
+- Trend: Simple implementation tasks <5 minutes, testing phases ~10 minutes
 
 *Updated after each plan completion*
 
@@ -67,6 +68,9 @@ Recent decisions affecting current work:
 | MON-01 | Structured logging with user_id and step name | Enables production debugging via Render logs | All 9 pipeline steps log user_id and step name at boundaries | 04-01 |
 | MON-03 | V2 regeneration failure is non-fatal | MEMORY section is core value, v2 sections are enhancement | Pipeline marks complete if MEMORY saved, even if v2 regen fails | 04-01 |
 | TEST-05 | Mock Anthropic client with content-based prompt matching | Keeps mocks maintainable while verifying prompt construction | Integration tests match signature strings in prompt content | 04-02 |
+| DEP-01 | Use RFC 8594 standard headers for API deprecation | Industry-standard approach, enables automated detection | v1 /process-full returns Deprecation, Sunset, Link headers | 05-02 |
+| DEP-02 | Log each v1 call with user_id | Enables monitoring v1 traffic patterns during cutover | [DEPRECATED] log line printed for every v1 call | 05-02 |
+| DEP-03 | Sunset date set to March 1, 2026 | Gives 3+ weeks for gradual cutover completion | Clear deadline for v1 removal after 100% v2 traffic | 05-02 |
 
 **Project-level decisions:**
 - v1.3: Separate soulprint-rlm repo — Production RLM deploys from Pu11en/soulprint-rlm, not soulprint-landing/rlm-service/ (Pending)
@@ -79,30 +83,30 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None - Phase 4 complete.
+None.
 
-**Phase 4 Completion Status:**
-- ✅ Pipeline hardening complete (04-01)
-- ✅ Integration tests complete (04-02)
-- ✅ 61 tests passing (54 existing + 7 new integration tests)
-- ✅ SQL migration file ready for deployment
-- ✅ No regressions
+**Phase 5 Progress (Gradual Cutover):**
+- ✅ 05-01: V2_ROLLOUT_PERCENT routing in Next.js import endpoint
+- ✅ 05-02: RFC 8594 deprecation headers on v1 /process-full endpoint
+- 🔄 05-03: Monitoring and traffic analysis (pending)
+- 🔄 05-04: Complete cutover (pending)
 
-**Readiness for Phase 5 (Production Sync):**
-- ✅ Pipeline has configurable concurrency (safe for Render Starter)
-- ✅ Structured logging at all major steps (ready for monitoring)
-- ✅ Status tracking in user_profiles (UI can show progress)
-- ✅ Error messages include step context (debugging-friendly)
-- ✅ Integration test coverage for concurrency, logging, and full pipeline flow
-- 🔄 SQL migration needs to be run in Supabase (idempotent, may already exist from v1.2)
+**Readiness for monitoring (05-03):**
+- ✅ Deprecation headers signal v1 usage
+- ✅ Logging captures user_id for v1 traffic tracking
+- ✅ V2_ROLLOUT_PERCENT controls traffic split
+- ✅ Both v1 and v2 endpoints functional
 
-**Note:** Processors tested with mocked dependencies. Phase 5 should include smoke test with real Supabase data.
+**Production sync needed:**
+- Local rlm-service/main.py has deprecation changes
+- Production soulprint-rlm repo needs manual sync (DEPLOY-03)
+- Can monitor v1 traffic via Render logs: `grep "[DEPRECATED]"`
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Phase 4 complete and verified, ready to plan Phase 5
+Stopped at: Completed 05-02-PLAN.md (Deprecation Headers)
 Resume file: None
 
 ---
-*Last updated: 2026-02-07 after Phase 4 execution and verification*
+*Last updated: 2026-02-07 after 05-02 execution*
