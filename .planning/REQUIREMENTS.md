@@ -62,30 +62,37 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MERGE-01 | TBD | Pending |
-| MERGE-02 | TBD | Pending |
-| MERGE-03 | TBD | Pending |
-| MERGE-04 | TBD | Pending |
-| PIPE-01 | TBD | Pending |
-| PIPE-02 | TBD | Pending |
-| PIPE-03 | TBD | Pending |
-| PIPE-04 | TBD | Pending |
-| DEPLOY-01 | TBD | Pending |
-| DEPLOY-02 | TBD | Pending |
-| DEPLOY-03 | TBD | Pending |
-| DEPLOY-04 | TBD | Pending |
-| MON-01 | TBD | Pending |
-| MON-02 | TBD | Pending |
-| MON-03 | TBD | Pending |
-| CUT-01 | TBD | Pending |
-| CUT-02 | TBD | Pending |
-| CUT-03 | TBD | Pending |
+| MERGE-01 | Phase 2 | Pending |
+| MERGE-02 | Phase 1 | Pending |
+| MERGE-03 | Phase 1 | Pending |
+| MERGE-04 | Phase 2 | Pending |
+| PIPE-01 | Phase 3 | Pending |
+| PIPE-02 | Phase 4 | Pending |
+| PIPE-03 | Phase 4 | Pending |
+| PIPE-04 | Phase 4 | Pending |
+| DEPLOY-01 | Phase 3 | Pending |
+| DEPLOY-02 | Phase 3 | Pending |
+| DEPLOY-03 | Phase 5 | Pending |
+| DEPLOY-04 | Phase 3 | Pending |
+| MON-01 | Phase 4 | Pending |
+| MON-02 | Phase 4 | Pending |
+| MON-03 | Phase 4 | Pending |
+| CUT-01 | Phase 5 | Pending |
+| CUT-02 | Phase 5 | Pending |
+| CUT-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18
+- Mapped to phases: 18
+- Unmapped: 0
+
+**Phase Distribution:**
+- Phase 1 (Dependency Extraction): 2 requirements
+- Phase 2 (Copy & Modify Processors): 2 requirements
+- Phase 3 (Wire New Endpoint): 4 requirements
+- Phase 4 (Pipeline Integration): 6 requirements
+- Phase 5 (Gradual Cutover): 4 requirements
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after initial definition*
+*Last updated: 2026-02-06 after roadmap creation*
