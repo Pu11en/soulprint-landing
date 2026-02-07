@@ -6,6 +6,7 @@
 - SHIPPED **v1.1 Stabilization** -- Phases 1-7, 22 plans (shipped 2026-02-06)
 - SHIPPED **v1.2 Import UX Streamline** -- Phases 1-3, 9 plans (shipped 2026-02-07)
 - 🚧 **v1.3 RLM Production Sync** -- Phases 1-5 (in progress)
+- 📋 **v1.4 Chat Personalization Quality** -- Phases 6-7 (planned)
 
 ## Phases
 
@@ -129,10 +130,50 @@ Plans:
 - [ ] 05-04-PLAN.md — Gap closure: Add deprecation headers to production RLM and push to Render
 - [ ] 05-05-PLAN.md — Gap closure: Deploy Next.js with V2_ROLLOUT_PERCENT and verify production stack
 
+## 📋 v1.4 Chat Personalization Quality (Planned)
+
+**Milestone Goal:** Make the AI actually feel like YOUR AI — OpenClaw-inspired prompt system that uses all structured sections to create a personalized chat experience.
+
+This milestone eliminates the generic assistant feeling by implementing proper personality injection. The existing database already stores 7 structured sections (SOUL/IDENTITY/USER/AGENTS/TOOLS/MEMORY/ai_name) from the import pipeline, but the chat system doesn't fully utilize them. Phase 6 builds a consistent prompt template used by both Next.js and RLM, filters placeholder text, incorporates the AI's generated name, and adds anti-generic language instructions. Phase 7 deploys the updated RLM service to production and validates end-to-end personality consistency. This is architectural work, not new features — we're composing existing data into prompts that create genuine personalization.
+
+### Phase 6: Prompt Foundation
+**Goal**: AI chat uses all 7 sections with consistent personality across Next.js and RLM, no generic filler
+**Depends on**: Phase 5
+**Requirements**: PROMPT-01, PROMPT-02, PROMPT-03, PROMPT-04, IDENT-01, IDENT-02, MEM-01, MEM-02, INFRA-01
+**Success Criteria** (what must be TRUE):
+  1. System prompt includes all 7 structured sections (SOUL/IDENTITY/USER/AGENTS/TOOLS/MEMORY) when they exist, not generic boilerplate
+  2. RLM /query endpoint and Next.js Bedrock fallback produce identical prompts given the same user sections (tested via prompt hash comparison)
+  3. AI refers to itself by generated name naturally in conversation (e.g., "I'm Echo" not "I am an AI assistant")
+  4. First message from AI is personalized using IDENTITY section, not a generic "Hello, how can I help?"
+  5. System prompt uses natural language personality (values/principles from SOUL.md) instead of robotic "NEVER do X" rules
+  6. System prompt explicitly forbids chatbot clichés ("Great question!", "I'd be happy to help!")
+  7. System prompt instructs model to reference retrieved memory chunks naturally ("Like we discussed..." not ignoring context)
+  8. Section validation filters "not enough data" placeholders before prompt composition
+  9. Pending DB migrations executed in production (section columns exist and are queryable)
+**Plans**: TBD
+
+Plans:
+- [ ] 06-01: TBD during planning
+- [ ] 06-02: TBD during planning
+
+### Phase 7: Production Deployment
+**Goal**: Updated RLM deployed to Render with new prompt system, personality verified end-to-end
+**Depends on**: Phase 6
+**Requirements**: INFRA-02
+**Success Criteria** (what must be TRUE):
+  1. Production RLM service on Render includes updated prompt composition code from Phase 6
+  2. End-to-end test with real user data confirms AI uses personalized greeting and references its name
+  3. RLM /query responses are observably different from generic Claude (references user context, uses personality traits)
+  4. Rollback procedure documented in case personality changes are negatively received
+**Plans**: TBD
+
+Plans:
+- [ ] 07-01: TBD during planning
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -141,6 +182,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Wire New Endpoint | v1.3 | 2/2 | Complete | 2026-02-07 |
 | 4. Pipeline Integration | v1.3 | 2/2 | Complete | 2026-02-07 |
 | 5. Gradual Cutover | v1.3 | 3/5 | Gap closure | - |
+| 6. Prompt Foundation | v1.4 | 0/TBD | Not started | - |
+| 7. Production Deployment | v1.4 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-07 after Phase 5 gap closure planning*
+*Last updated: 2026-02-07 after v1.4 roadmap creation*

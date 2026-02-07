@@ -53,22 +53,26 @@
 
 | Requirement | Phase | Plan(s) | Status |
 |-------------|-------|---------|--------|
-| PROMPT-01 | — | — | Pending |
-| PROMPT-02 | — | — | Pending |
-| PROMPT-03 | — | — | Pending |
-| PROMPT-04 | — | — | Pending |
-| IDENT-01 | — | — | Pending |
-| IDENT-02 | — | — | Pending |
-| MEM-01 | — | — | Pending |
-| MEM-02 | — | — | Pending |
-| INFRA-01 | — | — | Pending |
-| INFRA-02 | — | — | Pending |
+| PROMPT-01 | Phase 6 | TBD | Pending |
+| PROMPT-02 | Phase 6 | TBD | Pending |
+| PROMPT-03 | Phase 6 | TBD | Pending |
+| PROMPT-04 | Phase 6 | TBD | Pending |
+| IDENT-01 | Phase 6 | TBD | Pending |
+| IDENT-02 | Phase 6 | TBD | Pending |
+| MEM-01 | Phase 6 | TBD | Pending |
+| MEM-02 | Phase 6 | TBD | Pending |
+| INFRA-01 | Phase 6 | TBD | Pending |
+| INFRA-02 | Phase 7 | TBD | Pending |
 
 **Coverage:**
 - v1.4 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10
+- Mapped to phases: 10 (100% coverage)
+- Unmapped: 0
+
+**Phase distribution:**
+- Phase 6 (Prompt Foundation): 9 requirements
+- Phase 7 (Production Deployment): 1 requirement
 
 ---
 *10 requirements across 4 categories*
-*Last updated: 2026-02-07*
+*Last updated: 2026-02-07 — v1.4 roadmap complete*
