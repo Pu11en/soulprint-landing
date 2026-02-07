@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 5 of 5 (Gradual Cutover)
-Plan: 3 of 3 in current phase
-Status: Phase complete - all automation shipped
-Last activity: 2026-02-07 — Completed 05-03-PLAN.md (Cutover Runbook)
+Plan: 4 of 5 in current phase
+Status: Gap closure in progress
+Last activity: 2026-02-07 — Completed 05-04-PLAN.md (Production RLM v1.2 Deployment)
 
-Progress: [██████████] 100%
+Progress: [████████████] 80% (4/5 gap closure plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10 (v1.3)
+- Total plans completed: 11 (v1.3)
 - Average duration: 6.2 minutes
-- Total execution time: 1.0 hours
+- Total execution time: 1.1 hours
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [██████████] 100%
 | 02-copy-modify-processors | 2 | 5 min | 2.5 min |
 | 03-wire-new-endpoint | 2 | 28 min | 14 min |
 | 04-pipeline-integration | 2 | 19 min | 9.5 min |
-| 05-gradual-cutover | 3 | 7 min | 2.3 min |
+| 05-gradual-cutover | 4 | 13 min | 3.3 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01 (9min), 04-02 (10min), 05-01 (1min), 05-02 (1min), 05-03 (2min)
-- Trend: Documentation and tooling plans <5 minutes, implementation ~10 minutes
+- Last 5 plans: 04-02 (10min), 05-01 (1min), 05-02 (1min), 05-03 (2min), 05-04 (6min)
+- Trend: Gap closure deployments ~6 minutes, documentation <5 minutes, implementation ~10 minutes
 
 *Updated after each plan completion*
 
@@ -71,10 +71,11 @@ Recent decisions affecting current work:
 | DEP-01 | Use RFC 8594 standard headers for API deprecation | Industry-standard approach, enables automated detection | v1 /process-full returns Deprecation, Sunset, Link headers | 05-02 |
 | DEP-02 | Log each v1 call with user_id | Enables monitoring v1 traffic patterns during cutover | [DEPRECATED] log line printed for every v1 call | 05-02 |
 | DEP-03 | Sunset date set to March 1, 2026 | Gives 3+ weeks for gradual cutover completion | Clear deadline for v1 removal after 100% v2 traffic | 05-02 |
+| DEPLOY-01 | Production RLM deployed via git push to Pu11en/soulprint-rlm repo | Render watches main branch, auto-deploys on push | All RLM production deployments use git push origin main | 05-04 |
 
 **Project-level decisions:**
-- v1.3: Separate soulprint-rlm repo — Production RLM deploys from Pu11en/soulprint-rlm, not soulprint-landing/rlm-service/ (Pending)
-- v1.3: Hybrid merge for RLM sync — Add v1.2 processors to production without breaking existing endpoints (Pending)
+- v1.3: Separate soulprint-rlm repo — Production RLM deploys from Pu11en/soulprint-rlm, not soulprint-landing/rlm-service/ (COMPLETE - 05-04)
+- v1.3: Hybrid merge for RLM sync — Add v1.2 processors to production without breaking existing endpoints (COMPLETE - 05-04)
 
 ### Pending Todos
 
@@ -89,31 +90,38 @@ None.
 - ✅ 05-01: V2_ROLLOUT_PERCENT routing in Next.js import endpoint
 - ✅ 05-02: RFC 8594 deprecation headers on v1 /process-full endpoint
 - ✅ 05-03: Cutover runbook and validation SQL queries (human verification approved)
+- ✅ 05-04: Production RLM v1.2 deployed to Render (17 commits including deprecation headers)
 
-**Phase 5 Complete - All automation shipped:**
+**Gap Closure Complete:**
+- ✅ Gap 1: Production /process-full-v2 endpoint now live (was 404)
+- ✅ Gap 2: Production /process-full returns RFC 8594 deprecation headers
+- ✅ All Phase 1-4 work deployed to production (adapters, processors, tests, monitoring)
+- ✅ Production health check includes processors_available: true
+
+**Phase 5 Automation Complete:**
 - ✅ Traffic routing with V2_ROLLOUT_PERCENT env var
 - ✅ Deprecation signals on v1 endpoint (RFC 8594 headers + logging)
 - ✅ Stage-by-stage cutover runbook (10% → 50% → 100% → deprecate)
 - ✅ Six SQL validation queries for production monitoring
 - ✅ Emergency rollback procedure documented
+- ✅ Production RLM deployed with full v1.2 pipeline
 
 **Remaining work is HUMAN-TIMELINE (3-4 weeks):**
-- DEPLOY-03: Push soulprint-rlm to production (`git push origin main`)
 - CUT-01: Set V2_ROLLOUT_PERCENT in Vercel (0% → 10% → 50% → 100%)
 - CUT-02: Monitor validation queries at each stage per runbook
 - CUT-03: Deprecate v1 endpoint after 7+ days at 100% with zero v1 traffic
 
-**Production deployment tooling ready:**
-- Runbook: `.planning/phases/05-gradual-cutover/CUTOVER-RUNBOOK.md`
-- SQL queries: `.planning/phases/05-gradual-cutover/validation-queries.sql`
-- Local rlm-service/main.py has all changes (deprecation headers, v2 endpoint)
-- Production soulprint-rlm repo needs sync via DEPLOY-03
+**Production deployment complete:**
+- ✅ Runbook: `.planning/phases/05-gradual-cutover/CUTOVER-RUNBOOK.md`
+- ✅ SQL queries: `.planning/phases/05-gradual-cutover/validation-queries.sql`
+- ✅ Production RLM: All v1.2 changes live on Render (17 commits deployed)
+- ✅ Production endpoints verified: /health, /process-full-v2, /process-full deprecation headers
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 05-03-PLAN.md (Cutover Runbook) - Phase 5 complete
+Stopped at: Completed 05-04-PLAN.md (Production RLM v1.2 Deployment) - Gap closure 4/5 complete
 Resume file: None
 
 ---
-*Last updated: 2026-02-07 after 05-03 execution*
+*Last updated: 2026-02-07 after 05-04 execution*
