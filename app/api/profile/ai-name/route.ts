@@ -29,13 +29,28 @@ export async function GET() {
     const adminSupabase = getSupabaseAdmin();
     const { data: profile } = await adminSupabase
       .from('user_profiles')
-      .select('ai_name')
+      .select('ai_name, identity_md')
       .eq('user_id', user.id)
       .single();
 
-    return NextResponse.json({ 
+    // Parse signature_greeting from identity_md
+    let signatureGreeting: string | null = null;
+    if (profile?.identity_md) {
+      try {
+        const identity = JSON.parse(profile.identity_md);
+        const greeting = identity?.signature_greeting;
+        if (typeof greeting === 'string' && greeting.trim() && greeting.toLowerCase() !== 'not enough data') {
+          signatureGreeting = greeting.trim();
+        }
+      } catch {
+        // JSON parse failed, leave as null
+      }
+    }
+
+    return NextResponse.json({
       aiName: profile?.ai_name || null,
       hasName: !!profile?.ai_name,
+      signatureGreeting,
     });
   } catch (error) {
     return handleAPIError(error, 'API:ProfileAiName:GET');
