@@ -59,12 +59,18 @@ export default function ChatPage() {
           return;
         }
 
-        // Check if AI has a name (if not, will be auto-generated on first chat)
+        // Check if AI has a name and signature greeting (if not, will be auto-generated on first chat)
+        let localAiName: string | null = null;
+        let localGreeting: string | null = null;
+
         const nameRes = await fetch('/api/profile/ai-name', { signal: controller.signal });
         if (nameRes.ok) {
           const nameData = await nameRes.json();
-          if (nameData.aiName) {
-            setAiName(nameData.aiName);
+          localAiName = nameData.aiName || null;
+          localGreeting = nameData.signatureGreeting || null;
+
+          if (localAiName) {
+            setAiName(localAiName);
           }
           // If no name yet, keep default "SoulPrint" - API will auto-name on first message
         }
@@ -90,10 +96,13 @@ export default function ChatPage() {
             // User has conversation history, enable A2HS prompt
             setHasReceivedAIResponse(true);
           } else {
+            // Use signature greeting if available, otherwise fall back to default
             setMessages([{
               id: 'welcome',
               role: 'assistant',
-              content: `Hey! I'm ${aiName}. I've got your memories loaded. What's on your mind?`,
+              content: localGreeting
+                ? localGreeting
+                : `Hey! I'm ${localAiName || 'your AI'}. I've got your memories loaded. What's on your mind?`,
               timestamp: new Date(),
             }]);
             // First welcome message counts as AI response
