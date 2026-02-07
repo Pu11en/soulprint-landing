@@ -77,6 +77,12 @@ interface UserProfile {
   soulprint_text: string | null;
   import_status: 'none' | 'quick_ready' | 'processing' | 'complete';
   ai_name: string | null;
+  soul_md: string | null;
+  identity_md: string | null;
+  user_md: string | null;
+  agents_md: string | null;
+  tools_md: string | null;
+  memory_md: string | null;
 }
 
 /**
@@ -100,6 +106,12 @@ function validateProfile(data: unknown): UserProfile | null {
     soulprint_text: typeof raw.soulprint_text === 'string' ? raw.soulprint_text : null,
     import_status: importStatus,
     ai_name: typeof raw.ai_name === 'string' ? raw.ai_name : null,
+    soul_md: typeof raw.soul_md === 'string' ? raw.soul_md : null,
+    identity_md: typeof raw.identity_md === 'string' ? raw.identity_md : null,
+    user_md: typeof raw.user_md === 'string' ? raw.user_md : null,
+    agents_md: typeof raw.agents_md === 'string' ? raw.agents_md : null,
+    tools_md: typeof raw.tools_md === 'string' ? raw.tools_md : null,
+    memory_md: typeof raw.memory_md === 'string' ? raw.memory_md : null,
   };
 }
 
@@ -203,7 +215,7 @@ export async function POST(request: NextRequest) {
     const adminSupabase = getSupabaseAdmin();
     const { data: profile, error: profileError } = await adminSupabase
       .from('user_profiles')
-      .select('soulprint_text, import_status, ai_name')
+      .select('soulprint_text, import_status, ai_name, soul_md, identity_md, user_md, agents_md, tools_md, memory_md')
       .eq('user_id', user.id)
       .single();
 
@@ -215,6 +227,15 @@ export async function POST(request: NextRequest) {
     const userProfile = validateProfile(profile);
     const hasSoulprint = !!userProfile?.soulprint_text;
     reqLog.debug({ hasSoulprint, importStatus: userProfile?.import_status }, 'User profile loaded');
+
+    // Get daily memory (recent learned facts)
+    const { data: learnedFacts } = await adminSupabase
+      .from('learned_facts')
+      .select('fact, category')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(20);
 
     // Search conversation chunks for memory context
     let memoryContext = '';
