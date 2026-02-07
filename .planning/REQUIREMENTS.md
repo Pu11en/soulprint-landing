@@ -7,10 +7,10 @@
 
 ### Code Merge
 
-- [ ] **MERGE-01**: v1.2 processors/ directory (5 modules) copied to production soulprint-rlm repo with modified imports
+- [x] **MERGE-01**: v1.2 processors/ directory (5 modules) copied to production soulprint-rlm repo with modified imports
 - [x] **MERGE-02**: Adapter layer extracts shared functions (download_conversations, update_user_profile, save_chunks_batch) from production main.py into reusable module
 - [x] **MERGE-03**: Circular import between full_pass.py and main.py resolved — processors import from adapter, not main
-- [ ] **MERGE-04**: Dockerfile copies processors/ and adapters/ directories with import verification at build time
+- [x] **MERGE-04**: Dockerfile copies processors/ and adapters/ directories with import verification at build time
 
 ### Pipeline
 
@@ -62,10 +62,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MERGE-01 | Phase 2 | Pending |
+| MERGE-01 | Phase 2 | Complete |
 | MERGE-02 | Phase 1 | Complete |
 | MERGE-03 | Phase 1 | Complete |
-| MERGE-04 | Phase 2 | Pending |
+| MERGE-04 | Phase 2 | Complete |
 | PIPE-01 | Phase 3 | Pending |
 | PIPE-02 | Phase 4 | Pending |
 | PIPE-03 | Phase 4 | Pending |
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-06 after Phase 1 complete*
+*Last updated: 2026-02-07 after Phase 2 complete*
