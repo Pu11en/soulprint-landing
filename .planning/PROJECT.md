@@ -47,12 +47,14 @@ The import-to-chat flow must work reliably every time on production — no stuck
 
 ### Active
 
-#### v1.3 RLM Production Sync
+#### v1.4 Chat Personalization Quality
 
-- [ ] v1.2 processor modules (fact extraction, memory generation, v2 regeneration) merged into production soulprint-rlm repo
-- [ ] Full pass pipeline (/process-full endpoint) works end-to-end on production RLM
-- [ ] Import incompatibilities resolved (function signatures, chunking tier mismatch, missing embeddings)
-- [ ] Production RLM deployed to Render with v1.2 capabilities
+- [ ] RLM /query prompt rewritten with OpenClaw-inspired personality system
+- [ ] All 7 structured sections (soul, identity, user, agents, tools, memory) passed from Next.js to RLM
+- [ ] AI names itself based on user's chat history analysis
+- [ ] Pending DB migrations executed (section columns exist in production)
+- [ ] Updated RLM deployed to Render with new prompt system
+- [ ] Chat responses embody user's personality profile, not generic responses
 
 ### Out of Scope
 
@@ -65,6 +67,17 @@ The import-to-chat flow must work reliably every time on production — no stuck
 - Concurrent chunk uploads — performance optimization, future work
 - Multi-platform channels (SMS, Telegram, WhatsApp) — v2+ OpenClaw-style gateway
 - Per-user cloud instances — v2+ each SoulPrint as deployable agent
+
+## Current Milestone: v1.4 Chat Personalization Quality
+
+**Goal:** Make the AI actually feel like *your* AI — OpenClaw-inspired prompt system that uses all structured sections to create a personalized chat experience.
+
+**Target features:**
+- RLM prompt rewrite with personality injection from all 7 sections
+- Section passing pipeline (Next.js → RLM → Anthropic API)
+- AI self-naming from chat history
+- DB migration execution for section persistence
+- RLM production deployment with new prompt system
 
 ## Context
 
