@@ -5,9 +5,11 @@ Provides memory-enhanced chat using Recursive Language Models
 import os
 import json
 import httpx
+import asyncio
+import gzip
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -47,6 +49,13 @@ class QueryResponse(BaseModel):
     latency_ms: int
 
 
+class ProcessFullRequest(BaseModel):
+    user_id: str
+    storage_path: str
+    conversation_count: int = 0
+    message_count: int = 0
+
+
 async def get_conversation_chunks(user_id: str, recent_only: bool = True) -> List[dict]:
     """Fetch conversation chunks from Supabase"""
     async with httpx.AsyncClient() as client:
@@ -80,7 +89,7 @@ async def alert_failure(error: str, user_id: str, message: str):
     if not ALERT_WEBHOOK:
         print(f"[ALERT] RLM failure for user {user_id}: {error}")
         return
-    
+
     try:
         async with httpx.AsyncClient() as client:
             await client.post(ALERT_WEBHOOK, json={
@@ -88,6 +97,103 @@ async def alert_failure(error: str, user_id: str, message: str):
             })
     except Exception as e:
         print(f"Failed to send alert: {e}")
+
+
+async def update_user_profile(user_id: str, updates: dict):
+    """Update user_profiles table via Supabase REST API (best-effort)"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.patch(
+                f"{SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.{user_id}",
+                json=updates,
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal",
+                },
+            )
+
+            if response.status_code not in (200, 204):
+                print(f"[WARN] Failed to update user_profile for {user_id}: {response.text}")
+    except Exception as e:
+        print(f"[ERROR] update_user_profile failed for {user_id}: {e}")
+
+
+async def download_conversations(storage_path: str) -> list:
+    """Download conversations.json from Supabase Storage"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{SUPABASE_URL}/storage/v1/object/{storage_path}",
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                },
+            )
+
+            if response.status_code != 200:
+                raise Exception(f"Failed to download from storage: {response.text}")
+
+            # Get content
+            content = response.content
+
+            # Try to decompress if gzipped
+            try:
+                content = gzip.decompress(content)
+            except Exception:
+                # Not gzipped, use as-is
+                pass
+
+            # Parse JSON
+            conversations = json.loads(content)
+            return conversations
+
+    except Exception as e:
+        print(f"[ERROR] download_conversations failed: {e}")
+        raise
+
+
+async def run_full_pass(request: ProcessFullRequest):
+    """Background task for full pass processing (stub for now)"""
+    try:
+        # Mark processing started
+        await update_user_profile(
+            request.user_id,
+            {
+                "full_pass_status": "processing",
+                "full_pass_started_at": datetime.utcnow().isoformat(),
+                "full_pass_error": None,
+            },
+        )
+
+        # Stub processing - Plan 02-02 will fill in real logic
+        print(f"[FULL_PASS] Starting for user {request.user_id} (storage: {request.storage_path})")
+        await asyncio.sleep(1)  # Simulate work
+        print(f"[FULL_PASS] Full pass stub complete for user {request.user_id}")
+
+        # Mark success (stub - real completion in 02-02)
+        await update_user_profile(
+            request.user_id,
+            {
+                "full_pass_status": "complete",
+                "full_pass_completed_at": datetime.utcnow().isoformat(),
+            },
+        )
+
+    except Exception as e:
+        # Mark failure
+        error_msg = str(e)
+        print(f"[FULL_PASS] Failed for user {request.user_id}: {error_msg}")
+
+        await update_user_profile(
+            request.user_id,
+            {
+                "full_pass_status": "failed",
+                "full_pass_error": error_msg,
+            },
+        )
+
+        await alert_failure(error_msg, request.user_id, "Full pass failed")
 
 
 async def query_with_rlm(
@@ -176,6 +282,21 @@ Guidelines:
     )
     
     return response.content[0].text
+
+
+@app.post("/process-full")
+async def process_full(request: ProcessFullRequest, background_tasks: BackgroundTasks):
+    """
+    Accept full pass processing job and dispatch to background task.
+    Returns 202 Accepted immediately - processing happens asynchronously.
+    """
+    # Dispatch background task
+    background_tasks.add_task(run_full_pass, request)
+
+    return {
+        "status": "accepted",
+        "message": "Full pass processing started",
+    }
 
 
 @app.get("/health")

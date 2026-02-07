@@ -10,8 +10,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir git+https://github.com/alexzhang13/rlm.git
 
-# Copy app
-COPY main.py .
+# Copy entire service directory (supports multi-file structure)
+COPY . .
 
 # Expose port (Render uses PORT env var, default 10000)
 EXPOSE 10000
