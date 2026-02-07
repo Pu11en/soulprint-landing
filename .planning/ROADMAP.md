@@ -87,13 +87,12 @@ Plans:
   3. While background processing runs, the chat shows a memory progress indicator; after full pass completes, all sections silently upgrade to v2
   4. Each chat session generates daily memory entries (learned facts, running context) that persist and are included in future system prompts
   5. No "SoulPrint is ready" email is sent after import; waitlist confirmation email remains unchanged
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: System prompt composition from 7 structured sections
-- [ ] 03-02: Import UX flow -- loading screen, chat gating, memory progress indicator
-- [ ] 03-03: Daily memory generation from chat interactions
-- [ ] 03-04: Email cleanup -- remove import completion email, preserve waitlist email
+- [ ] 03-01-PLAN.md -- System prompt composition from 7 structured sections + daily memory
+- [ ] 03-02-PLAN.md -- Memory status endpoint update + import page UX (loading screen, redirect on quick_ready)
+- [ ] 03-03-PLAN.md -- Chat page UX (memory progress indicator, import gating) + email cleanup
 
 ## Coverage
 
@@ -130,7 +129,7 @@ Orphans: 0
 |-------|-----------|----------------|--------|-----------|
 | 1. Schema + Quick Pass Pipeline | v1.2 | 3/3 | Complete | 2026-02-07 |
 | 2. Full Pass Pipeline | v1.2 | 3/3 | Complete | 2026-02-07 |
-| 3. Chat Integration + UX | v1.2 | 0/4 | Not started | - |
+| 3. Chat Integration + UX | v1.2 | 0/3 | Not started | - |
 
 ---
-*Last updated: 2026-02-07 after Phase 2 execution complete (3/3 plans, verified)*
+*Last updated: 2026-02-07 after Phase 3 planning complete (3 plans in 2 waves)*
