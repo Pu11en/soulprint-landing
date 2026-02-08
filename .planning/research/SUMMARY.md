@@ -1,261 +1,417 @@
-# Project Research Summary
+# Research Summary: v1.5 Full Chat Experience
 
-**Project:** SoulPrint v1.4 Chat Personalization Quality
-**Domain:** AI Chat Personalization with OpenClaw-inspired Personality Injection
-**Researched:** 2026-02-07
+**Project:** SoulPrint — Privacy-first AI personalization platform
+**Domain:** Enhanced AI chat interface (multi-conversation, streaming, search, voice, rich rendering, dark mode)
+**Researched:** 2026-02-08
 **Confidence:** HIGH
 
 ## Executive Summary
 
-SoulPrint v1.4 requires implementing OpenClaw-inspired personality injection into the existing chat system. The good news: **no new libraries needed**. The existing stack (Vercel AI SDK, Anthropic, TypeScript) already contains everything required. The gap is architectural, not technological — sections exist in the database, but the RLM service doesn't properly compose them into personality-aware prompts, and the Next.js fallback diverges from the RLM implementation.
+The v1.5 Full Chat Experience milestone transforms SoulPrint's basic single-conversation chat into a full-featured AI assistant comparable to ChatGPT/Claude. Research reveals that **most required capabilities are already installed or require minimal new dependencies** (only 3-4 packages), but **significant architectural changes are needed** to enable streaming through the Vercel → RLM → Bedrock pipeline and to implement multi-conversation support without data loss.
 
-The recommended approach is a two-phase build: **Phase 1** fixes prompt composition consistency (extracting shared builders, filtering "not enough data" placeholders, implementing token budgets), and **Phase 2** enhances quality (section validation, quality scoring, name generation improvements). This order avoids the dual-service prompt divergence pitfall while establishing a foundation for personality injection that actually works.
+The recommended approach prioritizes **database schema changes first** (conversations table + migration) to avoid orphaning existing messages, followed by **streaming implementation** (critical for UX), then **conversation management UI**. Dark mode and markdown rendering are independent and can proceed in parallel. **Web search already exists** via smartSearch(). Voice input should come after core features stabilize due to browser compatibility complexity.
 
-The critical risk is context window bloat. With 7 sections + conversation history + retrieved memory + web search results, prompts can easily balloon to 30k-60k tokens per request, creating unsustainable costs ($180-360/month per heavy user) and performance degradation. Prevention requires token budgeting from day one, progressive context loading based on message complexity, and Anthropic's prompt caching for static sections. The second major risk is prompt injection via conversation imports — user uploads can contain jailbreak instructions that get extracted into behavioral rules and persist across all future chats, requiring sanitization at import time and section output validation.
+The **critical risk** is the conversation migration: the current `chat_messages` table has no `conversation_id` column, meaning all existing messages must be backfilled into inferred conversations based on time gaps. Without careful migration, users lose their chat history. Secondary risks include Vercel streaming timeouts (60s limit on Pro), citation hallucinations from web search, and dark mode invisible text from hard-coded colors.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**No additions required.** The current stack already supports OpenClaw-style personality injection:
+**Minimal new dependencies:** Only 3-4 packages needed for 6 major features:
+- `react-markdown` + `remark-gfm` + `rehype-highlight` for rich markdown rendering with syntax highlighting
+- `react-speech-recognition` (optional) for voice input wrapper over Web Speech API
 
-**Sufficient technologies:**
-- **Vercel AI SDK (^6.0.72)**: Dynamic system prompts via template literals — supports the OpenClaw pattern natively
-- **Anthropic API (@ai-sdk/anthropic ^3.0.36)**: Direct Claude Sonnet 4 access with streaming and prompt caching
-- **TypeScript (^5.x)**: Native template literals are optimal for prompt composition (faster and safer than Handlebars/Mustache)
-- **Supabase (^2.93.1)**: Already stores 7 structured sections (soul_md, identity_md, user_md, agents_md, tools_md, memory_md, ai_name)
-- **Zod (^4.3.6)**: Request validation — extend for prompt section validation
+**Already installed and ready:**
+- Vercel AI SDK (streaming support via `useChat`)
+- @tavily/core (web search, updated Jan 2026 with ultra-fast mode)
+- next-themes (dark mode)
+- Radix UI components (conversation sidebar UI)
+- Supabase (conversation database schema)
+- FastAPI StreamingResponse (RLM backend streaming)
+- Anthropic SDK `.stream()` (Claude streaming)
 
-**What NOT to add:**
-- Template engines (Handlebars, Mustache) — adds complexity for simple string composition
-- Prompt DSLs (Impromptu, PromptML) — overkill for this use case
-- LangChain — heavy dependency not needed when Vercel AI SDK + native templates suffice
-- Markdown parsers — sections stored as JSON, converted to markdown at prompt time
+**Key version requirements:**
+- React 19.2.3 (compatible with react-markdown ^10.1.0)
+- Node.js 20+ (all packages compatible)
+- Next.js 16.1.5 (supports streaming with runtime: 'nodejs')
 
-**The gap:** The existing `buildSystemPrompt()` function (lines 472-599 in `app/api/chat/route.ts`) already implements the OpenClaw pattern but has two problems: (1) RLM service has a separate implementation that doesn't filter placeholders consistently, and (2) sections aren't being fully utilized in prompts.
+**What NOT to install:**
+- socket.io (overkill for one-way streaming, use SSE)
+- langchain (unnecessary, use @tavily/core directly)
+- marked/markdown-it (security issues, use react-markdown)
+- react-syntax-highlighter (larger bundle, use rehype-highlight)
 
 ### Expected Features
 
-**Must have (P1 — this milestone):**
-- **Personality injection from 7 sections** — Build system prompt that includes SOUL/IDENTITY/USER/AGENTS/TOOLS/MEMORY/daily context (essential: transforms generic AI into YOUR AI)
-- **Context-aware greeting** — First message uses IDENTITY.md to craft personalized welcome (essential: first impression sets tone)
-- **AI self-identification with generated name** — Use `ai_name` from database, refer to self naturally (essential: "I'm Echo" vs "I am an AI assistant")
-- **Anti-generic language instructions** — System prompt explicitly forbids chatbot clichés (essential: breaks generic feel)
-- **Natural language personality definition** — System prompt uses values/principles from SOUL.md, not robotic rules (essential: OpenClaw pattern, creates human-like AI)
-- **Memory context in responses** — System prompt instructs model to USE retrieved conversation chunks naturally (essential: "Like we discussed..." vs ignoring context)
-- **Consistent tone across sessions** — Personality doesn't reset per-conversation (essential: trust building)
+**Must have (table stakes):**
+- **Conversation sidebar with list/switch/create/delete** — 96% of users frustrated by single-conversation chats
+- **Token-by-token streaming** — Makes AI feel instant (perceived 4-6x faster)
+- **Markdown rendering with syntax highlighting** — All major AI chats have this
+- **Dark mode toggle** — Expected by 2026 (not differentiator, but mandatory)
+- **Code block copy button** — One-click copy is standard
+- **Web search with inline citations** — Users expect current info (already implemented via smartSearch)
+- **Conversation rename/delete** — Necessary for multi-conversation management
 
-**Should have (P2 — post-launch iteration):**
-- Conversation topic detection (analyze message, influence AGENTS.md behavior)
-- Personality refinement UI (let users manually edit SOUL.md/IDENTITY.md if AI doesn't match)
-- Enhanced AI name generation (use all 7 sections + archetype, not just soulprint_text slice)
-- Response format preferences (extract from TOOLS.md: bullet points vs paragraphs)
+**Should have (competitive advantage):**
+- **Memory-informed conversation starters** — SoulPrint differentiator (personalized prompts from memory chunks)
+- **Cross-conversation memory highlights** — Surface relevant past conversations during chat
+- **Voice input** — Accessibility + mobile UX (Web Speech API for Chrome/Edge, 80% coverage)
+- **Interrupt & update mid-response** — Refine AI work in progress (ChatGPT pattern)
 
-**Defer (v2+ — after product-market fit):**
-- Real-time tone mirroring (sentiment analysis → dynamic warmth/formality adjustment)
-- Progressive learning from chats (trigger fact extraction monthly, merge into MEMORY.md)
-- Multi-workspace personas (separate AGENTS.md behaviors per project)
-- Voice personalization (entirely different tech stack)
+**Defer (v2+):**
+- **Conversation spaces/categories** — Needed when users have 50+ conversations
+- **Memory evolution timeline** — Unique but edge case ("AI learned X on Y date" visualization)
+- **Voice output (TTS)** — Most users read faster than listen, make opt-in
+- **Rich media rendering** — Images/videos in responses (not common in current usage)
+
+**Anti-features (commonly requested but problematic):**
+- Real-time collaboration (massive complexity, unclear value)
+- Unlimited conversation branching (confusing UI, ChatGPT doesn't do this)
+- Manual memory editing (cognitive burden, users won't maintain)
+- Over-engineered persona switching (dilutes core value)
 
 ### Architecture Approach
 
-The system has three layers: **Next.js chat route** parses sections from Supabase and passes them to **RLM service** which builds the system prompt and calls **Anthropic API**. When RLM is unavailable, Next.js has a **Bedrock fallback** that composes prompts locally. The critical architectural gap: two different prompt builders (Next.js `buildSystemPrompt()` vs RLM `build_rlm_system_prompt()`) that must produce identical output but currently diverge.
+**Current architecture:** Next.js (Vercel) → RLM Service (FastAPI) → AWS Bedrock, with Supabase for DB and non-streaming responses. **Limitation:** Single conversation per user, simulated SSE (full response wrapped in SSE format).
+
+**Enhanced architecture requires:**
+
+1. **Database schema changes** (BLOCKING):
+   - Create `conversations` table (id, user_id, title, created_at, updated_at)
+   - Add `conversation_id` column to `chat_messages` (FK to conversations)
+   - Backfill migration: create default conversation per user, assign existing messages
+   - RLS policies for conversation-scoped access
+
+2. **Streaming pipeline** (Vercel → RLM → Bedrock):
+   - RLM: Add `StreamingResponse` to `/query` endpoint (SSE format)
+   - Next.js: Add `export const runtime = 'nodejs'` and `export const dynamic = 'force-dynamic'` to enable streaming
+   - Proxy RLM stream directly to client (no buffering)
+   - Timeout protection: 55s limit on Vercel Pro, gracefully truncate long responses
+
+3. **UI component updates**:
+   - Conversation sidebar (list, filter, create, switch)
+   - Enhanced message renderer (react-markdown + streaming awareness)
+   - Theme toggle component (next-themes wrapper)
+   - Voice input button (Web Speech API with browser detection)
 
 **Major components:**
+1. **Conversation Management** — Sidebar UI + CRUD API + DB schema (conversations table)
+2. **Streaming Response Handler** — SSE proxy in /api/chat, client-side incremental rendering
+3. **Rich Markdown Renderer** — react-markdown with rehype-highlight, streaming-aware memoization
+4. **Theme System** — next-themes provider + CSS variables + dark: variants
+5. **Voice Input Module** — Web Speech API wrapper with MIME type detection + duration limits
+6. **Web Search Integration** — Already exists (smartSearch), needs citation validation
 
-1. **Section Parser** — Convert DB strings (JSON) → typed objects (Next.js route.ts lines 311-322, already implemented)
-2. **Section Validator** — Check for "not enough data" placeholders, filter empty fields (NEW — prevents prompt pollution)
-3. **Section Composer** — Convert section object → markdown with consistent formatting (exists: `sectionToMarkdown()` in quick-pass.ts, needs extraction for reuse)
-4. **Prompt Builder** — Assemble final system prompt from composed sections (exists in both Next.js + RLM but needs consistency)
-5. **Token Budget Monitor** — Track context size, implement progressive loading (NEW — prevents cost explosion)
-
-**Build order recommendation:**
-1. Fix prompt consistency (extract shared composition helpers, ensure Next.js and RLM produce identical prompts)
-2. Add section validation (filter "not enough data", implement quality scoring)
-3. Implement token budgeting (monitor usage, progressive context loading, prompt caching)
-4. Enhance name generation (multi-candidate selection with validation, offensive pattern detection)
+**Critical integration points:**
+- `chat_messages.conversation_id` FK must exist before UI changes
+- RLM streaming must work before frontend streaming (can't stream if backend doesn't)
+- Dark mode CSS variables must be audited before toggle implementation
+- Citation validation must happen before web search goes to GA
 
 ### Critical Pitfalls
 
-1. **Context Window Bloat Leading to Cost Explosion** — 7 sections + history + memory + web search = 30k-60k tokens per request → $180-360/month per heavy user. Prevention: token budgets from day one, progressive context loading based on query complexity, Anthropic prompt caching for static sections (90% cost reduction), dense formatting (bullets not verbose markdown). Warning signs: avg request cost >$0.05, token count grows unbounded with user history, no token monitoring in logs.
+**1. Multi-Conversation Migration Without conversation_id Causing Data Loss**
+- **Risk:** `chat_messages` table has NO `conversation_id` column. Adding it without careful backfill = all existing messages orphaned or lumped incorrectly.
+- **Prevention:**
+  - Create `conversations` table first
+  - Infer conversations from time gaps (>2 hours = new conversation)
+  - Backfill existing messages into default conversation per user
+  - Test migration on staging data (verify no message loss)
+- **Phase:** Database Schema Migration (MUST complete before UI)
 
-2. **Dual-Service Prompt Divergence** — Next.js and RLM build prompts differently → personality shifts during fallback, bug fixes don't propagate. Prevention: shared prompt template in `.planning/prompts/base.md`, cross-service consistency tests, prompt hash monitoring to detect divergence. Warning signs: user reports "AI changed" after RLM downtime, string manipulation in code instead of template files, different section ordering in logs.
+**2. Streaming Through Vercel Serverless Buffering Everything**
+- **Risk:** Streaming works in dev, fails in production. Vercel buffers responses without `runtime: 'nodejs'` export, causing 60s timeouts or no incremental rendering.
+- **Prevention:**
+  - Add `export const runtime = 'nodejs'` and `export const dynamic = 'force-dynamic'` to /api/chat/route.ts
+  - Proxy RLM stream directly (no buffering in Next.js route)
+  - Test in Vercel preview environment before main branch
+  - Add timeout protection (55s limit, truncate gracefully)
+- **Phase:** Streaming Implementation
 
-3. **AI-Generated Names Producing Offensive Results** — Haiku generates "ChadGPT", "MasterMind", "Daddy" → user recoils, loses trust. Prevention: multi-candidate generation with validation, forbidden pattern detection (daddy/master/chad/etc), moderation API safety check, user-friendly rename flow. Warning signs: support tickets asking "can I change name?", names from generic list (Echo/Atlas/Nova), no validation before saving to DB.
+**3. Web Search Citation Hallucinations and URL Fabrication**
+- **Risk:** LLM cites URLs that weren't in search results, fabricates links, misattributes info. User clicks citation → 404 or wrong page.
+- **Prevention:**
+  - Use structured [SOURCE_X] format for citations
+  - Validate citations post-generation (check URLs exist in results)
+  - Block `javascript:` protocol in links
+  - Hydrate [SOURCE_X] with real URLs only after validation
+- **Phase:** Web Search Integration (already exists, needs hardening)
 
-4. **Quick Pass Section Quality Too Low** — Haiku generates generic sections ("helpful, curious") that provide no actual personalization → user notices AI sounds identical to base Claude. Prevention: section quality scoring (detect generic phrases, count "not enough data"), threshold enforcement (don't save if quality <60), hybrid quick/deep pass (upgrade to Sonnet if quality poor), user feedback loop. Warning signs: sections contain "helpful, curious, friendly", AI responses indistinguishable from base model, users ask "is personalization working?"
+**4. Voice Input Browser Compatibility and Transcription Cost Runaway**
+- **Risk:** Voice works on Chrome, broken on Safari/Firefox. No duration limits → users record 5min audio → $0.006/min × 1000 users = $600/month.
+- **Prevention:**
+  - Cross-browser MIME type detection (webm/mp4/ogg)
+  - 2-minute recording limit (auto-stop)
+  - Test on iOS Safari (50% mobile users)
+  - Cost tracking per transcription
+- **Phase:** Voice Input (after core features stabilize)
 
-5. **Memory-Based Prompt Injection** — User uploads ChatGPT export containing jailbreak instructions → extracted into behavioral rules → persists across all chats. Prevention: sanitization at import (regex filter injection patterns), section output validation (detect keywords in behavioral_rules), prompt firewall in chat endpoint, sandbox system constraints. Warning signs: no sanitization in upload pipeline, sections saved without security validation, web search results injected directly into prompt.
+**5. Dark Mode CSS Variables Causing Invisible Text on Theme Toggle**
+- **Risk:** Hard-coded colors (`bg-white`, `text-black`) ignore theme. After toggle, text invisible (white on white or black on black).
+- **Prevention:**
+  - Audit all hard-coded colors BEFORE implementing toggle
+  - Use CSS variables (`--bg-primary`, `--text-primary`) throughout
+  - Theme third-party components (react-markdown, syntax highlighter)
+  - Visual regression tests for both themes
+- **Phase:** Dark Mode (audit first, toggle second)
+
+**6. Markdown XSS Vulnerabilities from AI-Generated Content**
+- **Risk:** AI generates `[link](javascript:alert(1))` → user clicks → XSS. Web search results contain adversarial HTML.
+- **Prevention:**
+  - Always use `rehype-sanitize` with react-markdown
+  - Block `javascript:` protocol in link validation
+  - Sanitize web search results before passing to LLM
+  - Add Content Security Policy headers
+  - Test with XSS payload suite
+- **Phase:** Markdown Rendering (security audit before GA)
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+Based on research, suggested **6-phase structure** with careful ordering to avoid data loss and maximize parallelization:
 
-### Phase 1: Prompt Foundation & Token Management
-
-**Rationale:** Must fix dual-service divergence and implement token budgeting before any other work. Context bloat affects all downstream features, and prompt inconsistency makes testing unreliable. These are foundational issues that block quality improvements.
-
-**Delivers:**
-- Shared prompt template in `.planning/prompts/base.md` used by both Next.js and RLM
-- Section validation helper that filters "not enough data" placeholders
-- Token budget system with progressive context loading
-- Anthropic prompt caching implementation (90% cost reduction on static content)
-- Cross-service consistency tests (verify Next.js and RLM produce identical prompts)
-
-**Addresses (from FEATURES.md):**
-- Consistent tone across sessions (prompt doesn't diverge)
-- Memory context in responses (proper section injection)
-
-**Avoids (from PITFALLS.md):**
-- Context window bloat (token budgeting prevents)
-- Dual-service prompt divergence (shared template fixes)
-
-**Research flag:** Standard implementation — no additional research needed. Patterns well-documented in Anthropic docs and existing codebase.
-
-### Phase 2: Name Generation & Section Quality
-
-**Rationale:** With prompt foundation solid, improve input quality (section generation) and user-facing outputs (AI names). Name generation happens during import and affects first impression. Section quality affects every chat message. Both are user-facing quality issues that should be addressed early.
+### Phase 1: Database Schema & Migration (BLOCKING)
+**Rationale:** Must complete before any conversation UI work. Current `chat_messages` has no `conversation_id`. All existing messages must be migrated without loss.
 
 **Delivers:**
-- AI name validation pipeline (forbidden patterns, genericness detection, moderation API check)
-- Multi-candidate name generation (generate 5, score and rank, select best)
-- Curated fallback names (safe alternatives to generic Echo/Atlas/Nova)
-- User-friendly rename UI in settings
-- Section quality scorer (detect generic phrases, count placeholders, compute 0-100 score)
-- Quality threshold enforcement (don't save if score <60)
+- `conversations` table created with RLS policies
+- `conversation_id` added to `chat_messages` (nullable → backfilled → NOT NULL)
+- Migration script: infer conversations from time gaps, backfill existing messages
+- Verified: no message loss, all messages have conversation_id
 
-**Addresses (from FEATURES.md):**
-- AI self-identification with generated name (improved quality)
-- Personality injection from sections (validated quality)
+**Addresses:**
+- Table stakes: Multi-conversation support foundation
+- Pitfall: Prevents data loss from hasty migration
 
-**Avoids (from PITFALLS.md):**
-- AI names producing offensive results (validation prevents)
-- Quick pass quality too low (scoring detects)
+**Critical dependencies:** None — can start immediately
+**Blocks:** Phase 3 (Conversation Management UI)
 
-**Research flag:** Standard patterns — name validation and quality scoring are established practices. No research needed.
+---
 
-### Phase 3: Personality Injection & Anti-Generic Language
-
-**Rationale:** With foundation and quality in place, implement the core personalization features. This is where OpenClaw patterns get applied — composing sections into prompts that create "YOUR AI" feeling rather than generic assistant.
+### Phase 2: Streaming Responses (HIGH PRIORITY)
+**Rationale:** Independent of conversation migration, delivers immediate UX improvement (4-6x perceived performance). Can develop in parallel with Phase 1.
 
 **Delivers:**
-- System prompt builder using OpenClaw pattern (SOUL → IDENTITY → USER → AGENTS → TOOLS → MEMORY → CONTEXT)
-- Anti-generic language instructions (explicit prohibition of "I'd be happy to help!")
-- Context-aware greeting generation (uses IDENTITY.md, not generic "Hello")
-- Natural language personality definition (values/principles, not robotic rules)
-- Memory context usage instructions (direct model to USE retrieved chunks naturally)
+- RLM `/query` endpoint returns `StreamingResponse` (SSE format)
+- Next.js `/api/chat` proxies stream with correct headers (`runtime: 'nodejs'`)
+- Client-side incremental rendering (update message character-by-character)
+- Timeout protection (55s limit on Vercel Pro, graceful truncation)
 
-**Addresses (from FEATURES.md):**
-- Personality injection from 7 sections ✓
-- Context-aware greetings ✓
-- Anti-generic language instructions ✓
-- Natural language personality definition ✓
-- Memory context in responses ✓
+**Uses:**
+- FastAPI `StreamingResponse` (already installed)
+- Anthropic SDK `.stream()` (already installed)
+- Vercel AI SDK SSE handling (already installed)
 
-**Avoids (from PITFALLS.md):**
-- Generic prompts that create robotic responses
-- Ignoring retrieved context (explicit instruction to USE memories)
+**Addresses:**
+- Table stakes: Token-by-token streaming (expected by users)
+- Pitfall: Prevents Vercel buffering (test in preview before merge)
 
-**Research flag:** Standard implementation — OpenClaw patterns documented, existing `buildSystemPrompt()` already partially implements this.
+**Critical dependencies:** None
+**Can parallelize with:** Phase 1
 
-### Phase 4: Security & Injection Prevention
+---
 
-**Rationale:** Before exposing to more users, implement security measures. Prompt injection is a critical vulnerability that can persist in long-term memory and affect all future chats. This phase addresses the highest-severity security risk identified in PITFALLS.md.
+### Phase 3: Conversation Management UI
+**Rationale:** Depends on Phase 1 (DB schema). Enables multi-conversation experience. Should come before other UI enhancements to establish new UX paradigm.
 
 **Delivers:**
-- Conversation sanitization at import (regex filter jailbreak patterns)
-- Section output validation (detect injection keywords in behavioral_rules)
-- Prompt firewall in chat endpoint (detect injection attempts in user messages)
-- Sandbox system constraints (safety rules that override user preferences)
-- Web search result sanitization (mark as untrusted, filter adversarial content)
+- Conversation sidebar (list with infinite scroll)
+- Create/switch/rename/delete conversations
+- Conversation-scoped message filtering
+- Auto-generated conversation titles from first exchange
 
-**Addresses (from FEATURES.md):**
-- Privacy-first memory (prevents weaponization of stored data)
+**Addresses:**
+- Table stakes: Conversation list/switch (96% expect multi-conversation)
+- Pitfall: Must wait for Phase 1 migration to avoid querying non-existent conversation_id
 
-**Avoids (from PITFALLS.md):**
-- Memory-based prompt injection attacks (sanitization prevents)
+**Critical dependencies:** Phase 1 (DB schema must exist)
+**Blocks:** None
 
-**Research flag:** Needs review of latest prompt injection techniques during planning — attack vectors evolve rapidly in 2026.
+---
+
+### Phase 4: Rich Markdown & Dark Mode (PARALLEL)
+**Rationale:** Independent features, can develop in parallel. Both enhance existing messages, no backend changes.
+
+**Delivers:**
+- Markdown rendering with `react-markdown` + `remark-gfm`
+- Code syntax highlighting with `rehype-highlight`
+- Code block copy buttons
+- Dark mode toggle with `next-themes`
+- CSS variable system (`--bg-primary`, `--text-primary`)
+- Theme-aware syntax highlighting (light/dark code themes)
+
+**Uses:**
+- react-markdown ^10.1.0
+- remark-gfm ^4.0.0
+- rehype-highlight ^7.0.2
+- next-themes ^0.4.6
+
+**Addresses:**
+- Table stakes: Markdown + code highlighting (all AI chats have this)
+- Table stakes: Dark mode (expected by 2026)
+- Pitfall: Audit hard-coded colors before toggle, add rehype-sanitize for XSS prevention
+
+**Critical dependencies:** None
+**Can parallelize with:** Any phase
+
+---
+
+### Phase 5: Web Search Hardening
+**Rationale:** Web search already exists (smartSearch), but needs citation validation and security hardening before GA.
+
+**Delivers:**
+- Structured [SOURCE_X] citation format
+- Citation validation (verify URLs exist in results)
+- URL sanitization (block `javascript:` protocol)
+- Search result pre-sanitization before LLM
+- Inline citations (Claude-style, not footnotes)
+
+**Addresses:**
+- Table stakes: Web search with citations (already partially implemented)
+- Pitfall: Prevents citation hallucinations and XSS via search results
+
+**Critical dependencies:** None (enhances existing feature)
+**Research flag:** May need deeper research on citation UI patterns
+
+---
+
+### Phase 6: Voice Input (OPTIONAL)
+**Rationale:** Deferred until core features stable. Requires cross-browser testing, cost management, UX polish.
+
+**Delivers:**
+- Web Speech API integration with browser detection
+- MIME type compatibility (webm/mp4/ogg)
+- 2-minute recording limit with auto-stop
+- Transcription via OpenAI Whisper ($0.006/min)
+- Cost tracking and alerting
+- iOS Safari compatibility testing
+
+**Addresses:**
+- Should have: Voice input (accessibility + mobile UX)
+- Pitfall: Prevents transcription cost runaway and browser compatibility issues
+
+**Critical dependencies:** None
+**Research flag:** Needs iOS Safari testing before release
+
+---
 
 ### Phase Ordering Rationale
 
-- **Phase 1 first** because prompt divergence contaminates all testing (can't validate personality if Bedrock fallback produces different results). Token budgeting prevents cost explosion that would make iteration expensive.
+**Critical path:** Phase 1 (DB schema) → Phase 3 (Conversation UI)
+- Cannot build conversation management without `conversation_id` column
+- Migration must happen before users create new conversations (avoids data corruption)
 
-- **Phase 2 before 3** because section quality and name quality directly affect user perception of personalization. If sections are generic, even perfect prompt composition won't create "YOUR AI" feeling.
+**Parallel tracks:**
+- Phase 2 (Streaming) — independent, high UX impact
+- Phase 4 (Markdown + Dark Mode) — independent, visual enhancements
+- Phase 5 (Search Hardening) — enhances existing feature
 
-- **Phase 3 is core value** — this is where OpenClaw patterns get applied and users experience true personalization. Can't do this until foundation (Phase 1) and quality (Phase 2) are solid.
+**Sequential dependencies:**
+- Phase 1 must complete before Phase 3
+- Phase 4 (dark mode audit) must happen before toggle implementation
+- Phase 5 (citation validation) must happen before search goes to GA
 
-- **Phase 4 before public launch** because prompt injection is a critical security vulnerability. Can defer during beta with small trusted users, but must implement before scaling.
+**Deferred:**
+- Phase 6 (Voice) — complex, niche audience, wait for adoption signals
 
 ### Research Flags
 
 **Phases needing deeper research during planning:**
-- **Phase 4 (Security):** Prompt injection techniques evolve rapidly. Need fresh research on 2026 attack vectors, updated sanitization patterns, and Anthropic's latest safety recommendations.
+- **Phase 3:** Conversation UI patterns — research Radix UI ScrollArea + infinite scroll patterns
+- **Phase 5:** Citation display UX — research Claude-style inline citations vs footnotes
+- **Phase 6:** iOS Safari Web Speech API — research quirks and workarounds
 
 **Phases with standard patterns (skip research-phase):**
-- **Phase 1 (Prompt Foundation):** Template extraction, token counting, prompt caching — all well-documented in Anthropic docs
-- **Phase 2 (Quality):** Name validation, quality scoring — established patterns in existing codebase
-- **Phase 3 (Personality):** OpenClaw implementation already partially exists in `buildSystemPrompt()` — refactor not research
+- **Phase 1:** Database migration — standard Supabase patterns, well-documented
+- **Phase 2:** SSE streaming — Vercel AI SDK has established patterns
+- **Phase 4:** Dark mode — next-themes is industry standard, no novel patterns
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Based on direct codebase analysis. No new packages needed — everything exists. |
-| Features | HIGH | Based on OpenClaw documentation, Custom GPTs patterns, Character.ai research. P1 features well-defined. |
-| Architecture | HIGH | Based on existing SoulPrint codebase analysis. Current implementation ~60% complete, gaps identified precisely. |
-| Pitfalls | HIGH | Based on 2026 industry research (context engineering, LLM security, cost management) and real-world production AI patterns. |
+| Stack | HIGH | All packages verified compatible with existing stack. Versions checked against React 19 + Next.js 16. |
+| Features | HIGH | Table stakes validated against ChatGPT/Claude feature sets. User expectations clear from research. |
+| Architecture | HIGH | Existing codebase analyzed (RLM service, Supabase schema, TelegramChatV2). Streaming pipeline verified with official docs. |
+| Pitfalls | HIGH | All 6 critical pitfalls sourced from official docs, real-world incident reports, and security advisories. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-**Token counting accuracy:** Need to implement actual token counting (not just character estimates) to validate budget thresholds. Use `@anthropic-ai/tokenizer` or API token counting. Address during Phase 1 planning.
+**During Phase 1 (Migration):**
+- Test migration on staging data to verify no message loss
+- Validate conversation inference logic (2-hour gap threshold) with real user data
+- Confirm RLS policies work correctly for conversation-scoped access
 
-**Prompt caching effectiveness:** Anthropic's prompt caching is theoretically 90% cost reduction, but need to measure actual savings with SoulPrint's specific prompt structure. Monitor during Phase 1 execution.
+**During Phase 2 (Streaming):**
+- Verify Vercel timeout limits for current plan (Hobby vs Pro)
+- Test streaming with long responses (>60s) to confirm graceful truncation
+- Monitor stream performance under concurrent load (10+ users streaming simultaneously)
 
-**Section schema evolution:** Quick pass generates v1 sections, full pass regenerates as v2. Need schema versioning strategy to handle users with mixed versions. Address during Phase 2 — add `sections_version` column.
+**During Phase 5 (Web Search):**
+- Validate that smartSearch() results match expected Tavily/Perplexity format
+- Confirm citation display doesn't conflict with existing message renderer
+- Test citation validation with adversarial search results
 
-**Injection detection false positives:** Regex-based injection detection may flag legitimate conversation content (e.g., user discussing prompt engineering). Need balanced approach during Phase 4 — consider LLM-based detection alongside regex.
+**During Phase 6 (Voice):**
+- Test Whisper transcription accuracy with background noise
+- Measure actual transcription costs with real usage patterns
+- Determine if Web Speech API offline mode works (privacy preference)
 
 ## Sources
 
 ### Primary (HIGH confidence)
 
-**Stack research:**
-- OpenClaw GitHub AGENTS.md — Modular prompt pattern reference
-- OpenClaw System Prompt Study — Detailed analysis of bootstrap injection
-- Vercel AI SDK Documentation (ai-sdk.dev/docs/foundations/prompts) — Official guidance on template literals
-- Anthropic Prompt Engineering Best Practices (2026) — Structured prompts with sections
-- Direct codebase analysis (app/api/chat/route.ts, rlm-service/main.py, lib/soulprint/quick-pass.ts)
+**Stack Research:**
+- [Vercel AI SDK Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol) — SSE implementation patterns
+- [Anthropic Python SDK Streaming](https://platform.claude.com/docs/en/build-with-claude/streaming) — Official streaming docs
+- [react-markdown GitHub](https://github.com/remarkjs/react-markdown) — Official repository
+- [Tavily January 2026 Updates](https://www.tavily.com/blog/what-tavily-shipped-in-january-26) — Ultra-fast search mode
+- [next-themes GitHub](https://github.com/pacocoursey/next-themes) — Official repository
+- [FastAPI Streaming Responses](https://fastapi.tiangolo.com/advanced/custom-response/#streamingresponse) — Official docs
 
-**Features research:**
-- OpenClaw System Prompt Architecture (docs.openclaw.ai) — Bootstrap injection, SOUL.md pattern
-- OpenAI Custom GPTs Documentation — Personality presets, tone controls
-- Character.ai 2026 Features Guide (autoppt.com) — Personality design, greeting messages
-- Perplexity AI Assistants with Memory — Context retrieval vs training data
-- AWS RAG Documentation — Authoritative knowledge base retrieval patterns
+**Architecture Research:**
+- [Vercel Serverless Streaming Support](https://vercel.com/blog/streaming-for-serverless-node-js-and-edge-runtimes-with-vercel-functions) — Official Vercel blog
+- [Supabase RLS Documentation](https://supabase.com/docs/guides/auth/row-level-security) — Official guide
+- [Web Speech API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API) — Standards documentation
 
-**Pitfalls research:**
-- LLM Context Management (eval.16x.engineer) — Token budgeting, progressive loading strategies
-- Context Window Overflow 2026 (redis.io) — Performance degradation patterns
-- Understanding LLM Cost Per Token (silicondata.com) — 2026 pricing guide
-- Schneier on Security: Why AI Keeps Falling for Prompt Injection — Attack vectors and mitigations
-- LLM Security Risks 2026 (sombrainc.com) — RAG security, shadow AI risks
+**Pitfalls Research:**
+- [Vercel Functions Limits](https://vercel.com/docs/functions/limitations) — Official timeout/memory limits
+- [Secure Markdown Rendering in React](https://www.hackerone.com/blog/secure-markdown-rendering-react-balancing-flexibility-and-safety) — HackerOne security guide
+- [Whisper API Pricing 2026](https://brasstranscripts.com/blog/openai-whisper-api-pricing-2025-self-hosted-vs-managed) — Cost analysis
 
 ### Secondary (MEDIUM confidence)
 
-- PsychAdapter personality matching (94.5% accuracy Big Five traits) — Tone mirroring future feature
-- Dream Companion layered memory architecture — Emotional intelligence patterns
-- Conversational AI design 2026 (botpress.com) — Tone consistency best practices
-- Data Consistency in Microservices (oreateai.com) — Multi-service prompt divergence prevention
+**Features Research:**
+- [ChatGPT Sidebar Redesign Guide](https://www.ai-toolbox.co/chatgpt-management-and-productivity/chatgpt-sidebar-redesign-guide) — UI patterns
+- [Streamdown for Streaming Markdown](https://reactscript.com/render-streaming-ai-markdown/) — Streaming-aware parsing
+- [Dark Mode Best Practices 2026](https://medium.com/@social_7132/dark-mode-done-right-best-practices-for-2026-c223a4b92417) — Design patterns
 
-### Tertiary (LOW confidence, deferred)
+**Implementation Guides:**
+- [Next.js SSE Streaming Guide](https://upstash.com/blog/sse-streaming-llm-responses) — Upstash tutorial
+- [Fixing Slow SSE in Next.js](https://medium.com/@oyetoketoby80/fixing-slow-sse-server-sent-events-streaming-in-next-js-and-vercel-99f42fbdb996) — Troubleshooting
+- [React Markdown Syntax Highlighting](https://medium.com/young-developer/react-markdown-code-and-syntax-highlighting-632d2f9b4ada) — Integration guide
 
-- Voice AI trends 2026 (elevenlabs.io) — Deferred to v2+ (out of scope for this milestone)
-- Universal AI long-term memory (plurality.network) — Interesting but speculative (not actionable)
+### Tertiary (LOW confidence, needs validation)
+
+- Stack Overflow threads — Referenced for troubleshooting patterns only
+- Reddit discussions — General sentiment, not technical facts
+- Older blog posts (pre-2024) — May reference outdated APIs
 
 ---
 
-*Research completed: 2026-02-07*
-*Ready for roadmap: yes*
+## Ready for Roadmap Creation
+
+**SUMMARY.md complete.** This synthesis provides:
+- Clear phase structure (6 phases with rationale)
+- Critical dependencies identified (Phase 1 blocks Phase 3)
+- Parallelization opportunities (Phases 2, 4, 5 can run concurrently)
+- Research flags for planning (citation UX, iOS Safari quirks)
+- Confidence assessment (HIGH overall, specific gaps noted)
+
+**Next step:** Orchestrator can proceed to roadmap definition using phase suggestions above as starting structure.
+
+---
+*Research completed: 2026-02-08*
+*Research sources: 4 parallel researcher agents (STACK, FEATURES, ARCHITECTURE, PITFALLS)*
+*Confidence: HIGH (verified with official docs, existing codebase analysis, security advisories)*
