@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 ## Current Position
 
-Phase: 9 of 13 (Streaming Responses)
-Plan: 2 of 2 complete (09-02 - Stop/Cancel Streaming)
-Status: Phase complete
-Last activity: 2026-02-08 - Completed 09-02-PLAN.md (Stop/Cancel Streaming)
+Phase: 10 of 13 (Conversation Management UI)
+Plan: 1 of 2 complete (10-01 - Conversation Management API Backend)
+Status: In progress
+Last activity: 2026-02-08 - Completed 10-01-PLAN.md (Conversation Management API Backend)
 
 Progress: [========>..] 69% (9/13 phases complete across all milestones)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 46
+- Total plans completed: 47
 - Average duration: ~23 min
 - Total execution time: ~21 hours across 6 milestones
 
@@ -32,7 +32,7 @@ Progress: [========>..] 69% (9/13 phases complete across all milestones)
 | v1.2 Import UX | 3 | 9 | Shipped |
 | v1.3 RLM Sync | 5 | 5 | Shipped |
 | v1.4 Personalization | 2 | 7 | Shipped |
-| v1.5 Full Chat | 6 | 7 | In Progress |
+| v1.5 Full Chat | 6 | 8 | In Progress |
 
 *Metrics updated: 2026-02-08*
 
@@ -59,6 +59,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - AbortController pattern for fetch cancellation: create before fetch, store in ref, abort on stop
 - isGenerating state separate from isLoading to distinguish streaming vs pre-streaming phases
 - Stop button (red square icon) replaces send/mic during generation with graceful abort
+- Haiku 3.5 for title generation (fast/cheap for 3-8 word summaries)
+- conversation_id required in saveMessageSchema (every message belongs to conversation)
+- Conversation.updated_at refreshed on message save for sidebar recency sorting
 
 ### Pending Todos
 
@@ -71,8 +74,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Phase 09 gap fix (partial response save on abort) committed. Phases 8, 9, 11 complete. Next: Phase 10 (Conversation Management UI)
+Stopped at: Completed 10-01 (Conversation Management API Backend). Next: 10-02 (Conversation UI Frontend)
 Resume file: None
 
 ---
-*Last updated: 2026-02-08 -- Phases 8, 9, 11 complete. Phase 12 available in parallel with 10. Phase 10 next per execution order.*
+*Last updated: 2026-02-08 -- Phases 8, 9, 11 complete. Phase 10 in progress (1/2 plans done). Next: 10-02 Conversation UI.*
