@@ -26,6 +26,7 @@ export default function ChatPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isDeepSearching, setIsDeepSearching] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [aiName, setAiName] = useState<string>('SoulPrint');
@@ -44,6 +45,7 @@ export default function ChatPage() {
   const messageQueueRef = useRef<QueuedMessage[]>([]);
   const processingPromiseRef = useRef<Promise<void> | null>(null);
   const latestPollIdRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Load initial state
   useEffect(() => {
@@ -383,6 +385,11 @@ export default function ChatPage() {
     // Regular chat flow
     saveMessage('user', content);
 
+    // Create AbortController for this request
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setIsGenerating(true);
+
     try {
       const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const res = await fetch('/api/chat', {
@@ -394,6 +401,7 @@ export default function ChatPage() {
           voiceVerified: voiceVerified ?? true, // Default to true for typed messages
           deepSearch: deepSearch ?? false, // Deep Search mode
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok) throw new Error('Chat request failed');
@@ -451,16 +459,24 @@ export default function ChatPage() {
         }
       }
     } catch (error) {
-      console.error('Chat error:', error);
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: "Sorry, something went wrong. Try again?",
-        timestamp: new Date(),
-      }]);
+      // Handle AbortError gracefully - user stopped generation
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Generation stopped by user');
+        // Partial response is already in messages state
+      } else {
+        console.error('Chat error:', error);
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: "Sorry, something went wrong. Try again?",
+          timestamp: new Date(),
+        }]);
+      }
+    } finally {
+      setIsGenerating(false);
+      setIsDeepSearching(false);
+      abortControllerRef.current = null;
     }
-
-    setIsDeepSearching(false);
   }, [isNamingMode, messages, aiName]);
 
   // Process the message queue sequentially with mutex pattern
@@ -539,6 +555,12 @@ export default function ChatPage() {
     }
   };
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  };
+
   if (loadingHistory) {
     return (
       <div className="fixed inset-0 h-screen w-screen bg-background flex items-center justify-center">
@@ -557,11 +579,13 @@ export default function ChatPage() {
           messages={messages}
           onSendMessage={handleSendMessage}
           isLoading={isLoading}
+          isGenerating={isGenerating}
           isDeepSearching={isDeepSearching}
           aiName={aiName}
           aiAvatar={aiAvatar || undefined}
           onBack={handleBack}
           onSettings={() => setShowSettings(true)}
+          onStop={handleStop}
         />
       </div>
 
