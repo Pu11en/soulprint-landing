@@ -20,7 +20,7 @@ export async function GET() {
     // Check user_profiles for soulprint
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('import_status, import_error, processing_started_at, total_conversations, total_messages, soulprint_generated_at, soulprint_locked, locked_at, embedding_status, embedding_progress, total_chunks, processed_chunks, memory_status, full_pass_status, full_pass_error')
+      .select('import_status, import_error, processing_started_at, total_conversations, total_messages, soulprint_generated_at, soulprint_locked, locked_at, embedding_status, embedding_progress, total_chunks, processed_chunks, memory_status, full_pass_status, full_pass_error, soulprint_text')
       .eq('user_id', user.id)
       .single();
 
@@ -29,12 +29,14 @@ export async function GET() {
     }
 
     const isLocked = profile?.soulprint_locked === true || profile?.import_status === 'locked';
-    const hasSoulprint = isLocked || profile?.import_status === 'complete' || profile?.import_status === 'quick_ready';
+    // hasSoulprint is true if soulprint data exists — even during 'processing' (RLM background work)
+    // The quick pass saves soulprint_text before setting status to 'processing' for RLM
+    const hasSoulprint = isLocked || profile?.import_status === 'complete' || profile?.import_status === 'quick_ready' || !!profile?.soulprint_text;
     const isFailed = profile?.import_status === 'failed';
-    
+
     const status = isFailed ? 'failed' :
                    isLocked ? 'ready' :
-                   hasSoulprint ? 'ready' : 
+                   hasSoulprint ? 'ready' :
                    profile?.import_status === 'processing' ? 'processing' : 'none';
 
     // Full pass status logic:

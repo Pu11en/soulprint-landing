@@ -778,16 +778,10 @@ function ImportPageContent() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="w-full max-w-md flex flex-col justify-center text-center"
             >
-              <div className="mb-3 sm:mb-4 rounded-xl overflow-hidden aspect-video">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&loop=1&playlist=dQw4w9WgXcQ&controls=0&modestbranding=1"
-                  title="Hang tight..."
-                  allow="autoplay; encrypted-media"
-                  allowFullScreen
-                  className="border-0"
-                />
+              <div className="mb-4 sm:mb-6 flex flex-col items-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-orange-500/10 flex items-center justify-center mb-4">
+                  <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-orange-500 animate-spin" />
+                </div>
               </div>
               <h2 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2">Analyzing your conversations...</h2>
               <p className="text-white/50 text-xs sm:text-sm">{progressStage || 'Building your profile...'}</p>
