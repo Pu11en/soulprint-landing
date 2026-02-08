@@ -302,9 +302,14 @@ export async function POST(request: Request) {
       soulprintText = sectionsToSoulprintText(quickPassResult);
 
       // AI name with intelligent fallback
-      if (quickPassResult.identity.ai_name && quickPassResult.identity.ai_name.trim()) {
-        aiName = quickPassResult.identity.ai_name.trim();
+      const BLOCKED_NAMES = ['soul', 'soulprint', 'assistant', 'helper', 'ai', 'bot', 'buddy', 'chatbot'];
+      const rawAiName = quickPassResult.identity.ai_name?.trim() || '';
+      if (rawAiName && !BLOCKED_NAMES.includes(rawAiName.toLowerCase())) {
+        aiName = rawAiName;
       } else {
+        if (rawAiName) {
+          reqLog.warn({ rawAiName }, 'Haiku returned blocked AI name, generating from archetype');
+        }
         // Generate name from archetype if available
         const arch = quickPassResult.identity.archetype || '';
         let derivedName: string | null = null;
@@ -347,11 +352,13 @@ export async function POST(request: Request) {
           }
         }
 
-        // Final fallback
-        aiName = derivedName || 'Soul';
-        if (aiName === 'Soul') {
-          reqLog.warn('Using default "Soul" name - both ai_name and archetype missing or unusable');
+        // Final fallback — pick a random creative name (never "Soul")
+        if (!derivedName) {
+          const fallbackNames = ['Nova', 'Atlas', 'Sage', 'Echo', 'Spark', 'Pixel', 'Lumen', 'Prism', 'Quest', 'Orbit'];
+          derivedName = fallbackNames[Math.floor(Math.random() * fallbackNames.length)]!;
+          reqLog.warn({ derivedName }, 'Using random fallback name - both ai_name and archetype missing');
         }
+        aiName = derivedName as string;
       }
 
       archetype = quickPassResult.identity.archetype || 'Your AI';

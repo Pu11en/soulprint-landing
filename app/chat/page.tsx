@@ -63,7 +63,13 @@ export default function ChatPage() {
   const currentConversationIdRef = useRef<string | null>(null);
   const conversationsRef = useRef<Conversation[]>([]);
 
-  // Keep refs in sync with state to avoid stale closures
+  // Helper to set conversation ID in both state and ref simultaneously (avoids race conditions)
+  const setCurrentConversationIdSync = useCallback((id: string | null) => {
+    currentConversationIdRef.current = id; // Immediate ref update
+    setCurrentConversationId(id);          // Async state update for re-render
+  }, []);
+
+  // Keep refs in sync with state (backup for any direct setState calls)
   useEffect(() => {
     currentConversationIdRef.current = currentConversationId;
   }, [currentConversationId]);
@@ -124,7 +130,7 @@ export default function ChatPage() {
 
             // Set the first (most recent) conversation as active
             const mostRecentConv = sorted[0];
-            setCurrentConversationId(mostRecentConv.id);
+            setCurrentConversationIdSync(mostRecentConv.id);
 
             // Load messages for this conversation
             const historyRes = await fetch(`/api/chat/messages?conversation_id=${mostRecentConv.id}&limit=100`, {
@@ -164,7 +170,7 @@ export default function ChatPage() {
             if (createRes.ok) {
               const newConv = await createRes.json();
               setConversations([newConv]);
-              setCurrentConversationId(newConv.id);
+              setCurrentConversationIdSync(newConv.id);
 
               // Show welcome message
               setMessages([{
@@ -295,7 +301,7 @@ export default function ChatPage() {
 
     // Clear messages immediately
     setMessages([]);
-    setCurrentConversationId(id);
+    setCurrentConversationIdSync(id);
     setSidebarOpen(false); // Close sidebar on mobile
 
     // Fetch messages for new conversation
@@ -330,7 +336,7 @@ export default function ChatPage() {
       if (res.ok) {
         const newConv = await res.json();
         setConversations(prev => [newConv, ...prev]);
-        setCurrentConversationId(newConv.id);
+        setCurrentConversationIdSync(newConv.id);
         setMessages([]); // Clear messages
         setSidebarOpen(false); // Close sidebar on mobile
       }
