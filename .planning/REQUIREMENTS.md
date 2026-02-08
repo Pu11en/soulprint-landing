@@ -88,7 +88,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | CONV-04 | Phase 10 | Pending |
 | CONV-05 | Phase 10 | Pending |
 | CONV-06 | Phase 10 | Pending |
-| CONV-07 | Phase 8 | Pending |
+| CONV-07 | Phase 8 | Complete |
 | STRM-01 | Phase 9 | Pending |
 | STRM-02 | Phase 9 | Pending |
 | STRM-03 | Phase 9 | Pending |

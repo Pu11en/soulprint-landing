@@ -89,7 +89,7 @@ Phases 9, 11, and 12 have no dependencies on each other and can execute concurre
   4. User querying their conversations via the API sees exactly one conversation containing all their prior messages
 **Plans**: 1 plan
 Plans:
-- [ ] 08-01-PLAN.md -- Conversations table, FK column, backfill migration
+- [x] 08-01-PLAN.md -- Conversations table, FK column, backfill migration -- completed 2026-02-08
 
 ### Phase 9: Streaming Responses
 **Goal**: Users see AI responses appear token-by-token in real time with the ability to stop generation
@@ -163,7 +163,7 @@ Phases execute: 8 → (9 + 11 + 12 parallel) → 10 → 13
 | 5. Gradual Cutover | v1.3 | 5/5 | Complete | 2026-02-07 |
 | 6. Prompt Foundation | v1.4 | 5/5 | Complete | 2026-02-07 |
 | 7. Production Deployment | v1.4 | 2/2 | Complete | 2026-02-08 |
-| 8. DB Schema & Migration | v1.5 | 0/1 | Planning complete | - |
+| 8. DB Schema & Migration | v1.5 | 1/1 | Complete | 2026-02-08 |
 | 9. Streaming Responses | v1.5 | 0/TBD | Not started | - |
 | 10. Conversation Management UI | v1.5 | 0/TBD | Not started | - |
 | 11. Rich Rendering & Dark Mode | v1.5 | 0/TBD | Not started | - |
@@ -171,4 +171,4 @@ Phases execute: 8 → (9 + 11 + 12 parallel) → 10 → 13
 | 13. Voice Input | v1.5 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-08 -- Phase 8 planned (1 plan, 1 wave)*
+*Last updated: 2026-02-08 -- Phase 8 complete (1/1 plans, verified)*
