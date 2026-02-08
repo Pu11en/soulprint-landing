@@ -168,10 +168,11 @@ Plans:
   2. End-to-end test with real user data confirms AI uses personalized greeting and references its name
   3. RLM /query responses are observably different from generic Claude (references user context, uses personality traits)
   4. Rollback procedure documented in case personality changes are negatively received
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: TBD during planning
+- [ ] 07-01-PLAN.md — Copy Phase 6 prompt code to production RLM repo, integrate with /query endpoint
+- [ ] 07-02-PLAN.md — Deploy to Render, verify health, smoke test, end-to-end personality verification
 
 ## Progress
 
@@ -186,7 +187,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. Pipeline Integration | v1.3 | 2/2 | Complete | 2026-02-07 |
 | 5. Gradual Cutover | v1.3 | 3/5 | Gap closure | - |
 | 6. Prompt Foundation | v1.4 | 5/5 | Complete | 2026-02-07 |
-| 7. Production Deployment | v1.4 | 0/TBD | Not started | - |
+| 7. Production Deployment | v1.4 | 0/2 | Planned | - |
 
 ---
 *Last updated: 2026-02-07 — Phase 6 complete (5/5 plans, verified)*
