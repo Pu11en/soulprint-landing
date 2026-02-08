@@ -773,13 +773,17 @@ function ImportPageContent() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm flex flex-col justify-center text-center"
+              className="w-full max-w-md flex flex-col justify-center text-center"
             >
-              <div className="mb-3 sm:mb-4">
-                <RingProgress
-                  progress={progress}
-                  size={80}
-                  strokeWidth={5}
+              <div className="mb-3 sm:mb-4 rounded-xl overflow-hidden aspect-video">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&loop=1&playlist=dQw4w9WgXcQ&controls=0&modestbranding=1"
+                  title="Hang tight..."
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                  className="border-0"
                 />
               </div>
               <h2 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2">Analyzing your conversations...</h2>
