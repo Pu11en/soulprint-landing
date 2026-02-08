@@ -15,13 +15,13 @@ Requirements for the Full Chat Experience milestone. Each maps to roadmap phases
 - [ ] **CONV-04**: User can delete a conversation
 - [ ] **CONV-05**: User can rename a conversation
 - [ ] **CONV-06**: Conversations auto-generate a title from the first exchange
-- [ ] **CONV-07**: Existing chat messages are migrated into a default conversation without data loss
+- [x] **CONV-07**: Existing chat messages are migrated into a default conversation without data loss
 
 ### Streaming
 
-- [ ] **STRM-01**: User sees AI responses render token-by-token in real time
-- [ ] **STRM-02**: User can stop/cancel AI response generation mid-stream
-- [ ] **STRM-03**: Streaming works through Vercel serverless (no buffering, correct runtime config)
+- [x] **STRM-01**: User sees AI responses render token-by-token in real time
+- [x] **STRM-02**: User can stop/cancel AI response generation mid-stream
+- [x] **STRM-03**: Streaming works through Vercel serverless (no buffering, correct runtime config)
 
 ### Rich Rendering
 

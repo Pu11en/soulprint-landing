@@ -102,8 +102,8 @@ Plans:
   4. Long responses (>30 seconds) complete gracefully without Vercel function timeout errors
 **Plans**: 2 plans
 Plans:
-- [ ] 09-01-PLAN.md -- Backend streaming with ConverseStreamCommand and Vercel config
-- [ ] 09-02-PLAN.md -- Frontend stop button, AbortController, and streaming UX
+- [x] 09-01-PLAN.md -- Backend streaming with ConverseStreamCommand and Vercel config -- completed 2026-02-08
+- [x] 09-02-PLAN.md -- Frontend stop button, AbortController, and streaming UX -- completed 2026-02-08
 
 ### Phase 10: Conversation Management UI
 **Goal**: Users can manage multiple conversations with full CRUD and auto-generated titles
@@ -171,11 +171,11 @@ Phases execute: 8 → (9 + 11 + 12 parallel) → 10 → 13
 | 6. Prompt Foundation | v1.4 | 5/5 | Complete | 2026-02-07 |
 | 7. Production Deployment | v1.4 | 2/2 | Complete | 2026-02-08 |
 | 8. DB Schema & Migration | v1.5 | 1/1 | Complete | 2026-02-08 |
-| 9. Streaming Responses | v1.5 | 0/2 | Not started | - |
+| 9. Streaming Responses | v1.5 | 2/2 | Complete | 2026-02-08 |
 | 10. Conversation Management UI | v1.5 | 0/TBD | Not started | - |
 | 11. Rich Rendering & Dark Mode | v1.5 | 3/3 | Complete | 2026-02-08 |
 | 12. Web Search Hardening | v1.5 | 0/TBD | Not started | - |
 | 13. Voice Input | v1.5 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-08 -- Phase 9 planned (2 plans in 1 wave)*
+*Last updated: 2026-02-08 -- Phase 9 complete (2/2 plans shipped), Phase 11 complete (3/3 plans shipped)*
