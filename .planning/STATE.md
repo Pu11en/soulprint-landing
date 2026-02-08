@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 11 of 13 (Rich Rendering & Dark Mode)
-Plan: 1 of 3 complete (11-02 - Rich Markdown Rendering)
+Plan: 1 of 3 complete (11-01 - Dark Mode Infrastructure & Markdown Dependencies)
 Status: In progress
-Last activity: 2026-02-08 - Completed 11-02-PLAN.md (Rich Markdown Rendering)
+Last activity: 2026-02-08 - Completed 11-01-PLAN.md (Dark Mode Infrastructure & Markdown Dependencies)
 
 Progress: [=======>...] 71% (8/13 phases complete across all milestones)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 40
-- Average duration: ~28 min
-- Total execution time: ~20.4 hours across 6 milestones
+- Total plans completed: 41
+- Average duration: ~27 min
+- Total execution time: ~20.5 hours across 6 milestones
 
 **By Milestone:**
 
@@ -32,7 +32,7 @@ Progress: [=======>...] 71% (8/13 phases complete across all milestones)
 | v1.2 Import UX | 3 | 9 | Shipped |
 | v1.3 RLM Sync | 5 | 5 | Shipped |
 | v1.4 Personalization | 2 | 7 | Shipped |
-| v1.5 Full Chat | 6 | 1 | In Progress |
+| v1.5 Full Chat | 6 | 2 | In Progress |
 
 *Metrics updated: 2026-02-08*
 
@@ -47,8 +47,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Sonnet 4.5 on Bedrock for chat quality (switched from Nova Lite)
 - OpenClaw-style prompt: minimal preamble, sections define personality
 - Focus on RLM primary path, not Bedrock fallback
-- CJS imports for react-syntax-highlighter (Next.js build compatibility)
+- ESM imports for react-syntax-highlighter (not CJS - TypeScript compatibility)
 - User messages as plain text, AI messages as markdown (ChatGPT/Claude pattern)
+- next-themes for dark mode with system preference detection
 
 ### Pending Todos
 
@@ -63,8 +64,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 11-02-PLAN.md (Rich Markdown Rendering)
+Stopped at: Completed 11-01-PLAN.md (Dark Mode Infrastructure & Markdown Dependencies)
 Resume file: None
 
 ---
-*Last updated: 2026-02-08 -- Phase 11 (Rich Rendering & Dark Mode) in progress, Plan 11-02 complete*
+*Last updated: 2026-02-08 -- Phase 11 (Rich Rendering & Dark Mode) in progress, Plan 11-01 complete*
