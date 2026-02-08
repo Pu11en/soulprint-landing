@@ -541,10 +541,10 @@ export default function ChatPage() {
 
   if (loadingHistory) {
     return (
-      <div className="fixed inset-0 h-screen w-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="fixed inset-0 h-screen w-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-[#EA580C] border-t-transparent rounded-full animate-spin" />
-          <span className="text-[#a3a3a3] text-sm">Loading your memories...</span>
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-muted-foreground text-sm">Loading your memories...</span>
         </div>
       </div>
     );
@@ -562,7 +562,6 @@ export default function ChatPage() {
           aiAvatar={aiAvatar || undefined}
           onBack={handleBack}
           onSettings={() => setShowSettings(true)}
-          defaultDarkMode={true}
         />
       </div>
 
@@ -583,15 +582,15 @@ export default function ChatPage() {
       {/* Memory Building Indicator */}
       {memoryStatus === 'building' && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40">
-          <div className="bg-[#1a1a1a]/90 backdrop-blur-sm border border-[#262626] rounded-full px-4 py-2 flex items-center gap-2">
-            <div className="w-3 h-3 border-2 border-[#EA580C] border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-[#a3a3a3]">
+          <div className="bg-card/90 backdrop-blur-sm border border-border rounded-full px-4 py-2 flex items-center gap-2">
+            <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-muted-foreground">
               Building deep memory...
             </span>
           </div>
         </div>
       )}
-      
+
       {/* Import Failed Indicator */}
       {memoryStatus === 'failed' && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40">
@@ -601,7 +600,7 @@ export default function ChatPage() {
             </span>
             <button
               onClick={() => router.push('/import')}
-              className="text-xs text-[#EA580C] hover:text-[#C2410C] font-medium"
+              className="text-xs text-primary hover:text-primary/80 font-medium"
             >
               Try Again →
             </button>
@@ -612,15 +611,15 @@ export default function ChatPage() {
       {/* iOS Add to Home Screen Prompt */}
       <AddToHomeScreen canShow={hasReceivedAIResponse} />
 
-      {/* Settings Modal - Dark Mode with SoulPrint branding */}
+      {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50" onClick={() => setShowSettings(false)}>
-          <div className="bg-[#111] w-full max-w-md rounded-t-2xl p-6 safe-area-bottom border-t border-[#262626]" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card w-full max-w-md rounded-t-2xl p-6 safe-area-bottom border-t border-border" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-semibold text-white">Settings</h2>
+              <h2 className="text-lg font-semibold text-foreground">Settings</h2>
               <button
                 onClick={() => setShowSettings(false)}
-                className="text-[#EA580C] text-[17px] min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2 font-medium"
+                className="text-primary text-[17px] min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2 font-medium"
               >
                 Done
               </button>
@@ -628,9 +627,9 @@ export default function ChatPage() {
 
             <div className="space-y-3">
               {/* Current AI Name */}
-              <div className="bg-[#1a1a1a] rounded-xl p-4 border border-[#262626]">
-                <div className="text-[#a3a3a3] text-sm mb-1">AI Name</div>
-                <div className="text-white text-lg font-medium">{aiName}</div>
+              <div className="bg-muted rounded-xl p-4 border border-border">
+                <div className="text-muted-foreground text-sm mb-1">AI Name</div>
+                <div className="text-foreground text-lg font-medium">{aiName}</div>
               </div>
 
               {/* Rename Button */}
@@ -639,7 +638,7 @@ export default function ChatPage() {
                   setRenameInput(aiName);
                   setShowRename(true);
                 }}
-                className="w-full py-4 bg-[#1a1a1a] text-[#EA580C] rounded-xl font-medium border border-[#262626] hover:bg-[#262626] transition-colors"
+                className="w-full py-4 bg-muted text-primary rounded-xl font-medium border border-border hover:bg-accent transition-colors"
               >
                 Rename AI
               </button>
@@ -659,28 +658,28 @@ export default function ChatPage() {
       {/* Rename Modal */}
       {showRename && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setShowRename(false)}>
-          <div className="bg-[#111] w-full max-w-sm rounded-2xl p-6 border border-[#262626]" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-white text-center mb-4">Rename Your AI</h3>
+          <div className="bg-card w-full max-w-sm rounded-2xl p-6 border border-border" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-foreground text-center mb-4">Rename Your AI</h3>
             <input
               type="text"
               value={renameInput}
               onChange={(e) => setRenameInput(e.target.value)}
               placeholder="Enter new name"
-              className="w-full bg-[#1a1a1a] text-white rounded-xl px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-[#EA580C] border border-[#262626] text-center text-lg placeholder:text-[#737373]"
+              className="w-full bg-muted text-foreground rounded-xl px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-primary border border-border text-center text-lg placeholder:text-muted-foreground"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleRename()}
             />
             <div className="flex gap-3">
               <button
                 onClick={() => setShowRename(false)}
-                className="flex-1 py-3 bg-[#1a1a1a] text-[#a3a3a3] rounded-xl font-medium border border-[#262626] hover:bg-[#262626] transition-colors"
+                className="flex-1 py-3 bg-muted text-muted-foreground rounded-xl font-medium border border-border hover:bg-accent transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRename}
                 disabled={!renameInput.trim()}
-                className="flex-1 py-3 bg-[#EA580C] text-white rounded-xl font-medium disabled:opacity-50 hover:bg-[#C2410C] transition-colors"
+                className="flex-1 py-3 bg-primary text-white rounded-xl font-medium disabled:opacity-50 hover:bg-primary/80 transition-colors"
               >
                 Save
               </button>
