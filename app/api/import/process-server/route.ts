@@ -372,7 +372,8 @@ export async function POST(request: Request) {
     } else {
       // Quick pass failed -- use placeholder (user can still chat)
       soulprintText = `Analyzing ${totalMessages.toLocaleString()} messages across ${conversations.length.toLocaleString()} conversations. Your personalized SoulPrint is being created...`;
-      aiName = 'Soul';
+      const fallbackNames = ['Nova', 'Atlas', 'Sage', 'Echo', 'Spark', 'Pixel', 'Lumen', 'Prism', 'Quest', 'Orbit'];
+      aiName = fallbackNames[Math.floor(Math.random() * fallbackNames.length)]!;
       archetype = 'Analyzing...';
       reqLog.warn('Quick pass failed, using placeholder soulprint');
     }
