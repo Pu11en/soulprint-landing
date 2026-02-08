@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, TouchEvent } from 'react';
 import { ArrowLeft, Mic, Send, Moon, Sun, LogOut, Search } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { MessageContent } from './message-content';
 import { getCsrfToken } from '@/lib/csrf';
 
@@ -21,52 +22,17 @@ interface TelegramChatV2Props {
   aiAvatar?: string;
   onBack?: () => void;
   onSettings?: () => void;
-  defaultDarkMode?: boolean;
 }
-
-// Theme colors - SoulPrint Branding
-const themes = {
-  light: {
-    background: '#FAFAFA',
-    navBg: '#FFFFFF',
-    navBorder: '#E5E5E5',
-    senderBubble: '#EA580C', // SoulPrint orange for user messages
-    senderText: '#FFFFFF',
-    recipientBubble: '#F5F5F5',
-    textPrimary: '#0a0a0a',
-    textSecondary: '#737373',
-    inputBg: '#FFFFFF',
-    inputBorder: '#E5E5E5',
-    accent: '#EA580C', // SoulPrint primary orange
-    homeIndicator: 'rgba(0,0,0,0.15)',
-  },
-  dark: {
-    background: '#0a0a0a', // SoulPrint dark background
-    navBg: '#111111', // SoulPrint nav dark
-    navBorder: '#262626',
-    senderBubble: '#EA580C', // SoulPrint orange for user messages
-    senderText: '#FFFFFF',
-    recipientBubble: '#1a1a1a',
-    textPrimary: '#FFFFFF',
-    textSecondary: '#a3a3a3',
-    inputBg: '#1a1a1a',
-    inputBorder: '#262626',
-    accent: '#EA580C', // SoulPrint primary orange
-    homeIndicator: 'rgba(255,255,255,0.15)',
-  },
-};
 
 // Swipeable message component
 function SwipeableMessage({
   message,
   isUser,
   showTail,
-  theme,
 }: {
   message: Message;
   isUser: boolean;
   showTail: boolean;
-  theme: typeof themes.dark;
 }) {
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -150,10 +116,7 @@ function SwipeableMessage({
             transition: isSwiping ? 'none' : 'all 0.3s ease-out',
           }}
         >
-          <span
-            className="text-[11px] whitespace-nowrap"
-            style={{ color: theme.textSecondary }}
-          >
+          <span className="text-[11px] whitespace-nowrap text-muted-foreground">
             {formatTime(message.timestamp || new Date())}
           </span>
         </div>
@@ -161,9 +124,10 @@ function SwipeableMessage({
 
       {/* Message bubble */}
       <div
-        className="max-w-[75%] relative shadow-sm transition-colors duration-300"
+        className={`max-w-[75%] relative shadow-sm transition-colors duration-300 ${
+          isUser ? 'bg-primary' : 'bg-muted'
+        }`}
         style={{
-          backgroundColor: isUser ? theme.senderBubble : theme.recipientBubble,
           borderRadius: isUser
             ? (showTail ? '18px 18px 4px 18px' : '18px')
             : (showTail ? '18px 18px 18px 4px' : '18px'),
@@ -176,7 +140,7 @@ function SwipeableMessage({
         onTouchEnd={handleTouchEnd}
       >
         {/* Message Content */}
-        <div className="px-4 py-3" style={{ color: isUser && 'senderText' in theme ? theme.senderText : theme.textPrimary }}>
+        <div className={`px-4 py-3 ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>
           <MessageContent
             content={message.content}
             isUser={isUser}
@@ -185,10 +149,7 @@ function SwipeableMessage({
         {/* Desktop timestamp - always visible */}
         {isDesktop && (
           <div className="px-4 pb-2 -mt-1">
-            <span
-              className="text-[11px]"
-              style={{ color: isUser ? 'rgba(255,255,255,0.7)' : theme.textSecondary }}
-            >
+            <span className={`text-[11px] ${isUser ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
               {formatTime(message.timestamp || new Date())}
             </span>
           </div>
@@ -207,10 +168,8 @@ export function TelegramChatV2({
   aiAvatar,
   onBack,
   onSettings,
-  defaultDarkMode = false,
 }: TelegramChatV2Props) {
   const [input, setInput] = useState('');
-  const [isDark, setIsDark] = useState(defaultDarkMode);
   const [deepSearchEnabled, setDeepSearchEnabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -225,7 +184,13 @@ export function TelegramChatV2({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  const theme = isDark ? themes.dark : themes.light;
+  // Theme integration
+  const { setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Voice recording functions
   const startRecording = async () => {
@@ -329,17 +294,6 @@ export function TelegramChatV2({
     scrollToBottom();
   }, [messages]);
 
-  // Check system preference on mount
-  // System preference sync - intentional setState in effect
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !defaultDarkMode) {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDark(prefersDark);
-    }
-  }, [defaultDarkMode]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -355,21 +309,13 @@ export function TelegramChatV2({
   return (
     <>
       {/* Background - covers full screen, locked horizontal */}
-      <div
-        className="fixed inset-0 transition-colors duration-300 overflow-hidden"
-        style={{ 
-          backgroundColor: theme.background,
-          touchAction: 'pan-y',
-        }}
-      />
+      <div className="fixed inset-0 bg-background transition-colors duration-300 overflow-hidden" style={{ touchAction: 'pan-y' }} />
 
       {/* FIXED Header - ALWAYS visible at top */}
       <header
         ref={headerRef}
-        className="fixed top-0 left-0 right-0 z-50 transition-colors duration-300"
+        className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border transition-colors duration-300"
         style={{
-          backgroundColor: theme.navBg,
-          borderBottom: `1px solid ${theme.navBorder}`,
           paddingTop: 'env(safe-area-inset-top, 0px)',
         }}
       >
@@ -377,8 +323,7 @@ export function TelegramChatV2({
           {/* Left - Back Button */}
           <button
             onClick={onBack}
-            className="flex items-center gap-1 px-2 py-2 -ml-2 min-h-[44px] min-w-[44px] transition-colors active:opacity-70"
-            style={{ color: theme.accent }}
+            className="flex items-center gap-1 px-2 py-2 -ml-2 min-h-[44px] min-w-[44px] text-primary transition-colors active:opacity-70"
           >
             <ArrowLeft className="w-6 h-6" />
             <span className="text-[17px]">Back</span>
@@ -386,16 +331,10 @@ export function TelegramChatV2({
 
           {/* Center - Profile */}
           <div className="flex flex-col items-center">
-            <span
-              className="text-[17px] font-semibold transition-colors"
-              style={{ color: theme.textPrimary }}
-            >
+            <span className="text-[17px] font-semibold text-foreground transition-colors">
               {aiName}
             </span>
-            <span
-              className="text-[13px] transition-colors"
-              style={{ color: theme.textSecondary }}
-            >
+            <span className="text-[13px] text-muted-foreground transition-colors">
               online
             </span>
           </div>
@@ -403,18 +342,20 @@ export function TelegramChatV2({
           {/* Right - Menu & Theme Toggle */}
           <div className="flex items-center">
             <button
-              onClick={() => setIsDark(!isDark)}
-              className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors active:opacity-70"
-              style={{ color: theme.accent }}
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-primary transition-colors active:opacity-70"
               aria-label="Toggle dark mode"
             >
-              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {mounted ? (
+                resolvedTheme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />
+              ) : (
+                <div className="w-5 h-5" />
+              )}
             </button>
             {onSettings && (
               <button
                 onClick={onSettings}
-                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors active:opacity-70"
-                style={{ color: theme.accent }}
+                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-primary transition-colors active:opacity-70"
                 aria-label="Settings"
               >
                 <LogOut className="w-5 h-5" />
@@ -465,7 +406,6 @@ export function TelegramChatV2({
                 message={message}
                 isUser={isUser}
                 showTail={showTail}
-                theme={theme}
               />
             );
           })}
@@ -473,30 +413,27 @@ export function TelegramChatV2({
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex justify-start">
-              <div
-                className="rounded-[16px_16px_16px_4px] px-4 py-3 shadow-sm transition-colors"
-                style={{ backgroundColor: theme.recipientBubble }}
-              >
+              <div className="rounded-[16px_16px_16px_4px] px-4 py-3 shadow-sm bg-muted transition-colors">
                 {isDeepSearching ? (
                   <div className="flex items-center gap-2">
-                    <Search className="w-4 h-4 animate-pulse" style={{ color: '#EA580C' }} />
-                    <span className="text-sm" style={{ color: theme.textSecondary }}>
+                    <Search className="w-4 h-4 animate-pulse text-primary" />
+                    <span className="text-sm text-muted-foreground">
                       Researching...
                     </span>
                   </div>
                 ) : (
                   <div className="flex gap-1">
                     <span
-                      className="w-2 h-2 rounded-full animate-bounce"
-                      style={{ backgroundColor: theme.textSecondary, animationDelay: '0ms' }}
+                      className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+                      style={{ animationDelay: '0ms' }}
                     />
                     <span
-                      className="w-2 h-2 rounded-full animate-bounce"
-                      style={{ backgroundColor: theme.textSecondary, animationDelay: '150ms' }}
+                      className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+                      style={{ animationDelay: '150ms' }}
                     />
                     <span
-                      className="w-2 h-2 rounded-full animate-bounce"
-                      style={{ backgroundColor: theme.textSecondary, animationDelay: '300ms' }}
+                      className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+                      style={{ animationDelay: '300ms' }}
                     />
                   </div>
                 )}
@@ -511,10 +448,8 @@ export function TelegramChatV2({
       {/* FIXED Input Area - ALWAYS visible at bottom */}
       <footer
         ref={inputAreaRef}
-        className="fixed bottom-0 left-0 right-0 z-50 transition-colors duration-300"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border transition-colors duration-300"
         style={{
-          backgroundColor: theme.navBg,
-          borderTop: `1px solid ${theme.navBorder}`,
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
@@ -524,12 +459,8 @@ export function TelegramChatV2({
             type="button"
             onClick={() => setDeepSearchEnabled(!deepSearchEnabled)}
             className={`flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-full transition-all active:opacity-70 ${
-              deepSearchEnabled ? 'scale-110' : ''
+              deepSearchEnabled ? 'scale-110 text-primary bg-primary/15' : 'text-muted-foreground bg-transparent'
             }`}
-            style={{ 
-              color: deepSearchEnabled ? '#EA580C' : theme.textSecondary,
-              backgroundColor: deepSearchEnabled ? 'rgba(234, 88, 12, 0.15)' : 'transparent',
-            }}
             title={deepSearchEnabled ? 'Web Search ON - Click to disable' : 'Enable Web Search'}
           >
             <Search className={`w-5 h-5 transition-all ${deepSearchEnabled ? 'stroke-[2.5px]' : ''}`} />
@@ -537,15 +468,12 @@ export function TelegramChatV2({
 
           {/* Input Field */}
           <div
-            className="flex-1 flex items-center rounded-full px-4 min-h-[44px] transition-colors duration-300"
-            style={{
-              backgroundColor: theme.inputBg,
-              border: `1px solid ${deepSearchEnabled ? '#EA580C' : theme.inputBorder}`,
-              boxShadow: deepSearchEnabled ? '0 0 0 1px rgba(234, 88, 12, 0.3)' : 'none',
-            }}
+            className={`flex-1 flex items-center rounded-full px-4 min-h-[44px] bg-card transition-colors duration-300 ${
+              deepSearchEnabled ? 'border border-primary ring-1 ring-primary/30' : 'border border-input'
+            }`}
           >
             {deepSearchEnabled && (
-              <span className="text-[11px] font-medium mr-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(234, 88, 12, 0.15)', color: '#EA580C' }}>
+              <span className="text-[11px] font-medium mr-2 px-1.5 py-0.5 rounded bg-primary/15 text-primary">
                 🔍
               </span>
             )}
@@ -555,8 +483,7 @@ export function TelegramChatV2({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={deepSearchEnabled ? "Web search enabled..." : "Message"}
-              className="flex-1 text-[16px] bg-transparent outline-none transition-colors placeholder:text-[#8E8E93]"
-              style={{ color: theme.textPrimary }}
+              className="flex-1 text-[16px] bg-transparent outline-none text-foreground transition-colors placeholder:text-muted-foreground"
               enterKeyHint="send"
               autoComplete="off"
               autoCorrect="on"
@@ -568,8 +495,7 @@ export function TelegramChatV2({
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-full transition-colors active:opacity-70"
-              style={{ backgroundColor: theme.accent }}
+              className="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-full bg-primary transition-colors active:opacity-70"
             >
               <Send className="w-5 h-5 text-white" />
             </button>
@@ -579,12 +505,8 @@ export function TelegramChatV2({
               onClick={handleMicClick}
               disabled={isTranscribing}
               className={`flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-full transition-all active:opacity-70 ${
-                isRecording ? 'animate-pulse' : ''
+                isRecording ? 'animate-pulse text-red-500 bg-red-500/10' : 'text-muted-foreground bg-transparent'
               }`}
-              style={{ 
-                color: isRecording ? '#EF4444' : theme.textSecondary,
-                backgroundColor: isRecording ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-              }}
             >
               {isTranscribing ? (
                 <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -597,10 +519,7 @@ export function TelegramChatV2({
 
         {/* Home Indicator */}
         <div className="flex justify-center pb-1">
-          <div
-            className="w-[134px] h-[5px] rounded-full transition-colors"
-            style={{ backgroundColor: theme.homeIndicator }}
-          />
+          <div className="w-[134px] h-[5px] rounded-full bg-muted-foreground/20 transition-colors" />
         </div>
       </footer>
     </>
