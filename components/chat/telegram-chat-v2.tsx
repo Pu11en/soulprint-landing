@@ -176,10 +176,10 @@ function SwipeableMessage({
         onTouchEnd={handleTouchEnd}
       >
         {/* Message Content */}
-        <div className="px-4 py-3">
+        <div className="px-4 py-3" style={{ color: isUser && 'senderText' in theme ? theme.senderText : theme.textPrimary }}>
           <MessageContent
             content={message.content}
-            textColor={isUser && 'senderText' in theme ? theme.senderText : theme.textPrimary}
+            isUser={isUser}
           />
         </div>
         {/* Desktop timestamp - always visible */}

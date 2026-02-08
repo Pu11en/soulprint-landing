@@ -27,30 +27,31 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
   // AI messages render with full markdown support
   return (
     <div
-      className="text-sm leading-relaxed break-words overflow-hidden [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1"
+      className="text-sm leading-relaxed break-words overflow-hidden prose prose-sm dark:prose-invert max-w-none [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1"
       style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
     >
       <ReactMarkdown
-        className="prose prose-sm dark:prose-invert max-w-none"
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}
         components={{
           // Code blocks with syntax highlighting
-          code({ node, inline, className, children, ...props }) {
+          code(props) {
+            const { node, className, children, ...rest } = props;
             const match = /language-(\w+)/.exec(className || '');
-            const language = match ? match[1] : '';
+            const language = match ? match[1] : 'text';
             const value = String(children).replace(/\n$/, '');
+            const isInline = !match;
 
-            if (!inline && match) {
+            if (!isInline && match) {
               // Fenced code block
-              return <CodeBlock language={language} value={value} />;
+              return <CodeBlock language={language!} value={value} />;
             }
 
             // Inline code
             return (
               <code
                 className="bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded text-xs font-mono"
-                {...props}
+                {...rest}
               >
                 {children}
               </code>
@@ -58,7 +59,8 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
           },
 
           // Links with XSS protection
-          a({ node, href, children, ...props }) {
+          a(props) {
+            const { node, href, children, ...rest } = props;
             // Block javascript: protocol links
             if (href?.startsWith('javascript:')) {
               return <>{children}</>;
@@ -70,7 +72,7 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline"
-                {...props}
+                {...rest}
               >
                 {children}
               </a>
@@ -78,19 +80,21 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
           },
 
           // Paragraphs with spacing
-          p({ node, children, ...props }) {
+          p(props) {
+            const { node, children, ...rest } = props;
             return (
-              <p className="mb-2 last:mb-0" {...props}>
+              <p className="mb-2 last:mb-0" {...rest}>
                 {children}
               </p>
             );
           },
 
           // Tables with styling and mobile scroll
-          table({ node, children, ...props }) {
+          table(props) {
+            const { node, children, ...rest } = props;
             return (
               <div className="overflow-x-auto my-2">
-                <table className="border-collapse w-full" {...props}>
+                <table className="border-collapse w-full" {...rest}>
                   {children}
                 </table>
               </div>
@@ -98,11 +102,12 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
           },
 
           // Table headers
-          th({ node, children, ...props }) {
+          th(props) {
+            const { node, children, ...rest } = props;
             return (
               <th
                 className="border border-border px-3 py-1 text-left bg-muted/50 text-sm font-semibold"
-                {...props}
+                {...rest}
               >
                 {children}
               </th>
@@ -110,16 +115,18 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
           },
 
           // Table cells
-          td({ node, children, ...props }) {
+          td(props) {
+            const { node, children, ...rest } = props;
             return (
-              <td className="border border-border px-3 py-1 text-sm" {...props}>
+              <td className="border border-border px-3 py-1 text-sm" {...rest}>
                 {children}
               </td>
             );
           },
 
           // Pre tags (let CodeBlock handle its own container)
-          pre({ node, children, ...props }) {
+          pre(props) {
+            const { node, children, ...rest } = props;
             return <>{children}</>;
           },
         }}
