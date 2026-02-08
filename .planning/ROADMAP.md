@@ -116,7 +116,10 @@ Plans:
   4. User can delete a conversation and it disappears from the sidebar (with confirmation)
   5. User can rename a conversation by editing its title in the sidebar
   6. New conversations auto-generate a title from the first user message and AI response
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 10-01-PLAN.md -- Backend API layer: conversation CRUD routes, schemas, auto-title endpoint
+- [ ] 10-02-PLAN.md -- Frontend sidebar components and chat page integration
 
 ### Phase 11: Rich Rendering & Dark Mode
 **Goal**: AI responses render with full markdown formatting, syntax-highlighted code blocks, and users can switch between light and dark themes
@@ -172,10 +175,10 @@ Phases execute: 8 → (9 + 11 + 12 parallel) → 10 → 13
 | 7. Production Deployment | v1.4 | 2/2 | Complete | 2026-02-08 |
 | 8. DB Schema & Migration | v1.5 | 1/1 | Complete | 2026-02-08 |
 | 9. Streaming Responses | v1.5 | 2/2 | Complete | 2026-02-08 |
-| 10. Conversation Management UI | v1.5 | 0/TBD | Not started | - |
+| 10. Conversation Management UI | v1.5 | 0/2 | Not started | - |
 | 11. Rich Rendering & Dark Mode | v1.5 | 3/3 | Complete | 2026-02-08 |
 | 12. Web Search Hardening | v1.5 | 0/TBD | Not started | - |
 | 13. Voice Input | v1.5 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-08 -- Phase 9 complete (2/2 plans shipped), Phase 11 complete (3/3 plans shipped)*
+*Last updated: 2026-02-08 -- Phase 10 planned (2 plans in 2 waves)*
