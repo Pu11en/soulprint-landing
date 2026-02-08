@@ -5,8 +5,9 @@
 - SHIPPED **v1.0 MVP** -- Phases 1 (shipped 2026-02-01)
 - SHIPPED **v1.1 Stabilization** -- Phases 1-7, 22 plans (shipped 2026-02-06)
 - SHIPPED **v1.2 Import UX Streamline** -- Phases 1-3, 9 plans (shipped 2026-02-07)
-- 🚧 **v1.3 RLM Production Sync** -- Phases 1-5 (in progress)
-- 📋 **v1.4 Chat Personalization Quality** -- Phases 6-7 (planned)
+- SHIPPED **v1.3 RLM Production Sync** -- Phases 1-5 (shipped 2026-02-07)
+- SHIPPED **v1.4 Chat Personalization Quality** -- Phases 6-7 (shipped 2026-02-08)
+- 🚧 **v1.5 Full Chat Experience** -- Phases 8-13 (in progress)
 
 ## Phases
 
@@ -45,139 +46,111 @@ See: `.planning/milestones/v1.2-ROADMAP.md`
 
 </details>
 
-## 🚧 v1.3 RLM Production Sync (In Progress)
+<details>
+<summary>v1.3 RLM Production Sync (Phases 1-5) -- SHIPPED 2026-02-07</summary>
 
-**Milestone Goal:** Sync v1.2 processor modules into production soulprint-rlm repo, fix incompatibilities, deploy full pass pipeline to Render.
+- [x] Phase 1: Dependency Extraction (1/1 plans) -- completed 2026-02-06
+- [x] Phase 2: Copy & Modify Processors (2/2 plans) -- completed 2026-02-07
+- [x] Phase 3: Wire New Endpoint (2/2 plans) -- completed 2026-02-07
+- [x] Phase 4: Pipeline Integration (2/2 plans) -- completed 2026-02-07
+- [x] Phase 5: Gradual Cutover (5/5 plans) -- completed 2026-02-07
 
-This milestone merges v1.2's modular processor architecture into the production RLM service running on Render. The work follows a safe, incremental migration pattern: create adapter layer to break circular imports, copy processor modules with modified imports, wire new /process-full-v2 endpoint alongside existing v1 pipeline, implement full pass background processing, and gradually shift traffic from v1 to v2. Zero breaking changes to existing endpoints, instant rollback capability at every step.
+See: `.planning/milestones/v1.3-ROADMAP.md`
 
-### Phase 1: Dependency Extraction
-**Goal**: Adapter layer exists and processors can import shared functions without circular dependencies
-**Depends on**: Nothing (first phase)
-**Requirements**: MERGE-02, MERGE-03
+</details>
+
+<details>
+<summary>v1.4 Chat Personalization Quality (Phases 6-7) -- SHIPPED 2026-02-08</summary>
+
+- [x] Phase 6: Prompt Foundation (5/5 plans) -- completed 2026-02-07
+- [x] Phase 7: Production Deployment (2/2 plans) -- completed 2026-02-08
+
+See: `.planning/milestones/v1.4-ROADMAP.md`
+
+</details>
+
+## 🚧 v1.5 Full Chat Experience (In Progress)
+
+**Milestone Goal:** Transform the basic single-conversation chat into a full-featured AI assistant with conversation management, streaming responses, web search with citations, rich markdown rendering, voice input, and dark mode. After this milestone, SoulPrint's chat UX is on par with ChatGPT/Claude while retaining its unique personalization.
+
+**Execution Order:**
+Phases 8 → (9, 11, 12 in parallel) → 10 → 13
+
+Phases 9, 11, and 12 have no dependencies on each other and can execute concurrently. Phase 10 depends on Phase 8 (DB schema). Phase 13 executes last after core features stabilize.
+
+### Phase 8: DB Schema & Migration
+**Goal**: Multi-conversation database foundation exists and all existing messages are preserved in a default conversation per user
+**Depends on**: Nothing (first phase of v1.5)
+**Requirements**: CONV-07
 **Success Criteria** (what must be TRUE):
-  1. adapters/supabase_adapter.py contains extracted functions (download_conversations, update_user_profile, save_chunks_batch)
-  2. Production schema verified — chunk_tier enum values documented
-  3. Adapter functions have unit tests with 100% coverage
-  4. No production code modified (main.py unchanged, zero risk)
-**Plans**: 1 plan
+  1. A `conversations` table exists with id, user_id, title, created_at, updated_at columns and RLS policies
+  2. `chat_messages` table has a `conversation_id` column with foreign key to conversations
+  3. Every existing chat message belongs to a backfilled default conversation (zero messages orphaned)
+  4. User querying their conversations via the API sees exactly one conversation containing all their prior messages
+**Plans**: TBD
 
-Plans:
-- [x] 01-01-PLAN.md — TDD: Supabase adapter layer with 100% test coverage
-
-### Phase 2: Copy & Modify Processors
-**Goal**: v1.2 processor modules are integrated and Dockerfile can build container with all modules verified
-**Depends on**: Phase 1
-**Requirements**: MERGE-01, MERGE-04
+### Phase 9: Streaming Responses
+**Goal**: Users see AI responses appear token-by-token in real time with the ability to stop generation
+**Depends on**: Nothing (independent of Phase 8)
+**Requirements**: STRM-01, STRM-02, STRM-03
 **Success Criteria** (what must be TRUE):
-  1. processors/ directory contains 5 modules from v1.2 with imports modified to use adapter
-  2. Dockerfile builds successfully and imports all processor modules at build time
-  3. Processor unit tests pass in isolation with mocked adapter
-  4. pytest and pytest-asyncio installed and working
-**Plans**: 2 plans
+  1. User sees AI response text appear incrementally as it generates (not all at once after completion)
+  2. User can click a stop button during generation and the response halts with partial text preserved
+  3. Streaming works on production Vercel deployment without buffering or timeout failures (tested in preview environment)
+  4. Long responses (>30 seconds) complete gracefully without Vercel function timeout errors
+**Plans**: TBD
 
-Plans:
-- [x] 02-01-PLAN.md — Copy 5 processor modules to production, modify full_pass.py imports, update Dockerfile
-- [x] 02-02-PLAN.md — Write processor unit tests and update pytest coverage config
-
-### Phase 3: Wire New Endpoint
-**Goal**: /process-full-v2 endpoint exists alongside /process-full v1 with parallel deployment capability
-**Depends on**: Phase 2
-**Requirements**: PIPE-01, DEPLOY-01, DEPLOY-02, DEPLOY-04
+### Phase 10: Conversation Management UI
+**Goal**: Users can manage multiple conversations with full CRUD and auto-generated titles
+**Depends on**: Phase 8 (conversations table and conversation_id must exist)
+**Requirements**: CONV-01, CONV-02, CONV-03, CONV-04, CONV-05, CONV-06
 **Success Criteria** (what must be TRUE):
-  1. /process-full-v2 endpoint accepts requests and dispatches background task
-  2. Health check validates all processor modules import correctly at startup
-  3. All 14 existing production endpoints continue working (backwards compatibility verified)
-  4. Rollback procedure documented with concrete git revert commands
-**Plans**: 2 plans
+  1. User sees a sidebar listing all their conversations, ordered by most recent activity
+  2. User can create a new conversation and immediately start chatting in it
+  3. User can click a conversation in the sidebar and its messages load in the chat area
+  4. User can delete a conversation and it disappears from the sidebar (with confirmation)
+  5. User can rename a conversation by editing its title in the sidebar
+  6. New conversations auto-generate a title from the first user message and AI response
+**Plans**: TBD
 
-Plans:
-- [x] 03-01-PLAN.md — Migrate to lifespan, add /process-full-v2 endpoint, enhance /health
-- [x] 03-02-PLAN.md — Backwards compatibility tests and rollback documentation
-
-### Phase 4: Pipeline Integration
-**Goal**: Full pass pipeline completes end-to-end with monitoring and handles large exports gracefully
-**Depends on**: Phase 3
-**Requirements**: PIPE-02, PIPE-03, PIPE-04, MON-01, MON-02, MON-03
+### Phase 11: Rich Rendering & Dark Mode
+**Goal**: AI responses render with full markdown formatting, syntax-highlighted code blocks, and users can switch between light and dark themes
+**Depends on**: Nothing (independent, visual enhancement)
+**Requirements**: RNDR-01, RNDR-02, RNDR-03, RNDR-04, DARK-01, DARK-02, DARK-03
 **Success Criteria** (what must be TRUE):
-  1. Pipeline executes all 9 steps: chunk → extract facts (parallel) → consolidate → generate MEMORY → regenerate v2 sections → save to DB
-  2. Large exports (5000+ conversations) complete without OOM via hierarchical fact reduction
-  3. Pipeline failure is non-fatal — users can chat with v1 sections if v2 processing fails
-  4. full_pass_status field tracks pipeline state (processing/complete/failed)
-  5. FACT_EXTRACTION_CONCURRENCY configurable via environment variable (default 3 for Render Starter tier)
-  6. Pipeline errors logged with context (user_id, step, error) for debugging
-**Plans**: 2 plans
+  1. AI responses render markdown headers, lists, bold, italic, links, and tables correctly
+  2. Code blocks display with language-appropriate syntax highlighting and a visible copy button that copies code to clipboard
+  3. User can toggle between dark and light themes via a visible control, and the theme persists across sessions
+  4. On first visit, the theme matches the user's OS/browser preference (dark OS = dark SoulPrint)
+  5. No UI element has invisible text, broken contrast, or unreadable content in either theme (hard-coded colors eliminated)
+  6. Markdown rendering is XSS-safe: javascript: links are blocked, HTML is sanitized
+**Plans**: TBD
 
-Plans:
-- [x] 04-01-PLAN.md — Pipeline hardening: configurable concurrency, status tracking, enhanced error logging
-- [x] 04-02-PLAN.md — Integration tests for pipeline + SQL migration for full_pass_status columns
-
-### Phase 5: Gradual Cutover
-**Goal**: v2 pipeline handles 100% of production traffic and v1 endpoint is deprecated
-**Depends on**: Phase 4
-**Requirements**: CUT-01, CUT-02, CUT-03, DEPLOY-03
+### Phase 12: Web Search Hardening
+**Goal**: Users can trigger web search for current-info queries and receive responses with validated, clickable source citations
+**Depends on**: Nothing (enhances existing smartSearch feature)
+**Requirements**: SRCH-01, SRCH-02, SRCH-03
 **Success Criteria** (what must be TRUE):
-  1. Traffic routes to v1 or v2 pipeline based on configuration (10% → 50% → 100% cutover)
-  2. v2 pipeline validated with real user data on production before full cutover
-  3. v1 /process-full endpoint deprecated after v2 handles 100% traffic for 7+ days
-  4. Production RLM deployed to Render with v1.2 capabilities via git push
-**Plans**: 5 plans
+  1. User can trigger a web search / research mode (via toggle or automatic detection) for queries needing current information
+  2. AI responses from web search include inline clickable citations that link to the actual source pages
+  3. Every citation URL in a response exists in the actual search results returned by Tavily (no hallucinated or fabricated links)
+  4. Citation links are sanitized (no javascript: protocol, no data: URIs)
+**Plans**: TBD
 
-Plans:
-- [x] 05-01-PLAN.md — Add V2_ROLLOUT_PERCENT traffic routing to Next.js import route
-- [x] 05-02-PLAN.md — Add deprecation headers to v1 /process-full endpoint
-- [x] 05-03-PLAN.md — Cutover runbook, validation SQL, and production deployment verification
-- [ ] 05-04-PLAN.md — Gap closure: Add deprecation headers to production RLM and push to Render
-- [ ] 05-05-PLAN.md — Gap closure: Deploy Next.js with V2_ROLLOUT_PERCENT and verify production stack
-
-## 📋 v1.4 Chat Personalization Quality (Planned)
-
-**Milestone Goal:** Make the AI actually feel like YOUR AI — OpenClaw-inspired prompt system that uses all structured sections to create a personalized chat experience.
-
-This milestone eliminates the generic assistant feeling by implementing proper personality injection. The existing database already stores 7 structured sections (SOUL/IDENTITY/USER/AGENTS/TOOLS/MEMORY/ai_name) from the import pipeline, but the chat system doesn't fully utilize them. Phase 6 builds a consistent prompt template used by both Next.js and RLM, filters placeholder text, incorporates the AI's generated name, and adds anti-generic language instructions. Phase 7 deploys the updated RLM service to production and validates end-to-end personality consistency. This is architectural work, not new features — we're composing existing data into prompts that create genuine personalization.
-
-### Phase 6: Prompt Foundation
-**Goal**: AI chat uses all 7 sections with consistent personality across Next.js and RLM, no generic filler
-**Depends on**: Phase 5
-**Requirements**: PROMPT-01, PROMPT-02, PROMPT-03, PROMPT-04, IDENT-01, IDENT-02, MEM-01, MEM-02, INFRA-01
+### Phase 13: Voice Input
+**Goal**: Users can speak their messages instead of typing, with graceful browser compatibility handling
+**Depends on**: Nothing (independent, but executes last after core features are stable)
+**Requirements**: VOIC-01, VOIC-02, VOIC-03
 **Success Criteria** (what must be TRUE):
-  1. System prompt includes all 7 structured sections (SOUL/IDENTITY/USER/AGENTS/TOOLS/MEMORY) when they exist, not generic boilerplate
-  2. RLM /query endpoint and Next.js Bedrock fallback produce identical prompts given the same user sections (tested via prompt hash comparison)
-  3. AI refers to itself by generated name naturally in conversation (e.g., "I'm Echo" not "I am an AI assistant")
-  4. First message from AI is personalized using IDENTITY section, not a generic "Hello, how can I help?"
-  5. System prompt uses natural language personality (values/principles from SOUL.md) instead of robotic "NEVER do X" rules
-  6. System prompt explicitly forbids chatbot clichés ("Great question!", "I'd be happy to help!")
-  7. System prompt instructs model to reference retrieved memory chunks naturally ("Like we discussed..." not ignoring context)
-  8. Section validation filters "not enough data" placeholders before prompt composition
-  9. Pending DB migrations executed in production (section columns exist and are queryable)
-**Plans**: 5 plans
-
-Plans:
-- [x] 06-01-PLAN.md — TDD: Section validation (cleanSection) + formatting (formatSection) helpers with tests
-- [x] 06-02-PLAN.md — Next.js prompt update: use new helpers, add memory/anti-generic instructions
-- [x] 06-03-PLAN.md — RLM prompt consistency: Python helpers matching TypeScript, cross-language hash test
-- [x] 06-04-PLAN.md — Execute pending DB migrations in Supabase (checkpoint)
-- [x] 06-05-PLAN.md — Personalized greeting from IDENTITY section
-
-### Phase 7: Production Deployment
-**Goal**: Updated RLM deployed to Render with new prompt system, personality verified end-to-end
-**Depends on**: Phase 6
-**Requirements**: INFRA-02
-**Success Criteria** (what must be TRUE):
-  1. Production RLM service on Render includes updated prompt composition code from Phase 6
-  2. End-to-end test with real user data confirms AI uses personalized greeting and references its name
-  3. RLM /query responses are observably different from generic Claude (references user context, uses personality traits)
-  4. Rollback procedure documented in case personality changes are negatively received
-**Plans**: 2 plans
-
-Plans:
-- [ ] 07-01-PLAN.md — Copy Phase 6 prompt code to production RLM repo, integrate with /query endpoint
-- [ ] 07-02-PLAN.md — Deploy to Render, verify health, smoke test, end-to-end personality verification
+  1. User can tap/click a microphone button next to the text input to record a voice message that gets transcribed into text
+  2. On browsers without speech recognition support, the microphone button is hidden (no broken UI)
+  3. Voice recording automatically stops after 2 minutes and the accumulated transcription is placed in the input field
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases execute: 8 → (9 + 11 + 12 parallel) → 10 → 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -185,9 +158,15 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Copy & Modify Processors | v1.3 | 2/2 | Complete | 2026-02-07 |
 | 3. Wire New Endpoint | v1.3 | 2/2 | Complete | 2026-02-07 |
 | 4. Pipeline Integration | v1.3 | 2/2 | Complete | 2026-02-07 |
-| 5. Gradual Cutover | v1.3 | 3/5 | Gap closure | - |
+| 5. Gradual Cutover | v1.3 | 5/5 | Complete | 2026-02-07 |
 | 6. Prompt Foundation | v1.4 | 5/5 | Complete | 2026-02-07 |
-| 7. Production Deployment | v1.4 | 0/2 | Planned | - |
+| 7. Production Deployment | v1.4 | 2/2 | Complete | 2026-02-08 |
+| 8. DB Schema & Migration | v1.5 | 0/TBD | Not started | - |
+| 9. Streaming Responses | v1.5 | 0/TBD | Not started | - |
+| 10. Conversation Management UI | v1.5 | 0/TBD | Not started | - |
+| 11. Rich Rendering & Dark Mode | v1.5 | 0/TBD | Not started | - |
+| 12. Web Search Hardening | v1.5 | 0/TBD | Not started | - |
+| 13. Voice Input | v1.5 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-07 — Phase 6 complete (5/5 plans, verified)*
+*Last updated: 2026-02-08 -- v1.5 roadmap created (6 phases, 23 requirements mapped)*

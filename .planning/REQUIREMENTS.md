@@ -1,7 +1,7 @@
 # Requirements: SoulPrint v1.5 Full Chat Experience
 
 **Defined:** 2026-02-08
-**Core Value:** The AI must feel like YOUR AI — personalized chat with full-featured UX.
+**Core Value:** The AI must feel like YOUR AI -- personalized chat with full-featured UX.
 
 ## v1.5 Requirements
 
@@ -71,8 +71,8 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Feature | Reason |
 |---------|--------|
-| Model picker | User explicitly excluded — single model (Sonnet 4.5) |
-| Artifact/canvas panel | User explicitly excluded — defer to v2+ |
+| Model picker | User explicitly excluded -- single model (Sonnet 4.5) |
+| Artifact/canvas panel | User explicitly excluded -- defer to v2+ |
 | Real-time collaboration | Massive complexity, unclear value for personal AI |
 | Unlimited conversation branching | Confusing UI, ChatGPT doesn't do this |
 | Manual memory editing | Cognitive burden, users won't maintain |
@@ -80,17 +80,37 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| — | — | — |
+| CONV-01 | Phase 10 | Pending |
+| CONV-02 | Phase 10 | Pending |
+| CONV-03 | Phase 10 | Pending |
+| CONV-04 | Phase 10 | Pending |
+| CONV-05 | Phase 10 | Pending |
+| CONV-06 | Phase 10 | Pending |
+| CONV-07 | Phase 8 | Pending |
+| STRM-01 | Phase 9 | Pending |
+| STRM-02 | Phase 9 | Pending |
+| STRM-03 | Phase 9 | Pending |
+| RNDR-01 | Phase 11 | Pending |
+| RNDR-02 | Phase 11 | Pending |
+| RNDR-03 | Phase 11 | Pending |
+| RNDR-04 | Phase 11 | Pending |
+| SRCH-01 | Phase 12 | Pending |
+| SRCH-02 | Phase 12 | Pending |
+| SRCH-03 | Phase 12 | Pending |
+| DARK-01 | Phase 11 | Pending |
+| DARK-02 | Phase 11 | Pending |
+| DARK-03 | Phase 11 | Pending |
+| VOIC-01 | Phase 13 | Pending |
+| VOIC-02 | Phase 13 | Pending |
+| VOIC-03 | Phase 13 | Pending |
 
 **Coverage:**
-- v1.5 requirements: 20 total
-- Mapped to phases: 0
-- Unmapped: 20
+- v1.5 requirements: 23 total
+- Mapped to phases: 23
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after initial definition*
+*Last updated: 2026-02-08 -- traceability populated after roadmap creation*
