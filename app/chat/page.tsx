@@ -877,7 +877,7 @@ export default function ChatPage() {
               {importError || 'Import failed'}
             </span>
             <button
-              onClick={() => router.push('/import')}
+              onClick={() => router.push('/import?reimport=true')}
               className="text-xs text-primary hover:text-primary/80 font-medium"
             >
               Try Again →

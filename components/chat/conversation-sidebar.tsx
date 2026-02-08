@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { ConversationItem } from './conversation-item';
 import { DeleteConfirmation } from './delete-confirmation';
 
@@ -33,6 +34,7 @@ export function ConversationSidebar({
   onRename,
   onDelete,
 }: ConversationSidebarProps) {
+  const router = useRouter();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -108,6 +110,17 @@ export function ConversationSidebar({
               ))}
             </div>
           )}
+        </div>
+
+        {/* Re-import button */}
+        <div className="p-3 border-t border-border">
+          <button
+            onClick={() => router.push('/import?reimport=true')}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Re-import data
+          </button>
         </div>
       </aside>
 

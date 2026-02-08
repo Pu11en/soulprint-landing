@@ -19,7 +19,7 @@ function getSupabaseAdmin() {
   );
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   try {
     // Get current user
     const supabase = await createServerClient();
@@ -33,41 +33,57 @@ export async function DELETE() {
     const rateLimited = await checkRateLimit(user.id, 'standard');
     if (rateLimited) return rateLimited;
 
+    // Check if user wants to keep chat history
+    const url = new URL(request.url);
+    const keepChatHistory = url.searchParams.get('keepChatHistory') === 'true';
+
     const userId = user.id;
     const adminSupabase = getSupabaseAdmin();
     const results: Record<string, string> = {};
 
     // Delete in order (foreign key constraints)
-    
-    // 1. Delete chat messages
-    const { error: chatError, count: chatCount } = await adminSupabase
-      .from('chat_messages')
-      .delete({ count: 'exact' })
-      .eq('user_id', userId);
-    results.chat_messages = chatError ? chatError.message : `${chatCount ?? 0} deleted`;
 
-    // 2. Delete learned facts
+    if (!keepChatHistory) {
+      // 1. Delete chat messages
+      const { error: chatError, count: chatCount } = await adminSupabase
+        .from('chat_messages')
+        .delete({ count: 'exact' })
+        .eq('user_id', userId);
+      results.chat_messages = chatError ? chatError.message : `${chatCount ?? 0} deleted`;
+
+      // 2. Delete conversations
+      const { error: convsError, count: convsCount } = await adminSupabase
+        .from('conversations')
+        .delete({ count: 'exact' })
+        .eq('user_id', userId);
+      results.conversations = convsError ? convsError.message : `${convsCount ?? 0} deleted`;
+    } else {
+      results.chat_messages = 'kept';
+      results.conversations = 'kept';
+    }
+
+    // 3. Delete learned facts
     const { error: factsError, count: factsCount } = await adminSupabase
       .from('learned_facts')
       .delete({ count: 'exact' })
       .eq('user_id', userId);
     results.learned_facts = factsError ? factsError.message : `${factsCount ?? 0} deleted`;
 
-    // 3. Delete conversation chunks
+    // 4. Delete conversation chunks
     const { error: chunksError, count: chunksCount } = await adminSupabase
       .from('conversation_chunks')
       .delete({ count: 'exact' })
       .eq('user_id', userId);
     results.conversation_chunks = chunksError ? chunksError.message : `${chunksCount ?? 0} deleted`;
 
-    // 4. Delete raw conversations
+    // 5. Delete raw conversations
     const { error: rawError, count: rawCount } = await adminSupabase
       .from('raw_conversations')
       .delete({ count: 'exact' })
       .eq('user_id', userId);
     results.raw_conversations = rawError ? rawError.message : `${rawCount ?? 0} deleted`;
 
-    // 5. Reset user profile (don't delete, just reset import status + stats)
+    // 6. Reset user profile (don't delete, just reset import status + stats)
     // Core fields first (always exist) — this MUST succeed
     const { error: profileError } = await adminSupabase
       .from('user_profiles')
@@ -100,7 +116,7 @@ export async function DELETE() {
       console.log(`[UserReset] v1.2 sections reset skipped (columns may not exist): ${sectionsError.message}`);
     }
 
-    // 6. Reset gamification stats
+    // 7. Reset gamification stats
     const { error: statsError } = await adminSupabase
       .from('user_stats')
       .update({
@@ -118,7 +134,7 @@ export async function DELETE() {
       .eq('user_id', userId);
     results.user_stats = statsError ? statsError.message : 'reset';
 
-    // 7. Delete storage files
+    // 8. Delete storage files
     const { data: files } = await adminSupabase.storage
       .from('imports')
       .list(userId);

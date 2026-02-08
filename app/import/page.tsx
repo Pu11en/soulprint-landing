@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Upload, Shield, CheckCircle2, AlertCircle, Loader2, Lock, ExternalLink, Settings, Mail, Download, FileArchive, ChevronRight } from 'lucide-react';
+import { Upload, Shield, CheckCircle2, AlertCircle, Loader2, Lock, ExternalLink, Settings, Mail, Download, FileArchive, ChevronRight, MessageSquare, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BackgroundBeams } from '@/components/ui/background-beams';
 import { RingProgress } from '@/components/ui/ring-progress';
@@ -96,6 +96,9 @@ function ImportPageContent() {
   const [progressStage, setProgressStage] = useState('');
   const [currentStep, setCurrentStep] = useState<Step>('export');
   const [dragActive, setDragActive] = useState(false);
+  const [showReimportModal, setShowReimportModal] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [hasExistingSoulprint, setHasExistingSoulprint] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadProgressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -172,10 +175,13 @@ function ImportPageContent() {
         }
 
         // Check if user already has a soulprint (locked or complete)
-        // Skip redirect if user explicitly wants to re-import
-        if (!isReimport && (data.status === 'ready' || data.hasSoulprint || data.locked)) {
-          router.push('/chat');
-          return;
+        if (data.status === 'ready' || data.hasSoulprint || data.locked) {
+          setHasExistingSoulprint(true);
+          // If not explicitly re-importing, redirect to chat
+          if (!isReimport) {
+            router.push('/chat');
+            return;
+          }
         }
         // DO NOT redirect if processing - user should stay on import page to see progress (Rick Roll)
         // This prevents redirect loop with chat page
@@ -206,6 +212,47 @@ function ImportPageContent() {
     checkExisting();
   }, [router, isReimport]);
 
+  // Auto-reset then proceed with import
+  const handleReimportChoice = async (keepHistory: boolean) => {
+    setShowReimportModal(false);
+    const file = pendingFile;
+    if (!file) return;
+
+    setStatus('processing');
+    setCurrentStep('processing');
+    setProgress(0);
+    setProgressStage('Resetting your profile...');
+
+    try {
+      const csrfToken = await getCsrfToken();
+      const resetUrl = keepHistory
+        ? '/api/user/reset?keepChatHistory=true'
+        : '/api/user/reset';
+      const res = await fetch(resetUrl, {
+        method: 'DELETE',
+        headers: { 'X-CSRF-Token': csrfToken },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Reset failed');
+      }
+
+      setHasExistingSoulprint(false);
+      setProgress(3);
+      setProgressStage('Profile reset! Starting fresh import...');
+
+      // Small delay so user sees the reset message
+      await new Promise(r => setTimeout(r, 500));
+
+      // Now proceed with the actual import
+      await processFile(file);
+    } catch (err) {
+      setErrorMessage('Reset failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      setStatus('error');
+    }
+  };
+
   const handleFile = async (file: File) => {
     if (!file.name.endsWith('.zip')) {
       setErrorMessage('Please upload a ZIP file');
@@ -213,6 +260,17 @@ function ImportPageContent() {
       return;
     }
 
+    // If user has existing soulprint, show re-import modal first
+    if (hasExistingSoulprint) {
+      setPendingFile(file);
+      setShowReimportModal(true);
+      return;
+    }
+
+    await processFile(file);
+  };
+
+  const processFile = async (file: File) => {
     const isMobile = isMobileDevice();
     const fileSizeMB = file.size / 1024 / 1024;
 
@@ -834,6 +892,60 @@ function ImportPageContent() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Re-import Modal - asks about chat history before resetting */}
+      {showReimportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-6"
+          >
+            <h3 className="text-lg font-bold text-white mb-2">Re-import your data?</h3>
+            <p className="text-white/60 text-sm mb-5">
+              This will replace your current SoulPrint with a fresh analysis. Would you like to keep your chat history?
+            </p>
+
+            <div className="space-y-2.5">
+              <button
+                onClick={() => handleReimportChoice(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/10 hover:border-orange-500/40 hover:bg-orange-500/5 transition-colors text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-orange-500/15 flex items-center justify-center flex-shrink-0">
+                  <MessageSquare className="w-4 h-4 text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-white text-sm font-medium">Keep chat history</p>
+                  <p className="text-white/40 text-xs">Only reset SoulPrint, keep conversations</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleReimportChoice(false)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/10 hover:border-red-500/40 hover:bg-red-500/5 transition-colors text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-4 h-4 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-white text-sm font-medium">Fresh start</p>
+                  <p className="text-white/40 text-xs">Clear everything and start from scratch</p>
+                </div>
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowReimportModal(false);
+                setPendingFile(null);
+              }}
+              className="mt-4 w-full text-center text-white/40 text-xs hover:text-white/60 transition-colors"
+            >
+              Cancel
+            </button>
+          </motion.div>
+        </div>
+      )}
     </main>
   );
 }
