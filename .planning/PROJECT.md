@@ -47,14 +47,14 @@ The import-to-chat flow must work reliably every time on production — no stuck
 
 ### Active
 
-#### v1.4 Chat Personalization Quality
+#### v1.5 Full Chat Experience
 
-- [ ] RLM /query prompt rewritten with OpenClaw-inspired personality system
-- [ ] All 7 structured sections (soul, identity, user, agents, tools, memory) passed from Next.js to RLM
-- [ ] AI names itself based on user's chat history analysis
-- [ ] Pending DB migrations executed (section columns exist in production)
-- [ ] Updated RLM deployed to Render with new prompt system
-- [ ] Chat responses embody user's personality profile, not generic responses
+- [ ] Sidebar with conversation list, new chat, switch, delete
+- [ ] Streaming responses (token-by-token rendering)
+- [ ] Web search / research mode with citations
+- [ ] Rich response rendering (markdown, code blocks with copy button)
+- [ ] Voice input (speech-to-text)
+- [ ] Dark mode
 
 ### Out of Scope
 
@@ -68,16 +68,17 @@ The import-to-chat flow must work reliably every time on production — no stuck
 - Multi-platform channels (SMS, Telegram, WhatsApp) — v2+ OpenClaw-style gateway
 - Per-user cloud instances — v2+ each SoulPrint as deployable agent
 
-## Current Milestone: v1.4 Chat Personalization Quality
+## Current Milestone: v1.5 Full Chat Experience
 
-**Goal:** Make the AI actually feel like *your* AI — OpenClaw-inspired prompt system that uses all structured sections to create a personalized chat experience.
+**Goal:** Transform the basic single-conversation chat into a full-featured AI assistant with conversation management, streaming, web search, rich rendering, voice input, and dark mode.
 
 **Target features:**
-- RLM prompt rewrite with personality injection from all 7 sections
-- Section passing pipeline (Next.js → RLM → Anthropic API)
-- AI self-naming from chat history
-- DB migration execution for section persistence
-- RLM production deployment with new prompt system
+- Sidebar with conversation history (list, new chat, switch, delete)
+- Streaming responses (token-by-token)
+- Web search / research mode with source citations
+- Rich response rendering (markdown, code blocks with copy)
+- Voice input (speech-to-text)
+- Dark mode
 
 ## Context
 
@@ -136,5 +137,8 @@ The import-to-chat flow must work reliably every time on production — no stuck
 | Separate soulprint-rlm repo | Production RLM deploys from Pu11en/soulprint-rlm, not soulprint-landing/rlm-service/ | — Pending |
 | Hybrid merge for RLM sync | Add v1.2 processors to production without breaking existing endpoints | — Pending |
 
+| Switch to Sonnet 4.5 for chat | Nova Lite can't follow personality instructions | ✓ Good — natural personality |
+| OpenClaw-style prompt | Minimal preamble, let sections define personality | ✓ Good — deployed to production |
+
 ---
-*Last updated: 2026-02-07 after v1.3 milestone started*
+*Last updated: 2026-02-08 after v1.5 milestone started*
