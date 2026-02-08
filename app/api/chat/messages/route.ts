@@ -26,9 +26,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const before = searchParams.get('before'); // For pagination
+    const conversationId = searchParams.get('conversation_id'); // For filtering by conversation
 
     const adminSupabase = getSupabaseAdmin();
-    
+
     let query = adminSupabase
       .from('chat_messages')
       .select('id, role, content, created_at')
@@ -38,6 +39,10 @@ export async function GET(request: NextRequest) {
 
     if (before) {
       query = query.lt('created_at', before);
+    }
+
+    if (conversationId) {
+      query = query.eq('conversation_id', conversationId);
     }
 
     const { data: messages, error } = await query;
@@ -75,16 +80,17 @@ export async function POST(request: NextRequest) {
     // Parse and validate request body
     const result = await parseRequestBody(request, saveMessageSchema);
     if (result instanceof Response) return result;
-    const { role, content } = result;
+    const { role, content, conversation_id } = result;
 
     const adminSupabase = getSupabaseAdmin();
-    
+
     const { data: message, error } = await adminSupabase
       .from('chat_messages')
       .insert({
         user_id: user.id,
         role,
         content,
+        conversation_id,
       })
       .select()
       .single();
@@ -93,6 +99,12 @@ export async function POST(request: NextRequest) {
       console.error('[Messages] Save error:', error);
       return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
     }
+
+    // Update conversation's updated_at to keep sidebar order fresh
+    await adminSupabase
+      .from('conversations')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', conversation_id);
 
     return NextResponse.json({ message });
 
