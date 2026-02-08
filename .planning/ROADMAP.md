@@ -126,7 +126,11 @@ Plans:
   4. On first visit, the theme matches the user's OS/browser preference (dark OS = dark SoulPrint)
   5. No UI element has invisible text, broken contrast, or unreadable content in either theme (hard-coded colors eliminated)
   6. Markdown rendering is XSS-safe: javascript: links are blocked, HTML is sanitized
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 11-01-PLAN.md -- Install packages, ThemeProvider setup, Tailwind typography plugin
+- [ ] 11-02-PLAN.md -- Markdown renderer with CodeBlock, syntax highlighting, XSS sanitization
+- [ ] 11-03-PLAN.md -- Wire theme into chat UI, replace hardcoded colors, visual verification
 
 ### Phase 12: Web Search Hardening
 **Goal**: Users can trigger web search for current-info queries and receive responses with validated, clickable source citations
@@ -166,9 +170,9 @@ Phases execute: 8 → (9 + 11 + 12 parallel) → 10 → 13
 | 8. DB Schema & Migration | v1.5 | 1/1 | Complete | 2026-02-08 |
 | 9. Streaming Responses | v1.5 | 0/TBD | Not started | - |
 | 10. Conversation Management UI | v1.5 | 0/TBD | Not started | - |
-| 11. Rich Rendering & Dark Mode | v1.5 | 0/TBD | Not started | - |
+| 11. Rich Rendering & Dark Mode | v1.5 | 0/3 | Not started | - |
 | 12. Web Search Hardening | v1.5 | 0/TBD | Not started | - |
 | 13. Voice Input | v1.5 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-08 -- Phase 8 complete (1/1 plans, verified)*
+*Last updated: 2026-02-08 -- Phase 11 planned (3 plans in 2 waves)*
