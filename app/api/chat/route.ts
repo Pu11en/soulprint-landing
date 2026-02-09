@@ -455,6 +455,16 @@ export async function POST(request: NextRequest) {
               await new Promise(resolve => setTimeout(resolve, 10));
             }
 
+            // WSRV-03: Send citation metadata to frontend
+            if (webSearchCitations.length > 0) {
+              const citationMeta = formatCitationsForDisplay(webSearchCitations);
+              const citationEvent = `data: ${JSON.stringify({
+                type: 'citations',
+                data: citationMeta
+              })}\n\n`;
+              controller.enqueue(new TextEncoder().encode(citationEvent));
+            }
+
             const done = `data: [DONE]\n\n`;
             controller.enqueue(new TextEncoder().encode(done));
 
@@ -550,6 +560,16 @@ export async function POST(request: NextRequest) {
               const sseChunk = `data: ${JSON.stringify({ content: text })}\n\n`;
               controller.enqueue(new TextEncoder().encode(sseChunk));
             }
+          }
+
+          // WSRV-03: Send citation metadata to frontend
+          if (webSearchCitations.length > 0) {
+            const citationMeta = formatCitationsForDisplay(webSearchCitations);
+            const citationEvent = `data: ${JSON.stringify({
+              type: 'citations',
+              data: citationMeta
+            })}\n\n`;
+            controller.enqueue(new TextEncoder().encode(citationEvent));
           }
 
           // Send completion marker
