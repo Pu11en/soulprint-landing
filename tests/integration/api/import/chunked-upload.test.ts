@@ -13,7 +13,7 @@ const mockUpload = vi.fn(async (path: string, data: Buffer | Uint8Array) => {
 const mockDownload = vi.fn(async (path: string) => {
   const buf = storedChunks.get(path);
   if (!buf) return { data: null, error: { message: 'Not found' } };
-  const blob = new Blob([buf]);
+  const blob = new Blob([new Uint8Array(buf)]);
   return { data: blob, error: null };
 });
 
@@ -179,7 +179,7 @@ describe('POST /api/import/chunked-upload', () => {
     mockUpload.mockResolvedValueOnce({
       data: null,
       error: { message: 'Storage quota exceeded' },
-    });
+    } as any);
 
     const uploadId = 'test-upload-error';
     const chunkData = Buffer.from('test data');
