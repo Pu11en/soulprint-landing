@@ -9,10 +9,10 @@ Requirements for the Hardening & Integration milestone. Closes known gaps from v
 
 ### RLM Emotional Intelligence
 
-- [ ] **RLEI-01**: RLM service receives emotional_state parameter from TypeScript chat route
-- [ ] **RLEI-02**: RLM service receives relationship_arc parameter from TypeScript chat route
-- [ ] **RLEI-03**: Python PromptBuilder uses emotional_state and relationship_arc when building RLM prompts
-- [ ] **RLEI-04**: Both RLM and Bedrock fallback paths produce emotionally intelligent responses
+- [x] **RLEI-01**: RLM service receives emotional_state parameter from TypeScript chat route
+- [x] **RLEI-02**: RLM service receives relationship_arc parameter from TypeScript chat route
+- [x] **RLEI-03**: Python PromptBuilder uses emotional_state and relationship_arc when building RLM prompts
+- [x] **RLEI-04**: Both RLM and Bedrock fallback paths produce emotionally intelligent responses
 
 ### Test Quality
 
@@ -40,10 +40,10 @@ Requirements for the Hardening & Integration milestone. Closes known gaps from v
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RLEI-01 | Phase 1 | Pending |
-| RLEI-02 | Phase 1 | Pending |
-| RLEI-03 | Phase 1 | Pending |
-| RLEI-04 | Phase 1 | Pending |
+| RLEI-01 | Phase 1 | ✓ Complete |
+| RLEI-02 | Phase 1 | ✓ Complete |
+| RLEI-03 | Phase 1 | ✓ Complete |
+| RLEI-04 | Phase 1 | ✓ Complete |
 | TEST-01 | Phase 2 | Pending |
 | TEST-02 | Phase 2 | Pending |
 | TEST-03 | Phase 2 | Pending |
