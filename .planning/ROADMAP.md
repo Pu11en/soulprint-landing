@@ -9,7 +9,8 @@
 - SHIPPED **v1.4 Chat Personalization Quality** -- Phases 6-7 (shipped 2026-02-08)
 - SHIPPED **v1.5 Full Chat Experience** -- Phases 8-13 (shipped 2026-02-08)
 - SHIPPED **v2.0 AI Quality & Personalization** -- Phases 1-5, 14 plans (shipped 2026-02-09)
-- ACTIVE **v2.1 Hardening & Integration** -- Phases 1-3 (in progress)
+- SHIPPED **v2.1 Hardening & Integration** -- Phases 1-3 (shipped 2026-02-09)
+- ACTIVE **v2.2 Bulletproof Imports** -- Phases 1-3 (in progress)
 
 ## Phases
 
@@ -98,79 +99,87 @@ See: `.planning/milestones/v2.0-ROADMAP.md`
 
 </details>
 
-## v2.1 Hardening & Integration (ACTIVE)
+<details>
+<summary>v2.1 Hardening & Integration (Phases 1-3) -- SHIPPED 2026-02-09</summary>
 
-**Milestone Goal:** Close known gaps from v2.0 — wire emotional intelligence into RLM service, fix all TypeScript test errors, and validate web search citations against hallucination.
+- [x] Phase 1: RLM Emotional Intelligence Integration (1/1 plans) -- completed 2026-02-09
+- [x] Phase 2: Test Type Safety Fixes (1/1 plans) -- completed 2026-02-09
+- [x] Phase 3: Web Search Citation Validation (2/2 plans) -- completed 2026-02-09
 
-**Overview:** This milestone addresses three independent technical debt items discovered during v2.0 execution: RLM service currently bypasses emotional intelligence features (only Bedrock fallback gets EI), cross-language and integration test files have TypeScript errors that don't affect runtime, and web search citations aren't validated before showing to users. Each phase tackles one gap and can run independently.
+See: Previous active milestone content (collapsed)
 
-### Phase 1: RLM Emotional Intelligence Integration
-**Goal:** RLM service uses emotional intelligence parameters for adaptive tone and relationship-aware responses
+</details>
+
+## v2.2 Bulletproof Imports (ACTIVE)
+
+**Milestone Goal:** Move all heavy import processing from Vercel to RLM (Render), port convoviz-quality parsing (DAG traversal, hidden message filtering, polymorphic parts), make imports work for any size export on any device.
+
+**Overview:** This milestone eliminates the fundamental constraint causing import failures: Vercel serverless (1GB RAM, 300s timeout) cannot handle large ChatGPT exports. By moving all heavy processing to RLM on Render with streaming JSON parsing, we enable any size export (tested up to 2GB) on any device. Convoviz-quality parsing patterns ensure accurate conversation history (no dead branches from edits) and complete content handling (images, attachments). Real progress reporting and actionable error messages complete the bulletproof experience.
+
+### Phase 1: Core Migration - RLM Pipeline with Streaming
+**Goal:** All heavy import processing runs on RLM service (Render) with streaming JSON parser for constant-memory processing
 
 **Depends on:** Nothing (first phase)
 
-**Requirements:** RLEI-01, RLEI-02, RLEI-03, RLEI-04
+**Requirements:** IMP-01, IMP-02, IMP-03
 
 **Success Criteria** (what must be TRUE):
-1. TypeScript chat route passes emotional_state and relationship_arc to RLM service in API request
-2. Python PromptBuilder receives EI parameters and uses them when building RLM prompts
-3. RLM responses reflect emotional context (warm tone when user is happy, supportive when anxious)
-4. Both RLM primary path and Bedrock fallback produce emotionally intelligent responses
+1. User uploads ChatGPT export (any size), Vercel authenticates and immediately returns 202 Accepted
+2. RLM service downloads from Supabase Storage and processes export with constant memory usage (no OOM failures on 300MB+ files)
+3. Import completes successfully for 300MB+ exports that previously failed on Vercel
+4. Database shows progress updates (progress_percent) throughout RLM processing pipeline
 
-**Plans:** 1 plan (1/1 complete)
+**Plans:** TBD
 
 Plans:
-- [x] 01-01-PLAN.md — Wire EI parameters through TypeScript → RLM Python → PromptBuilder
+- [ ] TBD during planning
 
-### Phase 2: Test Type Safety Fixes
-**Goal:** All test files compile without TypeScript errors in strict mode
+### Phase 2: Parsing Quality - DAG Traversal and Content Handling
+**Goal:** Conversation parsing uses DAG traversal for accurate history and handles all content types correctly
 
-**Depends on:** Nothing (independent of Phase 1)
+**Depends on:** Phase 1 (needs RLM pipeline established)
 
-**Requirements:** TEST-01, TEST-02, TEST-03
+**Requirements:** PAR-01, PAR-02, PAR-03, PAR-04
 
 **Success Criteria** (what must be TRUE):
-1. Cross-language sync tests (EmotionalState, PromptBuilderProfile) pass TypeScript compilation
-2. Integration test mocks (complete.test.ts, process-server.test.ts) have correct type annotations
-3. Running `npx tsc --noEmit` from project root produces zero errors
-4. All tests still pass after type fixes (no runtime regressions)
+1. User's soulprint contains only actual conversation history (no duplicate or dead-branch messages from edits)
+2. User's soulprint excludes hidden internal content (tool outputs, browsing traces, reasoning steps)
+3. User's conversations with images or attachments are fully captured (all content.parts, not just parts[0])
+4. Import works for both raw array and wrapped export formats ([...] and { conversations: [...] })
 
-**Plans:** 1 plan (1/1 complete)
+**Plans:** TBD
 
 Plans:
-- [x] 02-01-PLAN.md — Fix all 21 TypeScript test type errors (cross-lang sync, integration mocks)
+- [ ] TBD during planning
 
-### Phase 3: Web Search Citation Validation
-**Goal:** Web search citations are validated against source content before showing to users
+### Phase 3: UX Enhancement - Progress and Error Clarity
+**Goal:** Users see real processing progress and receive actionable error messages when imports fail
 
-**Depends on:** Nothing (independent of Phases 1-2)
+**Depends on:** Phase 2 (needs complete pipeline for accurate progress tracking)
 
-**Requirements:** WSRV-01, WSRV-02, WSRV-03
+**Requirements:** UXP-01, UXP-02, UXP-03
 
 **Success Criteria** (what must be TRUE):
-1. Citations returned from web search are validated against actual source content
-2. Hallucinated or unreachable citations are filtered out before surfacing to user
-3. Valid citations display domain name source indicators in chat responses
-4. User receives accurate, verifiable citations or none (never hallucinated sources)
+1. User sees specific processing stages ("Downloading export", "Parsing conversations", "Generating soulprint") instead of generic spinner
+2. User receives specific error guidance when import fails (e.g., "File too large (2.3GB, max 2GB)" not "Something went wrong")
+3. User successfully imports 100MB+ files from mobile devices (iOS Safari, Android Chrome)
+4. User can close browser during import and return later to see completion (no page-open requirement)
 
-**Plans:** 2 plans (2/2 complete)
+**Plans:** TBD
 
 Plans:
-- [x] 03-01-PLAN.md — Backend citation validation (validate URLs, filter unreachable, extract domains)
-- [x] 03-02-PLAN.md — Frontend citation display (show domain indicators in chat UI)
+- [ ] TBD during planning
 
 ## Progress
 
 **Execution Order:**
-Phases 1 and 2 can run in parallel (independent work). Phase 3 is also independent and can run concurrently with 1+2 or sequentially after.
-
-Suggested: Execute 1 and 2 in parallel, then 3. Or all 3 in parallel if resource availability permits.
+Phases execute sequentially: 1 → 2 → 3. Each phase builds on the previous infrastructure.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. RLM Emotional Intelligence Integration | 1/1 | ✓ Complete | 2026-02-09 |
-| 2. Test Type Safety Fixes | 1/1 | ✓ Complete | 2026-02-09 |
-| 3. Web Search Citation Validation | 2/2 | ✓ Complete | 2026-02-09 |
+| 1. Core Migration | 0/TBD | Not started | - |
+| 2. Parsing Quality | 0/TBD | Not started | - |
+| 3. UX Enhancement | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-09 -- All 3 phases complete, milestone ready for audit*
+*Last updated: 2026-02-09 -- v2.2 roadmap created, awaiting Phase 1 planning*

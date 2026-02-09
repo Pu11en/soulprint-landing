@@ -42,21 +42,27 @@ Requirements for the Bulletproof Imports milestone. Move all heavy import proces
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IMP-01 | — | Pending |
-| IMP-02 | — | Pending |
-| IMP-03 | — | Pending |
-| PAR-01 | — | Pending |
-| PAR-02 | — | Pending |
-| PAR-03 | — | Pending |
-| PAR-04 | — | Pending |
-| UXP-01 | — | Pending |
-| UXP-02 | — | Pending |
-| UXP-03 | — | Pending |
+| IMP-01 | Phase 1 | Pending |
+| IMP-02 | Phase 1 | Pending |
+| IMP-03 | Phase 1 | Pending |
+| PAR-01 | Phase 2 | Pending |
+| PAR-02 | Phase 2 | Pending |
+| PAR-03 | Phase 2 | Pending |
+| PAR-04 | Phase 2 | Pending |
+| UXP-01 | Phase 3 | Pending |
+| UXP-02 | Phase 3 | Pending |
+| UXP-03 | Phase 3 | Pending |
 
 **Coverage:**
 - v2.2 requirements: 10 total
-- Mapped to phases: 0 (awaiting roadmap)
-- Unmapped: 10
+- Mapped to phases: 10 (100% coverage)
+- Unmapped: 0
+
+**Phase distribution:**
+- Phase 1 (Core Migration): 3 requirements
+- Phase 2 (Parsing Quality): 4 requirements
+- Phase 3 (UX Enhancement): 3 requirements
 
 ---
 *Requirements defined: 2026-02-09*
+*Traceability updated: 2026-02-09 (roadmap created)*
