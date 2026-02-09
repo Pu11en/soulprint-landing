@@ -168,7 +168,8 @@ export default function ChatPage() {
             });
 
             if (createRes.ok) {
-              const newConv = await createRes.json();
+              const createData = await createRes.json();
+              const newConv = createData.conversation ?? createData;
               setConversations([newConv]);
               setCurrentConversationIdSync(newConv.id);
 
@@ -334,7 +335,8 @@ export default function ChatPage() {
       });
 
       if (res.ok) {
-        const newConv = await res.json();
+        const createData = await res.json();
+        const newConv = createData.conversation ?? createData;
         setConversations(prev => [newConv, ...prev]);
         setCurrentConversationIdSync(newConv.id);
         setMessages([]); // Clear messages
