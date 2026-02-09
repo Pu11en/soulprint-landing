@@ -183,14 +183,38 @@ function ImportPageContent() {
             return;
           }
         }
-        // DO NOT redirect if processing - user should stay on import page to see progress (Rick Roll)
+        // DO NOT redirect if processing - user should stay on import page to see progress
         // This prevents redirect loop with chat page
         // Set the step to 'processing' so user sees the progress screen
+        // Also poll for completion so user isn't stuck on a static screen
         if (data.status === 'processing') {
           setCurrentStep('processing');
           setStatus('processing');
+          setProgress(60);
           setProgressStage('Processing your conversations...');
-          // Don't set checkingExisting to false yet - let the normal flow continue
+
+          // Poll for completion every 5 seconds (use progressIntervalRef for cleanup on unmount)
+          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = setInterval(async () => {
+            try {
+              const pollRes = await fetch('/api/memory/status');
+              if (!pollRes.ok) return;
+              const pollData = await pollRes.json();
+
+              if (pollData.status === 'ready' || pollData.hasSoulprint) {
+                if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+                setProgress(100);
+                setProgressStage('Analysis complete! Opening chat...');
+                setTimeout(() => router.push('/chat'), 800);
+              } else if (pollData.status === 'failed' || pollData.failed) {
+                if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+                setErrorMessage(pollData.import_error || 'Processing failed. Please try again.');
+                setStatus('error');
+              }
+            } catch {
+              // Ignore poll errors, will retry on next interval
+            }
+          }, 5000);
         }
 
         // If re-importing, mark as returning user to show appropriate UI
@@ -792,7 +816,7 @@ function ImportPageContent() {
               <div className="flex items-center gap-2 mt-3 sm:mt-4 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-green-500/5 border border-green-500/20">
                 <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400 flex-shrink-0" />
                 <p className="text-white/50 text-[11px] sm:text-xs">
-                  100% private — processed in your browser only
+                  Your data is encrypted and processed securely
                 </p>
               </div>
 
