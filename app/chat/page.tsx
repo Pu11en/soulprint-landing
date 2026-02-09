@@ -8,6 +8,7 @@ import { ConversationSidebar } from '@/components/chat/conversation-sidebar';
 import { fetchWithRetry } from '@/lib/retry';
 import { AddToHomeScreen } from '@/components/ui/AddToHomeScreen';
 import { getCsrfToken } from '@/lib/csrf';
+import type { CitationMetadata } from '@/components/chat/message-content';
 // BackgroundSync removed - RLM handles all chunk processing server-side
 
 type Message = {
@@ -15,6 +16,7 @@ type Message = {
   role: 'user' | 'assistant';
   content: string;
   timestamp?: Date;
+  citations?: CitationMetadata[];
 };
 
 type QueuedMessage = {
@@ -48,6 +50,7 @@ export default function ChatPage() {
   const [memoryStatus, setMemoryStatus] = useState<string>('loading');
   const [importError, setImportError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [currentCitations, setCurrentCitations] = useState<CitationMetadata[]>([]);
 
   // Conversation management state
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -586,11 +589,15 @@ export default function ChatPage() {
     // Regular chat flow
     saveMessage('user', content);
 
+    // Reset citations for new message
+    setCurrentCitations([]);
+
     // Create AbortController for this request
     const controller = new AbortController();
     abortControllerRef.current = controller;
     setIsGenerating(true);
     let responseContent = '';
+    let responseCitations: CitationMetadata[] = [];
 
     try {
       const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
@@ -628,7 +635,12 @@ export default function ChatPage() {
             if (data === '[DONE]') continue;
             try {
               const parsed = JSON.parse(data);
-              if (parsed.content) {
+              if (parsed.type === 'citations' && parsed.data) {
+                // Citation metadata event
+                responseCitations = parsed.data;
+                setCurrentCitations(parsed.data);
+              } else if (parsed.content) {
+                // Content chunk event
                 responseContent += parsed.content;
                 setMessages(prev =>
                   prev.map(m => m.id === aiId ? { ...m, content: responseContent } : m)
@@ -639,6 +651,13 @@ export default function ChatPage() {
             }
           }
         }
+      }
+
+      // After streaming completes, update message with citations
+      if (responseCitations.length > 0) {
+        setMessages(prev =>
+          prev.map(m => m.id === aiId ? { ...m, citations: responseCitations } : m)
+        );
       }
 
     } catch (error) {

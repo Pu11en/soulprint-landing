@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, TouchEvent } from 'react';
 import { ArrowLeft, Mic, Send, Moon, Sun, Settings, Search, Square, Menu, Copy, Check, RefreshCw } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { MessageContent } from './message-content';
+import { MessageContent, CitationMetadata } from './message-content';
 import { getCsrfToken } from '@/lib/csrf';
 
 type Message = {
@@ -11,6 +11,7 @@ type Message = {
   role: 'user' | 'assistant';
   content: string;
   timestamp?: Date;
+  citations?: CitationMetadata[];
 };
 
 interface TelegramChatV2Props {
@@ -159,6 +160,7 @@ function SwipeableMessage({
           <MessageContent
             content={message.content}
             isUser={isUser}
+            citations={message.citations}
           />
         </div>
         {/* Desktop timestamp + action buttons */}
