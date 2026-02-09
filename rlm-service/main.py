@@ -45,6 +45,8 @@ class QueryRequest(BaseModel):
     ai_name: Optional[str] = None
     sections: Optional[dict] = None  # {soul, identity, user, agents, tools, memory}
     web_search_context: Optional[str] = None
+    emotional_state: Optional[dict] = None
+    relationship_arc: Optional[dict] = None
 
 
 class QueryResponse(BaseModel):
@@ -302,6 +304,8 @@ async def query_with_rlm(
     ai_name: str = "SoulPrint",
     sections: Optional[dict] = None,
     web_search_context: Optional[str] = None,
+    emotional_state: Optional[dict] = None,
+    relationship_arc: Optional[dict] = None,
 ) -> str:
     """Query using RLM for recursive memory exploration"""
     try:
@@ -318,11 +322,13 @@ async def query_with_rlm(
 
         builder = PromptBuilder()
         profile = _sections_to_profile(sections, soulprint_text)
-        system_prompt = builder.build_system_prompt(
+        system_prompt = builder.build_emotionally_intelligent_prompt(
             profile=profile,
             ai_name=ai_name,
             memory_context=conversation_context,
             web_search_context=web_search_context,
+            emotional_state=emotional_state,
+            relationship_arc=relationship_arc,
         )
 
         # Build context for RLM with system prompt + conversation
@@ -349,6 +355,8 @@ async def query_fallback(
     ai_name: str = "SoulPrint",
     sections: Optional[dict] = None,
     web_search_context: Optional[str] = None,
+    emotional_state: Optional[dict] = None,
+    relationship_arc: Optional[dict] = None,
 ) -> str:
     """Fallback to direct Anthropic API if RLM fails"""
     import anthropic
@@ -357,11 +365,13 @@ async def query_fallback(
 
     builder = PromptBuilder()
     profile = _sections_to_profile(sections, soulprint_text)
-    system_prompt = builder.build_system_prompt(
+    system_prompt = builder.build_emotionally_intelligent_prompt(
         profile=profile,
         ai_name=ai_name,
         memory_context=conversation_context,
         web_search_context=web_search_context,
+        emotional_state=emotional_state,
+        relationship_arc=relationship_arc,
     )
 
     messages = []
@@ -440,6 +450,8 @@ async def query(request: QueryRequest):
                 ai_name=ai_name,
                 sections=request.sections,
                 web_search_context=request.web_search_context,
+                emotional_state=request.emotional_state,
+                relationship_arc=request.relationship_arc,
             )
             method = "rlm"
         except Exception as rlm_error:
@@ -456,6 +468,8 @@ async def query(request: QueryRequest):
                 ai_name=ai_name,
                 sections=request.sections,
                 web_search_context=request.web_search_context,
+                emotional_state=request.emotional_state,
+                relationship_arc=request.relationship_arc,
             )
             method = "fallback"
         
