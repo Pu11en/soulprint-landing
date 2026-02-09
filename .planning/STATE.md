@@ -6,16 +6,16 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** Phase 2 - Prompt Template System (Plan 1 of 3 complete)
+**Current focus:** Phase 2 - Prompt Template System (Plan 2 of 3 complete)
 
 ## Current Position
 
 Phase: 2 of 5 (Prompt Template System)
-Plan: 1 of 3 in phase
+Plan: 2 of 3 in phase
 Status: In progress
-Last activity: 2026-02-09 - Completed 02-01-PLAN.md (PromptBuilder class + chat route wiring)
+Last activity: 2026-02-09 - Completed 02-02-PLAN.md (Python PromptBuilder + cross-language sync tests)
 
-Progress: [██████░░░░] 60% (Phase 1 complete, Phase 2 plan 1/3 complete)
+Progress: [███████░░░] 70% (Phase 1 complete, Phase 2 plan 2/3 complete)
 
 ## Performance Metrics
 
@@ -75,6 +75,13 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - getPromptVersion() exported standalone for testing/logging without instantiating builder
 - PRMT-04 pattern: behavioral_rules from agents_md reinforced in ## REMEMBER after ## CONTEXT
 
+**From 02-02 (Cross-Language Prompt Sync):**
+- Python PromptBuilder mirrors TypeScript character-for-character for v1, v2, and imposter mode
+- Injectable currentDate/currentTime params added to TypeScript PromptParams for deterministic testing
+- Python _parse_section_safe handles both dict and JSON string inputs
+- _sections_to_profile helper bridges legacy sections dict to PromptBuilder profile format
+- JSON blob serialization pattern for subprocess param passing avoids shell escaping issues
+
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
@@ -82,7 +89,6 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ### Blockers/Concerns
 
 **For v2.0 planning:**
-- Phase 2 Plan 02 needs RLM prompt sync strategy (Python PromptBuilder must mirror TypeScript)
 - Phase 3 needs uncanny valley threshold research (how much mirroring is too much)
 - Quality scoring metrics need validation that they correlate r>0.7 with user satisfaction
 
@@ -92,8 +98,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 02-01-PLAN.md (PromptBuilder class + chat route wiring)
+Stopped at: Completed 02-02-PLAN.md (Python PromptBuilder + cross-language sync tests)
 Resume file: None
 
 ---
-*Last updated: 2026-02-09 -- Phase 2 Plan 1 complete (PromptBuilder class with v1/v2, chat route wired)*
+*Last updated: 2026-02-09 -- Phase 2 Plan 2 complete (Python PromptBuilder mirroring TS, 8 cross-lang tests passing)*
