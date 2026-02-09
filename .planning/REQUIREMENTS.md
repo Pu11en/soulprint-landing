@@ -16,10 +16,10 @@ Requirements for the AI Quality & Personalization milestone. Each maps to roadma
 
 ### Prompts
 
-- [ ] **PRMT-01**: System prompts use natural voice (flowing personality primer) instead of technical markdown headers
-- [ ] **PRMT-02**: Prompt template system supports versioned swap (v1-technical / v2-natural-voice via env var)
-- [ ] **PRMT-03**: Next.js and RLM prompt builders produce identical output for same sections
-- [ ] **PRMT-04**: Personality instructions are reinforced after RAG memory retrieval (not overridden by chunks)
+- [x] **PRMT-01**: System prompts use natural voice (flowing personality primer) instead of technical markdown headers
+- [x] **PRMT-02**: Prompt template system supports versioned swap (v1-technical / v2-natural-voice via env var)
+- [x] **PRMT-03**: Next.js and RLM prompt builders produce identical output for same sections
+- [x] **PRMT-04**: Personality instructions are reinforced after RAG memory retrieval (not overridden by chunks)
 
 ### Emotional Intelligence
 
@@ -92,10 +92,10 @@ Deferred to future release.
 | EVAL-02 | Phase 1 | ✓ Done |
 | EVAL-03 | Phase 1 | ✓ Done |
 | EVAL-04 | Phase 1 | ✓ Done |
-| PRMT-01 | Phase 2 | Pending |
-| PRMT-02 | Phase 2 | Pending |
-| PRMT-03 | Phase 2 | Pending |
-| PRMT-04 | Phase 2 | Pending |
+| PRMT-01 | Phase 2 | ✓ Done |
+| PRMT-02 | Phase 2 | ✓ Done |
+| PRMT-03 | Phase 2 | ✓ Done |
+| PRMT-04 | Phase 2 | ✓ Done |
 | EMOT-01 | Phase 3 | Pending |
 | EMOT-02 | Phase 3 | Pending |
 | EMOT-03 | Phase 3 | Pending |
@@ -113,4 +113,4 @@ Deferred to future release.
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 -- Phase 1 complete (EVAL-01 through EVAL-04 satisfied)*
+*Last updated: 2026-02-09 -- Phase 2 complete (PRMT-01 through PRMT-04 satisfied)*

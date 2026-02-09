@@ -132,9 +132,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- TypeScript PromptBuilder class + wire into chat route
-- [ ] 02-02-PLAN.md -- Python PromptBuilder + cross-language sync tests
-- [ ] 02-03-PLAN.md -- v2 variant in evaluation framework for A/B comparison
+- [x] 02-01-PLAN.md -- TypeScript PromptBuilder class + wire into chat route
+- [x] 02-02-PLAN.md -- Python PromptBuilder + cross-language sync tests
+- [x] 02-03-PLAN.md -- v2 variant in evaluation framework for A/B comparison
 
 ### Phase 3: Emotional Intelligence
 
@@ -204,10 +204,10 @@ Phases execute: 1 → 2 → (3 + 4 parallel) → 5
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Evaluation Foundation | v2.0 | 2/2 | ✓ Complete | 2026-02-08 |
-| 2. Prompt Template System | v2.0 | 0/3 | Not started | - |
+| 2. Prompt Template System | v2.0 | 3/3 | ✓ Complete | 2026-02-09 |
 | 3. Emotional Intelligence | v2.0 | 0/TBD | Not started | - |
 | 4. Quality Scoring | v2.0 | 0/TBD | Not started | - |
 | 5. Integration Validation | v2.0 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-08 -- Phase 2 (Prompt Template System) planned with 3 plans in 3 waves*
+*Last updated: 2026-02-09 -- Phase 2 (Prompt Template System) complete (3/3 plans, verified 16/16 must-haves)*
