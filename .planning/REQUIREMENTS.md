@@ -40,21 +40,27 @@ Requirements for the Hardening & Integration milestone. Closes known gaps from v
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RLEI-01 | TBD | Pending |
-| RLEI-02 | TBD | Pending |
-| RLEI-03 | TBD | Pending |
-| RLEI-04 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| WSRV-01 | TBD | Pending |
-| WSRV-02 | TBD | Pending |
-| WSRV-03 | TBD | Pending |
+| RLEI-01 | Phase 1 | Pending |
+| RLEI-02 | Phase 1 | Pending |
+| RLEI-03 | Phase 1 | Pending |
+| RLEI-04 | Phase 1 | Pending |
+| TEST-01 | Phase 2 | Pending |
+| TEST-02 | Phase 2 | Pending |
+| TEST-03 | Phase 2 | Pending |
+| WSRV-01 | Phase 3 | Pending |
+| WSRV-02 | Phase 3 | Pending |
+| WSRV-03 | Phase 3 | Pending |
 
 **Coverage:**
 - v2.1 requirements: 10 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 10
+- Mapped to phases: 10 (100% coverage)
+- Unmapped: 0
+
+**Phase Distribution:**
+- Phase 1 (RLM EI Integration): 4 requirements
+- Phase 2 (Test Type Safety): 3 requirements
+- Phase 3 (Web Search Validation): 3 requirements
 
 ---
 *Requirements defined: 2026-02-09*
+*Traceability updated: 2026-02-09*
