@@ -9,7 +9,7 @@
  *
  * Options:
  *   --dataset <name>   Name of an existing Opik dataset (required)
- *   --variant <name>   Prompt variant to evaluate: v1 (required)
+ *   --variant <name>   Prompt variant to evaluate: v1, v2-natural-voice (required)
  *   --samples N        Number of dataset items to evaluate (default: all)
  *   --help             Show this help message
  *
@@ -19,12 +19,13 @@
 
 import 'dotenv/config';
 import { runExperiment } from '@/lib/evaluation/experiments';
-import { v1PromptVariant } from '@/lib/evaluation/baseline';
+import { v1PromptVariant, v2PromptVariant } from '@/lib/evaluation/baseline';
 import type { PromptVariant } from '@/lib/evaluation/experiments';
 
-/** Available prompt variants. Phase 2 will add v2 variants here. */
+/** Available prompt variants for A/B evaluation. */
 const VARIANTS: Record<string, PromptVariant> = {
   v1: v1PromptVariant,
+  'v2-natural-voice': v2PromptVariant,
 };
 
 function printUsage(): void {
@@ -48,8 +49,13 @@ Required environment variables:
   AWS_ACCESS_KEY_ID            AWS credentials for Bedrock Haiku 4.5
   AWS_SECRET_ACCESS_KEY        AWS credentials for Bedrock Haiku 4.5
 
-Example:
-  DOTENV_CONFIG_PATH=.env.local npx tsx scripts/run-experiment.ts --dataset chat-eval-2026-02-08 --variant v1 --samples 20
+Examples:
+  # Compare v1 vs v2:
+  DOTENV_CONFIG_PATH=.env.local npx tsx scripts/run-experiment.ts --dataset chat-eval-2026-02-08 --variant v1
+  DOTENV_CONFIG_PATH=.env.local npx tsx scripts/run-experiment.ts --dataset chat-eval-2026-02-08 --variant v2-natural-voice
+
+  # Evaluate a subset:
+  DOTENV_CONFIG_PATH=.env.local npx tsx scripts/run-experiment.ts --dataset chat-eval-2026-02-08 --variant v2-natural-voice --samples 20
 `);
 }
 
