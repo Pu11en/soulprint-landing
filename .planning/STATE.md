@@ -6,16 +6,16 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** Phase 4 - Quality Scoring (COMPLETE)
+**Current focus:** Phase 5 - Integration Validation (IN PROGRESS 2/3)
 
 ## Current Position
 
-Phase: 4 of 5 (Quality Scoring)
-Plan: 3 of 3 in phase
-Status: Phase complete
-Last activity: 2026-02-09 - Completed 04-03-PLAN.md (Quality Refinement Automation)
+Phase: 5 of 5 (Integration Validation)
+Plan: 2 of 3 in phase
+Status: In progress
+Last activity: 2026-02-09 - Completed 05-02-PLAN.md (Long-Session Testing & Latency Benchmarking)
 
-Progress: [█████████░] 93% (Phases 1-4 complete)
+Progress: [█████████░] 95% (Phases 1-4 complete, Phase 5 in progress 2/3)
 
 ## Performance Metrics
 
@@ -134,6 +134,13 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Array.from(Set) pattern for ES2017 target compatibility (downlevelIteration not enabled)
 - Background cron finds both NULL quality_breakdown (unscored) AND below-threshold profiles
 
+**From 05-02 (Long-Session Testing & Latency Benchmarking):**
+- Use P97.5 percentile instead of P95 (autocannon limitation, close approximation)
+- Benchmark /api/health endpoint instead of /api/chat to isolate tracing overhead from application logic
+- Skip long-session E2E test in CI (requires authenticated user), manual run only
+- 3-second wait after sendMessage for streaming completion (LLM streaming may be in progress)
+- Personality drift detection: compare early vs late message violations for chatbot patterns
+
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
@@ -150,8 +157,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 04-03-PLAN.md (Quality Refinement Automation)
+Stopped at: Completed 05-02-PLAN.md (Long-Session Testing & Latency Benchmarking)
 Resume file: None
 
 ---
-*Last updated: 2026-02-09 -- Phase 4 COMPLETE (Quality Scoring: infrastructure, prompt integration, automated refinement)*
+*Last updated: 2026-02-09 -- Phase 5 IN PROGRESS (Integration Validation: 2/3 plans complete)*
