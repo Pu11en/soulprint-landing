@@ -803,6 +803,24 @@ export default function ChatPage() {
     }
   };
 
+  const handleRegenerate = useCallback(() => {
+    // Find the last user message to re-send
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+    if (!lastUserMsg) return;
+
+    // Remove the last AI message
+    setMessages(prev => {
+      const lastAiIndex = prev.findLastIndex(m => m.role === 'assistant');
+      if (lastAiIndex === -1) return prev;
+      return prev.slice(0, lastAiIndex);
+    });
+
+    // Re-send the last user message
+    processQueue();
+    messageQueueRef.current.push({ content: lastUserMsg.content });
+    processQueue();
+  }, [messages, processQueue]);
+
   if (loadingHistory) {
     return (
       <div className="fixed inset-0 h-screen w-screen bg-background flex items-center justify-center">
@@ -833,6 +851,7 @@ export default function ChatPage() {
         <TelegramChatV2
           messages={messages}
           onSendMessage={handleSendMessage}
+          onRegenerate={handleRegenerate}
           isLoading={isLoading}
           isGenerating={isGenerating}
           isDeepSearching={isDeepSearching}

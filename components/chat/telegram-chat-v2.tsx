@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, TouchEvent } from 'react';
-import { ArrowLeft, Mic, Send, Moon, Sun, LogOut, Search, Square, Menu } from 'lucide-react';
+import { ArrowLeft, Mic, Send, Moon, Sun, Settings, Search, Square, Menu, Copy, Check, RefreshCw } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { MessageContent } from './message-content';
 import { getCsrfToken } from '@/lib/csrf';
@@ -16,6 +16,7 @@ type Message = {
 interface TelegramChatV2Props {
   messages: Message[];
   onSendMessage: (content: string, voiceVerified?: boolean, deepSearch?: boolean) => void;
+  onRegenerate?: () => void;
   isLoading?: boolean;
   isGenerating?: boolean;
   isDeepSearching?: boolean;
@@ -32,11 +33,22 @@ function SwipeableMessage({
   message,
   isUser,
   showTail,
+  isLastAI,
+  onRegenerate,
 }: {
   message: Message;
   isUser: boolean;
   showTail: boolean;
+  isLastAI?: boolean;
+  onRegenerate?: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -149,15 +161,56 @@ function SwipeableMessage({
             isUser={isUser}
           />
         </div>
-        {/* Desktop timestamp - always visible */}
+        {/* Desktop timestamp + action buttons */}
         {isDesktop && (
-          <div className="px-4 pb-2 -mt-1">
+          <div className="px-4 pb-2 -mt-1 flex items-center gap-2">
             <span className={`text-[11px] ${isUser ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
               {formatTime(message.timestamp || new Date())}
             </span>
+            <div className="flex-1" />
+            {/* Copy button */}
+            {message.content && message.id !== 'welcome' && (
+              <button
+                onClick={handleCopy}
+                className={`p-0.5 rounded transition-colors ${isUser ? 'text-primary-foreground/50 hover:text-primary-foreground/80' : 'text-muted-foreground/50 hover:text-muted-foreground'}`}
+                title="Copy message"
+              >
+                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              </button>
+            )}
+            {/* Regenerate button - only on last AI message */}
+            {isLastAI && onRegenerate && (
+              <button
+                onClick={onRegenerate}
+                className="p-0.5 rounded text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                title="Regenerate response"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* Mobile action buttons - below bubble */}
+      {!isDesktop && message.content && message.id !== 'welcome' && (
+        <div className={`flex gap-2 mt-0.5 ${isUser ? 'justify-end' : 'justify-start'} px-1`}>
+          <button
+            onClick={handleCopy}
+            className="p-1 rounded text-muted-foreground/40 active:text-muted-foreground transition-colors"
+          >
+            {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          </button>
+          {isLastAI && onRegenerate && (
+            <button
+              onClick={onRegenerate}
+              className="p-1 rounded text-muted-foreground/40 active:text-muted-foreground transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -165,6 +218,7 @@ function SwipeableMessage({
 export function TelegramChatV2({
   messages,
   onSendMessage,
+  onRegenerate,
   isLoading = false,
   isGenerating = false,
   isDeepSearching = false,
@@ -383,7 +437,7 @@ export function TelegramChatV2({
                 className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-primary transition-colors active:opacity-70"
                 aria-label="Settings"
               >
-                <LogOut className="w-5 h-5" />
+                <Settings className="w-5 h-5" />
               </button>
             )}
             {aiAvatar ? (
@@ -424,6 +478,8 @@ export function TelegramChatV2({
             const isUser = message.role === 'user';
             const showTail = index === messages.length - 1 ||
               messages[index + 1]?.role !== message.role;
+            // Last AI message (for regenerate button)
+            const isLastAI = !isUser && index === messages.length - 1;
 
             return (
               <SwipeableMessage
@@ -431,9 +487,31 @@ export function TelegramChatV2({
                 message={message}
                 isUser={isUser}
                 showTail={showTail}
+                isLastAI={isLastAI}
+                onRegenerate={onRegenerate}
               />
             );
           })}
+
+          {/* Suggested prompts - show for new conversations (only welcome message exists) */}
+          {messages.length === 1 && messages[0]?.id === 'welcome' && !isLoading && (
+            <div className="flex flex-wrap gap-2 px-1 mt-1">
+              {[
+                'What do you know about me?',
+                'Help me brainstorm an idea',
+                'What should I work on today?',
+                'Tell me something surprising about myself',
+              ].map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => onSendMessage(prompt)}
+                  className="px-3 py-2 rounded-2xl text-sm bg-muted/80 border border-border text-foreground hover:bg-accent transition-colors"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Loading indicator - only show during pre-streaming wait */}
           {isLoading && !isGenerating && (
