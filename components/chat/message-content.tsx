@@ -6,12 +6,19 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { CodeBlock } from './code-block';
 
+export interface CitationMetadata {
+  url: string;
+  domain: string;
+  title?: string;
+}
+
 interface MessageContentProps {
   content: string;
   isUser?: boolean;
+  citations?: CitationMetadata[];
 }
 
-export function MessageContent({ content, isUser }: MessageContentProps) {
+export function MessageContent({ content, isUser, citations }: MessageContentProps) {
   // User messages render as plain text (no markdown processing)
   if (isUser) {
     return (
@@ -133,6 +140,27 @@ export function MessageContent({ content, isUser }: MessageContentProps) {
       >
         {content}
       </ReactMarkdown>
+      {!isUser && citations && citations.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-border/30">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+            <span className="font-medium">Sources:</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {citations.map((citation, i) => (
+              <a
+                key={i}
+                href={citation.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/50 hover:bg-muted text-xs transition-colors border border-border/40"
+                title={citation.title || citation.url}
+              >
+                <span className="font-medium text-foreground/80">{citation.domain}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
