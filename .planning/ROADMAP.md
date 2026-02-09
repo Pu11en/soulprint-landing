@@ -173,10 +173,12 @@ Plans:
 4. Soulprints scoring below 60 on any metric are automatically flagged for refinement
 5. Background refinement job improves flagged soulprints without user intervention
 
-**Plans:** TBD (will be determined during plan-phase)
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD during plan-phase
+- [ ] 04-01-PLAN.md -- Quality judges + scoring orchestrator + DB migration
+- [ ] 04-02-PLAN.md -- PromptBuilder DATA CONFIDENCE section + chat route wiring
+- [ ] 04-03-PLAN.md -- Background refinement cron + import pipeline hook
 
 ### Phase 5: Integration Validation
 
@@ -208,8 +210,8 @@ Phases execute: 1 → 2 → (3 + 4 parallel) → 5
 | 1. Evaluation Foundation | v2.0 | 2/2 | ✓ Complete | 2026-02-08 |
 | 2. Prompt Template System | v2.0 | 3/3 | ✓ Complete | 2026-02-09 |
 | 3. Emotional Intelligence | v2.0 | 3/3 | ✓ Complete | 2026-02-09 |
-| 4. Quality Scoring | v2.0 | 0/TBD | Not started | - |
+| 4. Quality Scoring | v2.0 | 0/3 | Not started | - |
 | 5. Integration Validation | v2.0 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-09 -- Phase 3 (Emotional Intelligence) complete (3/3 plans, verified 17/17 must-haves)*
+*Last updated: 2026-02-09 -- Phase 4 planned (3 plans in 2 waves)*
