@@ -23,10 +23,9 @@ const log = createLogger('API:ImportProcessServer');
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
 
-// Vercel functions get ~1GB RAM; we need headroom for parsing + soulprint generation.
-// conversations.json is typically 3-10x smaller than the ZIP, and desktop clients
-// pre-extract it. Allow up to 2GB to handle power users with years of ChatGPT history.
-const MAX_FILE_SIZE_MB = 2000;
+// No hard file size limit — desktop clients pre-extract conversations.json (much smaller
+// than ZIP), and the chunked upload system handles streaming to Supabase storage.
+// Vercel functions get ~1GB RAM, but conversations.json is typically 3-10x smaller than ZIP.
 
 function getSupabaseAdmin() {
   return createAdminClient(
@@ -106,11 +105,9 @@ export async function POST(request: Request) {
     const sizeMB = arrayBuffer.byteLength / 1024 / 1024;
     reqLog.info({ sizeMB: sizeMB.toFixed(1) }, 'File downloaded');
     
-    // Check file size limit
-    if (sizeMB > MAX_FILE_SIZE_MB) {
-      // Clean up storage
-      adminSupabase.storage.from(bucket).remove([filePath]).catch(e => console.warn('[ProcessServer] Cleanup failed:', e));
-      throw new Error(`File too large (${sizeMB.toFixed(0)}MB). Maximum is ${MAX_FILE_SIZE_MB}MB. Please export fewer conversations or contact support.`);
+    // Log large files but don't reject — any size should work
+    if (sizeMB > 500) {
+      reqLog.warn({ sizeMB: sizeMB.toFixed(1) }, 'Processing large file — this may take a while');
     }
     
     let rawConversations: ChatGPTRawConversation[];

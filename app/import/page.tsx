@@ -274,11 +274,11 @@ function ImportPageContent() {
     const isMobile = isMobileDevice();
     const fileSizeMB = file.size / 1024 / 1024;
 
-    // Mobile browsers struggle with very large files (JSZip + memory pressure)
-    if (isMobile && fileSizeMB > 500) {
+    // Mobile browsers struggle with very large files — suggest desktop but don't block
+    if (isMobile && fileSizeMB > 200) {
       setErrorMessage(
-        `Your export is ${fileSizeMB.toFixed(0)}MB — too large for mobile upload. ` +
-        `Please use a desktop/laptop browser for files over 500MB.`
+        `Your export is ${fileSizeMB.toFixed(0)}MB — for the best experience with large files, ` +
+        `please use a desktop/laptop browser. Mobile uploads may be slow or fail for very large exports.`
       );
       setStatus('error');
       return;
@@ -516,7 +516,7 @@ function ImportPageContent() {
         } else if (msg.includes('timeout')) {
           userMessage = 'Upload timed out. Try with a smaller file or better connection.';
         } else if (msg.includes('entity too large')) {
-          userMessage = 'Upload rejected by server — file too large. Try from a desktop browser if you are on mobile.';
+          userMessage = 'Upload rejected by server — please try from a desktop/laptop browser for large exports.';
         } else if (msg.includes('chatgpt export') || msg.includes("doesn't look like")) {
           // New validation error - pass through as-is (it's already user-friendly)
           userMessage = err.message;
