@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 3 of 5 (Emotional Intelligence)
-Plan: 1 of 3 in phase
+Plan: 2 of 3 in phase
 Status: In progress
-Last activity: 2026-02-09 - Completed 03-01-PLAN.md (Emotional Intelligence Foundation)
+Last activity: 2026-02-09 - Completed 03-02-PLAN.md (Chat Route EI Integration)
 
-Progress: [█████████░] 85% (Phases 1-2 complete, 1/3 plans in Phase 3)
+Progress: [█████████░] 87% (Phases 1-2 complete, 2/3 plans in Phase 3)
 
 ## Performance Metrics
 
@@ -98,6 +98,14 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Dynamic temperature ranges: factual (0.2), confused (0.25), creative (0.8), default (0.7)
 - EmotionallyIntelligentPromptParams extends PromptParams for backward compatibility
 
+**From 03-02 (Chat Route EI Integration):**
+- EI operations run BEFORE RLM call (data available for both paths)
+- RLM path does NOT use buildEmotionallyIntelligentPrompt (RLM builds prompts server-side)
+- Only Bedrock fallback uses emotionally intelligent prompt composition
+- All EI operations wrapped in try/catch with neutral defaults (never crash chat)
+- Relationship arc query uses .select('id', {count: 'exact', head: true}) for efficiency
+- Opik spans include EI metadata for evaluation correlation
+
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
@@ -114,8 +122,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 03-01-PLAN.md (Emotional Intelligence Foundation)
+Stopped at: Completed 03-02-PLAN.md (Chat Route EI Integration)
 Resume file: None
 
 ---
-*Last updated: 2026-02-09 -- Phase 3 Plan 1 COMPLETE (Emotion detection, relationship arc, adaptive tone foundation)*
+*Last updated: 2026-02-09 -- Phase 3 Plan 2 COMPLETE (EI integrated into chat route with emotion detection, relationship arc, dynamic temperature)*
