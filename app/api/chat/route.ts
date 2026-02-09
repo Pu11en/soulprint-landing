@@ -23,6 +23,7 @@ import {
   determineTemperature,
   EmotionalState,
 } from '@/lib/soulprint/emotional-intelligence';
+import type { QualityBreakdown } from '@/lib/evaluation/quality-scoring';
 
 const log = createLogger('API:Chat');
 
@@ -95,6 +96,7 @@ interface UserProfile {
   agents_md: string | null;
   tools_md: string | null;
   memory_md: string | null;
+  quality_breakdown: QualityBreakdown | null;
 }
 
 /**
@@ -124,6 +126,7 @@ function validateProfile(data: unknown): UserProfile | null {
     agents_md: typeof raw.agents_md === 'string' ? raw.agents_md : null,
     tools_md: typeof raw.tools_md === 'string' ? raw.tools_md : null,
     memory_md: typeof raw.memory_md === 'string' ? raw.memory_md : null,
+    quality_breakdown: (raw.quality_breakdown as QualityBreakdown | null) ?? null,
   };
 }
 
@@ -231,7 +234,7 @@ export async function POST(request: NextRequest) {
     const adminSupabase = getSupabaseAdmin();
     const { data: profile, error: profileError } = await adminSupabase
       .from('user_profiles')
-      .select('soulprint_text, import_status, ai_name, soul_md, identity_md, user_md, agents_md, tools_md, memory_md')
+      .select('soulprint_text, import_status, ai_name, soul_md, identity_md, user_md, agents_md, tools_md, memory_md, quality_breakdown')
       .eq('user_id', user.id)
       .single();
 
@@ -454,7 +457,7 @@ export async function POST(request: NextRequest) {
 
     const promptBuilder = new PromptBuilder();
     const systemPrompt = promptBuilder.buildEmotionallyIntelligentPrompt({
-      profile: userProfile || { soulprint_text: null, import_status: 'none', ai_name: null, soul_md: null, identity_md: null, user_md: null, agents_md: null, tools_md: null, memory_md: null },
+      profile: userProfile || { soulprint_text: null, import_status: 'none', ai_name: null, soul_md: null, identity_md: null, user_md: null, agents_md: null, tools_md: null, memory_md: null, quality_breakdown: null },
       dailyMemory: learnedFacts || [],
       memoryContext,
       aiName,
