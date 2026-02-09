@@ -6,7 +6,7 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** Phase 4 - Quality Scoring (IN PROGRESS)
+**Current focus:** Phase 4 - Quality Scoring (COMPLETE)
 
 ## Current Position
 
@@ -34,7 +34,7 @@ Progress: [█████████░] 93% (Phases 1-4 complete)
 | v1.3 RLM Sync | 5 | 5 | Shipped |
 | v1.4 Personalization | 2 | 7 | Shipped |
 | v1.5 Full Chat | 6 | 8 | Shipped |
-| v2.0 AI Quality | 5 | 5 | In Progress |
+| v2.0 AI Quality | 5 | 8 | In Progress |
 
 *Metrics updated: 2026-02-09*
 

@@ -29,9 +29,9 @@ Requirements for the AI Quality & Personalization milestone. Each maps to roadma
 
 ### Quality
 
-- [ ] **QUAL-01**: Each soulprint section is scored 0-100 for data quality (completeness, coherence, specificity)
-- [ ] **QUAL-02**: Quality scores are surfaced in system prompt so AI knows its own data confidence
-- [ ] **QUAL-03**: Low-quality soulprints are flagged for automated refinement
+- [x] **QUAL-01**: Each soulprint section is scored 0-100 for data quality (completeness, coherence, specificity)
+- [x] **QUAL-02**: Quality scores are surfaced in system prompt so AI knows its own data confidence
+- [x] **QUAL-03**: Low-quality soulprints are flagged for automated refinement
 
 ### Validation
 
@@ -99,9 +99,9 @@ Deferred to future release.
 | EMOT-01 | Phase 3 | ✓ Done |
 | EMOT-02 | Phase 3 | ✓ Done |
 | EMOT-03 | Phase 3 | ✓ Done |
-| QUAL-01 | Phase 4 | Pending |
-| QUAL-02 | Phase 4 | Pending |
-| QUAL-03 | Phase 4 | Pending |
+| QUAL-01 | Phase 4 | ✓ Done |
+| QUAL-02 | Phase 4 | ✓ Done |
+| QUAL-03 | Phase 4 | ✓ Done |
 | VALD-01 | Phase 5 | Pending |
 | VALD-02 | Phase 5 | Pending |
 | VALD-03 | Phase 5 | Pending |
@@ -113,4 +113,4 @@ Deferred to future release.
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-09 -- Phase 3 complete (EMOT-01 through EMOT-03 satisfied)*
+*Last updated: 2026-02-09 -- Phase 4 complete (QUAL-01 through QUAL-03 satisfied)*
