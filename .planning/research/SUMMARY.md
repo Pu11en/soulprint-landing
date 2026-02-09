@@ -1,302 +1,321 @@
-# Research Summary: AI Quality & Personalization
+# Project Research Summary
 
-**Project:** SoulPrint v2.0 - AI Quality & Personalization
-**Domain:** LLM evaluation, prompt engineering, emotional intelligence, linguistic pattern mirroring
-**Researched:** 2026-02-08
+**Project:** v2.2 Bulletproof Imports — Moving ChatGPT Import Processing to RLM
+**Domain:** Large-file import processing with background pipeline migration
+**Researched:** 2026-02-09
 **Confidence:** HIGH
 
 ## Executive Summary
 
-SoulPrint v2.0 focuses on making the AI sound genuinely human and deeply personalized through systematic evaluation, improved prompts, emotional intelligence, and linguistic pattern mirroring. The research reveals a **zero-dependency milestone** - all features are implementable with the existing stack (Opik 1.10.8, Claude Sonnet 4.5, Bedrock Haiku 4.5). The gap is primarily architectural and prompt engineering, not technological.
+Moving import processing from Vercel serverless (1GB RAM, 300s timeout) to RLM service on Render eliminates the fundamental constraints causing import failures for large ChatGPT exports. The migration transforms Vercel into a thin authentication proxy while RLM owns the complete pipeline: download → parse → quick pass → chunk → embed → full pass.
 
-The recommended approach is **evaluation-first development**: establish measurement infrastructure before changing any prompts. Research shows 58.8% of prompt changes degrade quality in production despite looking better in testing. The path forward is: (1) build Opik evaluation datasets and experiments, (2) establish baseline metrics, (3) iterate on prompt improvements with A/B testing, (4) add linguistic analysis and quality scoring, then (5) validate with real users.
+The convoviz project demonstrates quality parsing approaches that handle ChatGPT's complex DAG structure and polymorphic content types. By porting these patterns and adding streaming JSON parsing (ijson), the system can process exports of any size (tested up to 2GB) on Render's infrastructure without memory or timeout issues. The architecture shift from synchronous processing to fire-and-forget with status polling enables background processing and proper progress reporting.
 
-Key risks center on **prompt regression** (breaking working personality with "improvements"), **LLM-as-judge bias** (optimizing for what the evaluator likes, not what users need), and **uncanny valley** (perfect linguistic mirroring feels creepy, not personalized). These are mitigated through regression testing, diverse evaluation sets, human validation, and intentional imperfection in mirroring. The existing two-pass architecture (quick pass + full pass), RLM memory retrieval, and Opik tracing provide strong foundations to build upon.
+Critical risks center on cross-service integration patterns. Vercel's serverless function lifecycle can kill in-flight requests if not awaited with confirmation. Render's cold start delays (up to 60 seconds) require explicit UX handling to prevent user confusion. Database-driven progress polling is simpler and more reliable than WebSocket infrastructure for this use case. The migration delivers "works for any size export on any device" by moving heavy computation out of serverless constraints while maintaining the responsive upload UX.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**No new packages required.** All v2.0 features use existing dependencies. Opik SDK (1.10.8) already installed extends naturally from tracing to evaluation datasets, experiments, and LLM-as-judge metrics. Claude Sonnet 4.5 has native emotional awareness and responds well to natural voice instructions. Bedrock Haiku 4.5 provides fast linguistic pattern extraction.
+Research identified minimal additions to enable streaming large-file processing. The RLM service already has FastAPI, httpx, and Pydantic — only two new dependencies are required.
 
-**Core technologies (already installed):**
-- **Opik 1.10.8**: LLM evaluation framework - extends from tracing to datasets, experiments, scoring metrics (Hallucination, AnswerRelevance, Usefulness)
-- **Claude Sonnet 4.5** (@ai-sdk/anthropic 3.0.36): Native emotional awareness, supports natural voice system prompts, literal instruction following
-- **Bedrock Haiku 4.5** (@aws-sdk/client-bedrock-runtime 3.980.0): Fast pattern extraction for linguistic analysis via bedrockChatJSON
-- **Pino 10.3.0**: Structured logging for evaluation results, prompt experiments, quality scores
-- **Zod 4.3.6**: Validation for evaluation datasets, scoring functions, linguistic profiles
+**Core technologies:**
+- **ijson (^3.4.0)**: Streaming JSON parser — processes 300MB+ files with constant ~2-5MB memory usage vs loading entire file into RAM. Critical for eliminating OOM failures.
+- **supabase-py (^2.27.3)**: Python Supabase client — provides typed Storage API for downloading files with service role key auth. Built on httpx for streaming integration.
+- **httpx (already installed)**: Streaming HTTP downloads — supports `httpx.stream()` for chunked downloads without loading entire file into memory.
+- **Pydantic (already installed)**: Polymorphic content modeling — handles ChatGPT's complex content.parts structure (strings, dicts, tool outputs). Already in use for RLM models.
 
-**What NOT to add:**
-- NLP libraries (winkNLP, compromise, natural) - LLM-based pattern extraction is more accurate and maintainable
-- Sentiment analysis libraries - Claude has native emotional intelligence via prompt engineering
-- Alternative evaluation frameworks (DeepEval, RAGAS, LangSmith) - Opik already integrated and sufficient
-- Prompt templating libraries - TypeScript template literals with helper functions work well
+**Deployment configuration:**
+- Render 2GB RAM instance minimum for 300MB+ files
+- Uvicorn workers tuned for memory efficiency (2 workers, periodic restart after 1000 requests)
+- Max concurrent imports limited to prevent memory exhaustion
+
+**What NOT to use:**
+- pandas.read_json (287MB peak memory vs ijson's 2-5MB)
+- NetworkX for DAG traversal (10MB+ dependency for simple parent→child relationships)
+- json.load() for large files (loads entire file into memory, causes OOM)
 
 ### Expected Features
 
-Research categorized features into 3 priority tiers based on user value, implementation cost, and dependencies.
+Research revealed clear table stakes vs differentiators for large-file import systems.
 
-**Must have (v2.0 launch - P1):**
-- **Opik evaluation datasets & experiments** - Measure personality consistency, factuality, tone matching with LLM-as-judge (foundation for all improvements)
-- **Soulprint quality scoring** - System self-awareness about data quality ("I'm still learning" vs "I know you well")
-- **Narrative voice system prompts** - Replace technical headers (## SOUL, ## AGENTS) with personality primer in natural language
-- **Relationship arc awareness** - Day 1 cautious ("Nice to meet you...") vs Day 100 confident ("You usually prefer...")
-- **Emotional intelligence scaffolding** - Detect frustration, satisfaction, confusion from text and adapt responses appropriately
-- **Uncertainty handling** - Temperature 0.1-0.3 + explicit instructions to say "I don't know" instead of hallucinating
+**Must have (table stakes):**
+- **Large file handling (300MB+)** — ChatGPT power users generate 100MB-2GB exports. Failing on large files eliminates core audience. Requires streaming parser.
+- **Processing status visibility** — Users need to know if import is running or stuck. Database polling with progress_percent tracking (0%, 20%, 40%, 60%, 100%).
+- **Error messages with actionable guidance** — "Import failed" → "File too large (2.3GB, max 2GB). Try exporting a smaller date range."
+- **Mobile upload support** — Users expect to upload from any device. Current chunked upload works; must test 100MB+ files on iOS/Android.
+- **Processing completion notification** — Email when ready. Industry standard for async operations taking >30 seconds.
+- **Resumable uploads on network failure** — Already implemented via Supabase Storage's chunked upload.
 
-**Should have (v2.1 - P2):**
-- **Linguistic pattern mirroring** - Analyze ChatGPT export for formality, emoji usage, humor style, sentence structure and match in responses
-- **Citation grounding** - Perplexity-style inline citations for web search results (avoid awkward [1][2] notation)
-- **Memory as narrative** - Transform bullet lists into flowing narrative context ("You've been working on RoboNuggets for 3 months...")
-- **Signature greeting usage** - Apply identity.signature_greeting on first message of each session
-- **Adaptive depth preference** - Enforce tools.depth_preference (brief vs detailed) more strongly
+**Should have (competitive advantage):**
+- **Accurate DAG traversal (real conversations only)** — Competitors show duplicate/dead-branch messages from edits. Use current_node→parent chain, not naive node iteration. Convoviz proves this achieves clean conversation history.
+- **Hidden message filtering** — Show users actual conversations, not internal tool outputs (web search, code execution). Improves soulprint quality by removing noise.
+- **Multi-part content parsing** — Users with images/files get complete history, not just first text fragment. Handle polymorphic content.parts array.
+- **Background processing with "close and come back"** — User can close browser, get email when done. Differentiator because many tools require keeping page open.
+- **Validation before heavy processing** — Check conversations.json structure BEFORE starting expensive parsing/embedding. Fail-fast reduces wasted RLM costs and user wait time.
 
-**Defer (v2.2+ - P3):**
-- **Iterative soulprint refinement** - Update profile from new conversations (requires feedback loop architecture, drift detection)
-- **Conversation-level adaptation** - Detect topic shifts mid-conversation and adjust tone dynamically
-- **User-facing memory controls** - Edit/delete specific memories (RLS privacy exists, needs UI)
-- **A/B testing framework** - Test prompt variations with statistical significance tracking
+**Defer (v2+):**
+- **Real-time streaming progress (WebSocket)** — Anti-feature: adds architectural complexity, rarely watched, mobile battery drain. Database polling every 2s is sufficient.
+- **In-browser parsing of large files** — Anti-feature: browser memory constraints worse than server (especially mobile), crash loses all work.
+- **Parallel conversation processing** — Anti-feature: marginal speed gain (I/O bound), complicates progress reporting, harder to debug.
 
 ### Architecture Approach
 
-The v2.0 integration follows an **evaluation-first, incremental adoption** pattern that builds on existing infrastructure without breaking changes. The architecture leverages Opik's progression from tracing (current) to datasets to experiments to scoring.
+The target architecture transforms Vercel from heavy processor to thin proxy, with RLM owning the entire pipeline. Progress flows back via database polling — simpler than WebSocket infrastructure and compatible with serverless constraints.
 
 **Major components:**
 
-1. **Evaluation Infrastructure** (lib/evaluation/) - Dataset manager, experiment runner, LLM-as-judge rubrics that extend existing lib/opik.ts tracing
-2. **Prompt Template System** (lib/prompts/templates/) - Version-controlled prompts (v1-technical, v2-natural-voice) with swap-able implementations via PROMPT_VERSION env var
-3. **Linguistic Analyzer** (lib/analysis/linguistic.ts) - Extract patterns at import (quick pass) and runtime (learnFromChat), store in linguistic_profile JSONB column
-4. **Quality Scorer** (lib/scoring/soulprint.ts) - Score completeness, coherence, specificity, personalization; trigger refinement for low-quality soulprints
-5. **Natural Voice Transformer** (lib/prompts/natural-voice.ts) - Convert structured sections to flowing personality primer preserving semantic content
+1. **Client (Browser)** — Chunked XHR upload to Supabase Storage (direct, bypasses Vercel). Polls /api/import/status every 2s for progress. No change to upload flow (already works perfectly).
 
-**Integration strategy:** Build evaluation first (Phase 1) to establish baselines, then improve prompts (Phase 2) with A/B testing against baselines, add linguistic analysis (Phase 3) in parallel with quality scoring (Phase 4), validate everything (Phase 5) before declaring success. Two prompt builders (Next.js buildSystemPrompt + RLM build_rlm_system_prompt) must stay in sync via identical template logic.
+2. **Vercel /api/import/trigger (new)** — Thin proxy with zero parsing. Auth check → mark import_status = 'processing' → POST to RLM /import with storage_path → return 202 Accepted. Must await RLM response with 10s timeout to confirm job acceptance (Vercel serverless lifecycle kills fire-and-forget requests mid-flight).
+
+3. **Vercel /api/import/status (new)** — Query user_profiles for {import_status, progress_percent, import_error}. Simple database passthrough.
+
+4. **RLM /import (new)** — Complete import orchestrator replacing Vercel's process-server. Accepts 202 immediately, runs background task: download from Supabase Storage → extract/parse → quick pass → chunk → embed → full pass. Updates progress_percent at each stage (0% → 20% → 40% → 60% → 100%).
+
+5. **RLM Quick Pass Generation (moved from Vercel)** — Port lib/soulprint/sample.ts and prompts.ts to Python. Use Anthropic Haiku 4.5 API (already configured in RLM). Generates 5 sections: soul, identity, user, agents, tools.
+
+6. **RLM DAG Traversal (already implemented)** — conversation_chunker.py lines 71-116. Handles ChatGPT's parent→child mapping structure with cycle detection. No changes needed.
+
+7. **Supabase Storage** — Stores uploaded files. RLM downloads with service role key. Storage path format: `imports/{user_id}/{timestamp}-conversations.json`
+
+8. **Supabase DB** — Add progress_percent column to user_profiles. RLM updates via HTTP PATCH throughout processing. Client polls via /api/import/status.
+
+**Key integration patterns:**
+- Vercel → RLM: POST with storage_path, await 10s for job acceptance
+- RLM → Storage: GET with service role key, stream to disk (not memory)
+- RLM → DB: PATCH progress updates at stage boundaries
+- Client → Vercel: Poll every 2s (not WebSocket) for status
+
+**What NOT to do:**
+- Don't parse in Vercel (moves problem, doesn't solve it)
+- Don't use WebSockets (overkill for minutes-long operations, serverless incompatible)
+- Don't pass raw conversations between services (send storage path instead)
+- Don't use synchronous RLM calls (Vercel timeout still applies)
 
 ### Critical Pitfalls
 
-Research identified 9 pitfalls specific to LLM evaluation and prompt engineering. Top 5 that could derail v2.0:
+Research identified 10 critical pitfalls from serverless-to-worker migrations, ChatGPT parsing complexity, and cross-service integration.
 
-1. **Breaking working personality with prompt changes** - 58.8% of prompt + model combinations drop accuracy over API updates. Avoid by building prompt regression test suite (20-100 tasks) BEFORE changing prompts, establishing baseline metrics from Opik traces, A/B testing changes in shadow mode 24-48h, versioning prompts like code with rollback capability.
+1. **Vercel Fire-and-Forget Termination** — Vercel kills serverless function immediately after sending client response, destroying in-flight RLM request. **Prevention:** Await RLM response with 10s timeout to confirm job acceptance. Current queue-processing/route.ts:145-153 does this correctly.
 
-2. **LLM-as-judge self-preference bias** - Judge LLMs favor outputs similar to their own style (lower perplexity). GPT-4 judges prefer verbose/formal regardless of quality. Avoid by using different model families for generation vs judging, temperature 0.0-0.1 for deterministic evaluation, human validation on 10-20% of decisions, swapping response order to detect position bias.
+2. **Render Cold Start Breaking Import UX** — Render free tier spins down after 15 minutes. Cold start takes 60+ seconds. User sees "Processing..." with no feedback, assumes breakage, refreshes, creates duplicates. **Prevention:** Keep-alive pings every 10 minutes (not 15), detect cold start in Vercel (>5s job acceptance), show "Service warming up, please wait 30 seconds."
 
-3. **Linguistic mirroring uncanny valley** - Perfect mirroring feels creepy after 5-10 exchanges. Users report "trying too hard," "fake," "creepy." Avoid by keeping slight AI distinctiveness intentionally, mirroring patterns not phrases, adapting gradually over 3-4 exchanges, preserving AI identity ("here's my take..."), testing with extended conversations (10+ messages).
+3. **ChatGPT Export Format Variations** — Real-world exports have edge cases: minified JSON (one giant line), multiple roots, no roots, malformed timestamps, non-UTF8 characters, 1000+ message conversations. **Prevention:** ijson streaming parser, defensive DAG traversal with cycle detection (conversation_chunker.py:71-75), truncate messages to 5000 chars, validate with Pydantic, gracefully skip malformed conversations.
 
-4. **RAG memory breaking personality consistency** - Retrieved chunks appear right before user message, model weights recent context > system instructions, personality gets overridden. Avoid by positioning personality instructions AFTER retrieval with framing ("Background memories, use to inform not replace voice"), limiting chunk count (test 3 vs 5), scoring chunks for relevance AND personality-safety, testing with adversarial chunks.
+4. **Memory Exhaustion on Large Exports** — Loading 500MB conversations.json into memory with json.loads() spikes to 2GB+, Render kills process (OOM), import fails silently. **Prevention:** ijson streaming parser (processes file incrementally), download to disk first (not memory), batch processing (parse 1000 conversations → chunk → save → release memory → repeat).
 
-5. **Observability instrumentation killing latency** - Synchronous tracing adds 150-300ms (12-15% overhead). Users notice sluggish streaming. Avoid by queueing traces asynchronously (fire-and-forget), sampling (10% of chats, 100% of errors), batching trace writes (flush every 5s), failing open on tracing errors, measuring P95 latency not averages.
+5. **Progress Reporting Dead Zone** — User uploads (progress works), Vercel queues (no progress), RLM processes 2 minutes (no progress), completes, user still sees "processing" until manual refresh. **Prevention:** Store granular stages in DB ("downloading", "parsing", "chunking"), RLM updates stage field, client polls and shows specific messages ("Analyzing 10,345 messages...").
+
+6. **Duplicate Import Race Condition** — User uploads, waits 30s (impatient), refreshes, uploads again. Both requests pass duplicate check (both see import_status='none' simultaneously), both process, database corrupted. **Prevention:** Atomic lock acquisition with Postgres advisory locks or conditional update (WHERE processing_started_at IS NULL).
+
+7. **Status Update Failures Leave User Stuck** — RLM completes successfully, tries to update user_profiles to 'complete', Supabase unreachable (network hiccup), update fails silently, user sits on "Processing..." forever. **Prevention:** Exponential backoff retry for status updates (3 attempts over 10 seconds), dead letter queue if all fail, client-side "Check import status" button after 10 minutes.
+
+8. **DAG Traversal Stack Overflow** — User has conversation with 500+ messages (1000 nodes), recursive traversal hits Python's recursion limit (1000), throws RecursionError. **Prevention:** Convert recursive to iterative with explicit stack (queue-based BFS or stack-based DFS), or add depth limit.
+
+9. **Cross-Service Authentication Token Expiry** — Vercel generates signed URL (1 hour expiry), passes to RLM, RLM queues, processes 90 minutes later (cold start + busy), signed URL expired, 403 Forbidden. **Prevention:** Use storage_path + service role key (no expiry), not presigned URLs for cross-service communication.
+
+10. **Service Key Exposure in RLM** — RLM needs SUPABASE_SERVICE_ROLE_KEY for downloads/updates. If RLM compromised, key gives full database access. **Prevention:** Use Supabase Storage signed URLs (generated by Vercel) for downloads, Edge Functions with RLS policies for database writes. Phase 1 can use service key, Phase 3 hardens security.
 
 ## Implications for Roadmap
 
-Research strongly indicates a **5-phase sequential build** where each phase enables the next. The architecture research (ARCHITECTURE-AI-QUALITY.md) provides detailed build order with clear dependencies.
+Based on combined research, the migration breaks into clear phases with distinct deliverables and pitfall avoidance strategies.
 
-### Phase 1: Evaluation Foundation (No Breaking Changes)
-
-**Rationale:** Must establish measurement before making changes. Research shows prompt regression is the #1 risk - teams ship "improvements" that break working systems because they lack baseline metrics. Build evaluation infrastructure that doesn't touch production code.
-
-**Delivers:**
-- Opik dataset/experiment methods in lib/opik.ts
-- Evaluation dataset from anonymized chat history (lib/evaluation/datasets.ts)
-- Experiment runner CLI script (scripts/run-experiment.ts)
-- LLM-as-judge scoring rubrics (lib/scoring/rubrics.ts)
-- Baseline metrics: personality consistency, factuality, tone matching
-
-**Addresses:** Pitfall #1 (breaking personality), Pitfall #2 (judge bias), Pitfall #5 (observability latency)
-
-**Avoids:** Any changes to buildSystemPrompt(), chat routes, or user-facing behavior
-
-**Research flags:** MEDIUM - Opik dataset API is well-documented, but async trace architecture needs spike (2-3 days) to avoid latency pitfall. LLM judge family selection (which model to use for judging) needs validation against human raters.
-
-**Acceptance criteria:** Can run offline experiments comparing prompt variants with aggregate scores, async tracing adds <100ms P95 latency, human validation agrees with judge >70% of time.
-
-### Phase 2: Prompt Template System (Breaking Change - Requires Testing)
-
-**Rationale:** Once evaluation exists, can safely improve prompts with A/B testing. Natural voice prompts look better in research, but must validate against working system. Template versioning enables rollback and parallel testing.
+### Phase 1: Core Migration — Streaming Parser + RLM Pipeline
+**Rationale:** Foundation must work before adding enhancements. Streaming parser eliminates OOM failures (Pitfall #4), RLM pipeline eliminates timeout constraints, job acceptance pattern prevents fire-and-forget termination (Pitfall #1).
 
 **Delivers:**
-- Template system (lib/prompts/templates/base.ts, v1-technical.ts, v2-natural-voice.ts)
-- Natural voice transformer (lib/prompts/natural-voice.ts)
-- Updated buildSystemPrompt() using templates (app/api/chat/route.ts)
-- Matching RLM template system (rlm-service/main.py)
-- Consistency unit tests (Next.js vs RLM produce identical output)
-- PROMPT_VERSION env var controls style
+- ijson streaming JSON parser (handles 300MB+ files)
+- RLM /import endpoint with complete pipeline (download → parse → quick pass → chunk → full pass)
+- Vercel /api/import/trigger (thin proxy with job acceptance confirmation)
+- Vercel /api/import/status (database polling endpoint)
+- Database schema change (progress_percent column)
+- Port quick pass generation from Vercel to RLM (lib/soulprint → processors/quick_pass.py)
+- Atomic duplicate detection (advisory locks)
+- Iterative DAG traversal (prevents stack overflow, Pitfall #8)
 
-**Uses:** Opik experiments from Phase 1 to validate new prompts, A/B test technical vs natural voice
+**Addresses features:**
+- Large file handling (300MB+) — streaming parser
+- Accurate DAG traversal — port convoviz patterns
+- Hidden message filtering — metadata inspection
+- Multi-part content parsing — polymorphic parts handling
+- Processing status visibility — progress_percent tracking
+- Validation before processing — fail-fast schema checks
 
-**Addresses:** Pitfall #4 (RAG breaking personality) by restructuring prompt to reinforce personality after retrieval, Pitfall #8 (removing headers destroys structure) by testing incremental transitions
+**Avoids pitfalls:**
+- #1 (Fire-and-forget) — await job acceptance with timeout
+- #3 (Format variations) — defensive parsing, Pydantic validation
+- #4 (Memory exhaustion) — streaming parser, batch processing
+- #6 (Duplicate race) — atomic lock acquisition
+- #8 (Stack overflow) — iterative traversal
+- #9 (Token expiry) — use storage_path, not signed URLs
 
-**Dependencies:** Phase 1 complete (need experiment framework to validate prompt changes)
+**Research flag:** SKIP — patterns well-documented, libraries proven (ijson, convoviz reference). Standard streaming and async patterns.
 
-**Research flags:** HIGH - Need to validate structured vs prose prompt performance on Bedrock Sonnet 4.5 specifically. RAG context positioning experiments critical. Semantic boundary preservation techniques need spike. Recommend A/B test every change, keep structured version in parallel first 2 weeks.
-
-**Acceptance criteria:** PROMPT_VERSION env var controls style, personality adherence maintained within 2% of baseline, retrieval responses match personality score of non-retrieval responses, consistency tests pass (Next.js == RLM output).
-
-### Phase 3: Linguistic Analysis (Extends Import + Chat)
-
-**Rationale:** Can run independently of prompt improvements. Analyzes user patterns at import and refines during chat. Enables mirroring in v2.1 but data collection happens now.
-
-**Delivers:**
-- Linguistic analysis module (lib/analysis/linguistic.ts) - formality, complexity, phrases, emoji usage, humor style
-- Import-time baseline analysis (lib/soulprint/quick-pass.ts)
-- Runtime refinement (lib/memory/learning.ts)
-- linguistic_profile JSONB column in user_profiles
-- Pattern injection into prompts (match user's style)
-
-**Addresses:** Foundation for P2 features (linguistic mirroring), but with Pitfall #3 (uncanny valley) prevention built-in from start
-
-**Dependencies:** None - can run in parallel with Phase 2
-
-**Research flags:** HIGH - Uncanny valley thresholds (how much mirroring is too much), gradual adaptation timelines, tone analysis approaches need research. Risk is user trust issue that causes churn. Recommend beta test with 10% of users first, extended session monitoring (10+ messages).
-
-**Acceptance criteria:** Linguistic profile populated at import, refined during chat, patterns stored and retrievable, no creepy feedback in testing, gradual adaptation over 3-4 exchanges.
-
-### Phase 4: Quality Scoring + Refinement (Background Jobs)
-
-**Rationale:** Score soulprints to know which are high/low quality. Enables relationship arc awareness (confidence based on data quality) and iterative improvement of weak soulprints.
+### Phase 2: Resilience + Progress Enhancement
+**Rationale:** Once core works, add production hardening. Retry logic prevents status update failures (Pitfall #7), granular progress reduces perceived wait time and stuck-import confusion (Pitfall #5).
 
 **Delivers:**
-- Quality scoring module (lib/scoring/soulprint.ts) - completeness, coherence, specificity, personalization metrics
-- Post-generation scoring (lib/soulprint/quick-pass.ts)
-- Refinement engine (lib/refinement/engine.ts) for low-quality sections
-- quality_score and quality_breakdown JSONB columns
-- Background job (scripts/refine-soulprints.ts) for batch refinement
+- Exponential backoff retry for database updates (3 attempts, 10s total)
+- Dead letter queue for failed updates (alert webhook)
+- Granular progress stages ("downloading", "parsing", "chunking", "embedding", "generating_soulprint")
+- Stage-specific messages in UI ("Analyzing 10,345 messages...")
+- Cold start detection and user feedback ("Service warming up...")
+- Processing time estimates based on conversation count
 
-**Uses:** Phase 1 evaluation patterns (LLM-as-judge for coherence/specificity)
+**Addresses features:**
+- Detailed progress reporting (stages) — reduces perceived wait time
+- Smart retry on transient failures — reduces support burden
+- Actionable error messages — specific guidance per failure type
 
-**Addresses:** Pitfall #6 (overfitting to test data) by scoring across diverse user segments, Pitfall #9 (metric misalignment) by validating score correlates with user satisfaction
+**Avoids pitfalls:**
+- #5 (Progress dead zone) — granular stage tracking
+- #7 (Status update failures) — retry logic, dead letter queue
+- #2 (Cold start UX) — detection + user messaging
 
-**Dependencies:** Phase 1 complete (scoring uses LLM-as-judge patterns)
+**Research flag:** SKIP — standard retry patterns, well-documented UX guidelines (Nielsen Norman Group).
 
-**Research flags:** MEDIUM - Metric validation critical. Must verify quality scores correlate r>0.7 with NPS/retention. Segment-specific scoring prevents aggregate scores hiding per-user failures. User interviews (5-10) recommended to validate metric definitions.
-
-**Acceptance criteria:** Soulprints scored after generation, low-quality ones flagged for refinement, quality scores stored and tracked over time, correlation with user satisfaction validated.
-
-### Phase 5: Integration Testing & Validation
-
-**Rationale:** All pieces built, now validate they work together. Adversarial testing, long-session testing, load testing to catch integration issues before declaring success.
+### Phase 3: Security Hardening + Production Readiness
+**Rationale:** Core functionality proven, now reduce attack surface. Service key exposure is highest security risk (Pitfall #10). Production monitoring catches issues before users report them.
 
 **Delivers:**
-- Prompt regression test suite (20-100 cases covering personality types, boundary cases)
-- Multi-tier chunking validation (known-answer queries, tier usage monitoring)
-- Long-session testing (10+ message conversations to detect uncanny valley)
-- Load testing (100 concurrent requests with observability enabled)
-- Segment-specific quality metrics (technical/casual, verbose/terse, new/returning users)
+- Replace service role key with Storage signed URLs (Vercel generates, RLM uses)
+- Replace direct DB writes with Supabase Edge Functions + RLS policies
+- Rate limiting on RLM endpoints (prevent spam attacks)
+- File size validation before queuing (prevent DoS)
+- Memory profiling and explicit limits in RLM
+- Monitoring dashboards (cold start frequency, completion times, error rates)
+- Alert webhooks for stuck imports (>15 min no progress)
 
-**Addresses:** All pitfalls get validated: regression tests (Pitfall #1), judge bias checks (Pitfall #2), uncanny valley detection (Pitfall #3), RAG personality consistency (Pitfall #4), latency benchmarks (Pitfall #5), diverse test set (Pitfall #6), tier usage (Pitfall #7), structure preservation (Pitfall #8), metric validation (Pitfall #9)
+**Addresses features:**
+- Mobile-specific optimizations (test 100MB+ files on iOS/Android) — based on analytics
 
-**Dependencies:** Phases 1-4 complete
+**Avoids pitfalls:**
+- #10 (Service key exposure) — Storage signed URLs, Edge Functions
+- #2 (Cold start) — monitoring + alerting for failed keep-alive pings
 
-**Research flags:** MEDIUM - Load testing frameworks for LLM apps (Locust + Bedrock), known-answer query datasets for memory testing, segment-specific quality metrics need definition. Recommend shadow production traffic 48h before full rollout.
+**Research flag:** LOW — Edge Functions need API research for RLS patterns. Otherwise standard security hardening.
 
-**Acceptance criteria:** Zero critical regressions, P95 latency <100ms overhead, personality adherence maintained, long sessions (10+ messages) no uncanny valley feedback, quality scores correlate with satisfaction.
+### Phase 4: UX Polish + Edge Cases
+**Rationale:** With robust foundation, improve user experience for edge cases. Import history, manual status fixes, and cancel functionality address power user needs and stuck-import recovery.
+
+**Delivers:**
+- Import history UI (list past imports with timestamps)
+- Manual status fix UI for admins (recover stuck imports)
+- Cancel import button (user can stop stuck processing)
+- Export validation guide (documentation for malformed file errors)
+- Edge case testing (ChatGPT exports from 2021-2025)
+
+**Addresses features:**
+- Import history (power user feature) — nice-to-have, deferred until demand proven
+
+**Avoids pitfalls:**
+- Recovery tooling for edge cases discovered in production
+
+**Research flag:** SKIP — standard admin UI patterns.
 
 ### Phase Ordering Rationale
 
-**Sequential, not parallel:** Each phase enables the next. Can't validate prompt improvements (Phase 2) without evaluation framework (Phase 1). Can't score quality (Phase 4) without metrics infrastructure (Phase 1). Can't validate everything (Phase 5) without all pieces built.
+**Dependencies dictate sequence:**
+- Phase 1 must complete before Phase 2 (can't enhance progress for non-existent pipeline)
+- Phase 2 must complete before Phase 3 (security hardening requires stable baseline for load testing)
+- Phase 3 must complete before Phase 4 (can't test edge cases without production-ready infrastructure)
 
-**Exception:** Phase 3 (linguistic analysis) can run parallel to Phase 2 (prompt improvements) because they don't depend on each other. Both depend on Phase 1.
+**Grouping rationale:**
+- Phase 1: Foundation (architecture change) — everything else depends on this working
+- Phase 2: Production hardening (operational) — retry/progress improvements don't change architecture
+- Phase 3: Security (non-functional) — can be done independently once core is stable
+- Phase 4: Polish (nice-to-have) — deferred until core validated with real users
 
-**Why evaluation-first:** Research shows 58.8% of prompt changes degrade quality despite looking better in testing. Without baseline metrics and regression tests, "improvements" break working systems. Evaluation infrastructure must exist before changing any production prompts.
+**Pitfall avoidance sequence:**
+- Phase 1 addresses launch-blocking pitfalls (#1, #3, #4, #6, #8, #9) — can't ship without these
+- Phase 2 addresses operational pitfalls (#2, #5, #7) — production UX quality
+- Phase 3 addresses security pitfall (#10) — reduces attack surface
+- Phase 4 addresses recovery (no specific pitfall, just edge case tooling)
 
-**Why prompt improvements before quality scoring:** Quality scoring measures output of prompts. Better to improve prompt quality (Phase 2) before building scoring infrastructure (Phase 4) so scoring is measuring improved baseline, not legacy system.
-
-**Why integration testing last:** Need all components built before validating they work together. Adversarial testing, long-session testing, load testing catch integration issues that unit tests miss.
+**Early validation opportunities:**
+- Phase 1: Test with 5 real ChatGPT exports (50MB, 150MB, 300MB, 1GB, 2GB)
+- Phase 2: Monitor cold start frequency and progress polling load for 2 weeks
+- Phase 3: Security audit before removing service key access
+- Phase 4: Gather user feedback on import experience, prioritize polish items
 
 ### Research Flags
 
 **Phases needing deeper research during planning:**
+- **Phase 3** — Supabase Edge Functions with RLS policies. Medium confidence. Need API research for service account patterns and RLS policy syntax. Context7 library search for "supabase edge functions rls" during planning.
 
-- **Phase 1: Evaluation Foundation** - HIGH priority spike needed on async Opik architecture patterns (2-3 days). LangSmith vs AgentOps benchmarks for latency. LLM judge family selection (which model judges best). Human validation protocols. Risk: Foundation for all future work, wrong choices compound.
-
-- **Phase 2: Prompt Improvements** - HIGH priority experiments needed on structured vs prose prompts specifically on Bedrock Sonnet 4.5. RAG context positioning variations. Semantic boundary preservation techniques. Risk: User-facing changes, can cause personality inconsistency. Recommend A/B test every change, keep v1 in parallel 2 weeks.
-
-- **Phase 3: Linguistic Analysis** - HIGH priority research on uncanny valley thresholds (quantify "how much mirroring is too much"). Gradual adaptation timelines (how many exchanges to fully mirror). Tone analysis libraries (which features to extract). Risk: User trust issue that causes churn if done wrong. Recommend beta test 10% of users, monitor extended sessions.
-
-- **Phase 5: Integration Testing** - MEDIUM priority research on load testing frameworks for LLM apps (Locust + Bedrock patterns). Known-answer query datasets for memory validation. Segment-specific quality metrics definition. Risk: Performance issues emerge here but fixable. Recommend shadow production traffic 48h before rollout.
-
-**Phases with standard patterns (lower research priority):**
-
-- **Phase 4: Quality Scoring** - MEDIUM priority. LLM-as-judge patterns well-established. Main work is metric validation (user interviews) not technical research. Standard background job patterns apply.
+**Phases with standard patterns (skip research-phase):**
+- **Phase 1** — Streaming parser (ijson well-documented), FastAPI background tasks (standard pattern), convoviz reference implementation exists, DAG algorithms established.
+- **Phase 2** — Retry patterns (exponential backoff), progress reporting UX (Nielsen Norman guidelines), cold start detection (Render docs).
+- **Phase 4** — Admin UI patterns (CRUD operations), validation guides (documentation writing), edge case testing (QA process).
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | No new packages needed, all features work with existing Opik 1.10.8 + Claude Sonnet 4.5. Versions verified compatible. |
-| Features | HIGH | Priority matrix validated against competitor analysis (Character.AI, Replika, Pi), 2026 LLM evaluation research, prompt engineering best practices. |
-| Architecture | HIGH | Build order based on dependency analysis of existing codebase (buildSystemPrompt, lib/opik.ts, quick-pass.ts). Integration points identified. |
-| Pitfalls | HIGH | 9 pitfalls sourced from 2026 research on prompt regression, LLM-as-judge bias, uncanny valley, RAG limitations, observability overhead. Cross-referenced with SoulPrint architecture. |
+| Stack | HIGH | All libraries verified with PyPI, official docs, and memory benchmarks. ijson proven for 300MB+ files. Supabase Python client built on httpx (already installed). Pydantic V2 already in use. |
+| Features | MEDIUM | Strong consensus on table stakes (large files, progress, mobile). Convoviz proves DAG traversal achievable. Lower confidence on ChatGPT format edge cases (no official spec, inferred from community + convoviz). |
+| Architecture | HIGH | Direct code inspection of current RLM service, Vercel endpoints, and Supabase patterns. Thin proxy + background task pattern well-established for serverless migrations. Database polling simpler than WebSocket for this use case. |
+| Pitfalls | HIGH | 10 pitfalls identified from: serverless platform constraints (Vercel docs), Render cold start behavior (official docs), cross-service integration patterns (production experience), ChatGPT format issues (OpenAI community + convoviz behavior), current codebase inspection. |
 
 **Overall confidence:** HIGH
 
-Research based on official Opik documentation, Anthropic Claude prompt engineering guides, 40+ peer-reviewed sources from 2026 on LLM evaluation and personalization. All recommendations validated against existing SoulPrint codebase (v1.2 architecture analysis).
+Research grounded in official documentation (Vercel, Render, Supabase, library PyPI pages), proven reference implementation (convoviz), and direct codebase inspection. Medium confidence areas (ChatGPT format edge cases, hidden message metadata) have defensive fallbacks (graceful skip, filter by role).
 
 ### Gaps to Address
 
-**Async Opik trace patterns:** Documentation covers datasets/experiments well but async production patterns need validation. Opik version 1.10.8 is ahead of npm registry (1.9.43), may have breaking changes. Address: Phase 1 spike (2-3 days) to build async architecture, test with 100 concurrent requests, measure P95 latency.
+**ChatGPT export format variations (Medium risk):**
+- **Gap:** No official OpenAI spec for conversations.json structure. Format evolved 2021-2025. Edge cases inferred from community discussions and convoviz behavior.
+- **Handle during:** Phase 1 execution — test with 5+ real exports spanning different date ranges. Phase 4 — gather user reports of parsing failures, add defensive handling.
 
-**LLM judge model selection:** Which model family to use for judging Claude Sonnet outputs? Research shows self-preference bias, but specific model recommendations unclear. Address: Phase 1 validation - test GPT-4o, Claude Opus, Gemini as judges, measure human agreement rates (target >70%), select least biased.
+**Hidden message metadata fields (Low risk):**
+- **Gap:** Specific fields for filtering (is_visually_hidden_from_conversation, message types) inferred from community knowledge, not documented by OpenAI.
+- **Handle during:** Phase 1 execution — inspect actual export structure, verify fields exist. Fallback: filter by author.role only (user/assistant vs tool/system).
 
-**Uncanny valley thresholds:** Research identifies phenomenon but doesn't quantify "how much mirroring is too much." Gradual adaptation timelines unclear. Address: Phase 3 beta testing with 10% of users, monitor extended sessions (10+ messages), measure churn by session count, qualitative feedback ("creepy" mentions).
+**Mobile large file limits (Low risk):**
+- **Gap:** No testing yet for 100MB+ files on iOS/Android. Browser memory constraints vary by device.
+- **Handle during:** Phase 3 — test matrix (iOS Safari, Android Chrome, 50/150/300MB files, slow network simulation).
 
-**Metric correlation with satisfaction:** Quality scoring metrics (completeness, coherence, specificity, personalization) need validation that they predict user satisfaction. Address: Phase 4 user interviews (5-10) before automating, measure correlation r>0.7 with NPS/retention, adjust weights based on findings.
+**Render memory requirements (Low risk):**
+- **Gap:** Theoretical calculations (100MB peak with streaming) need validation with real 300MB-2GB exports under load.
+- **Handle during:** Phase 1 validation — memory profiling with sample exports. Phase 3 — production monitoring for OOM warnings.
 
-**RLM prompt sync:** Two prompt builders (Next.js + Python RLM) must produce identical output. No existing sync mechanism. Address: Phase 2 consistency tests, shared template logic (duplicate implementation), version control both, automated validation in CI.
+**Supabase rate limits (Low risk):**
+- **Gap:** Unknown rate limits for Storage downloads and Database writes at scale (10K+ imports/day).
+- **Handle during:** Phase 3 — load testing before production rollout. Add retry with exponential backoff.
 
 ## Sources
 
-### Primary Sources (HIGH confidence)
+### Primary (HIGH confidence)
+- **Direct codebase inspection:**
+  - /home/drewpullen/clawd/soulprint-landing/rlm-service/main.py — RLM service structure, Supabase integration
+  - /home/drewpullen/clawd/soulprint-landing/rlm-service/processors/conversation_chunker.py — DAG traversal implementation (lines 71-116)
+  - /home/drewpullen/clawd/soulprint-landing/app/api/import/process-server/route.ts — Current problematic architecture
+  - /home/drewpullen/clawd/soulprint-landing/app/import/page.tsx — Frontend upload and polling patterns
 
-**Opik Evaluation Framework:**
-- [Opik Evaluation Overview](https://www.comet.com/docs/opik/evaluation/overview)
-- [Opik TypeScript SDK](https://www.comet.com/docs/opik/integrations/typescript-sdk)
-- [Opik Datasets](https://www.comet.com/docs/opik/evaluation/manage_datasets)
-- [Opik Scoring Metrics](https://www.comet.com/docs/opik/reference/typescript-sdk/evaluation/metrics)
+- **Official documentation:**
+  - [ijson PyPI](https://pypi.org/project/ijson/) — version 3.4.0
+  - [Processing Large JSON Files Without Running Out of Memory](https://pythonspeed.com/articles/json-memory-streaming/) — ijson memory benchmarks (287MB pandas vs 2-5MB ijson)
+  - [Supabase Python Storage API](https://supabase.com/docs/reference/python/storage-from-download) — download method, service role key auth
+  - [FastAPI Production Deployment Best Practices (Render)](https://render.com/articles/fastapi-production-deployment-best-practices) — worker config, memory management
+  - [Render Free Tier Documentation](https://render.com/docs/free) — cold start behavior, resource limits
 
-**Claude Prompt Engineering:**
-- [Claude 4 Best Practices](https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/claude-4-best-practices)
-- [Claude Prompting Best Practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
+### Secondary (MEDIUM confidence)
+- **Community knowledge + reference implementation:**
+  - [GitHub - mohamed-chs/convoviz](https://github.com/mohamed-chs/convoviz) — quality parsing reference, DAG traversal patterns
+  - [Decoding Exported Data by Parsing conversations.json (OpenAI Community)](https://community.openai.com/t/decoding-exported-data-by-parsing-conversations-json-and-or-chat-html/403144) — DAG traversal fix, mapping structure, sorting by create_time
+  - [Questions About JSON Structures in conversations.json (OpenAI Community)](https://community.openai.com/t/questions-about-the-json-structures-in-the-exported-conversations-json/954762) — format variations, edge cases
 
-**LLM Evaluation & LLM-as-Judge:**
-- [LLM Evaluation Frameworks Comparison](https://www.comet.com/site/blog/llm-evaluation-frameworks/)
-- [LLM-as-a-Judge Complete Guide](https://www.confident-ai.com/blog/why-llm-as-a-judge-is-the-best-llm-evaluation-method)
-- [Evaluating LLM-Evaluators Effectiveness](https://eugeneyan.com/writing/llm-evaluators/)
+- **UX research:**
+  - [Response Time Limits (Nielsen Norman Group)](https://www.nngroup.com/articles/response-times-3-important-limits/) — progress indicator thresholds (<1s, 1-10s, >10s)
+  - [Progress Trackers and Indicators (UserGuiding)](https://userguiding.com/blog/progress-trackers-and-indicators) — stage-based vs time-based progress
+  - [Error Messages: Examples, Best Practices (CXL)](https://cxl.com/blog/error-messages/) — actionable error guidance
 
-**Pitfalls & Best Practices:**
-- [Prompt Regression Testing 101](https://www.breakthebuild.org/prompt-regression-testing-101-how-to-keep-your-llm-apps-from-quietly-breaking/)
-- [Self-Preference Bias in LLM-as-a-Judge](https://arxiv.org/abs/2410.21819)
-- [The New Uncanny Valley](https://aicompetence.org/uncanny-valley-when-ai-chatbots-sound-too-human/)
-
-### Secondary Sources (MEDIUM confidence)
-
-**Linguistic Mirroring & Personality:**
-- [AI Chatbots Develop Unique Writing Styles](https://completeaitraining.com/news/ai-chatbots-develop-unique-writing-styles-that-mirror-human/)
-- [Text speaks louder: Personality from NLP](https://pmc.ncbi.nlm.nih.gov/articles/PMC12176201/)
-- [Dynamic Personality in LLM Agents](https://aclanthology.org/2025.findings-acl.1185.pdf)
-
-**RAG & Retrieval:**
-- [5 Critical RAG Limitations](https://www.chatrag.ai/blog/2026-01-21-5-critical-limitations-of-rag-systems-every-ai-builder-must-understand)
-- [Chunking Strategies for RAG](https://medium.com/@adnanmasood/chunking-strategies-for-retrieval-augmented-generation-rag-a-comprehensive-guide-5522c4ea2a90)
-
-**Observability & Performance:**
-- [Building Production-Grade AI Systems](https://medium.com/@koladilip/building-production-grade-ai-systems-the-observability-library-that-actually-works-9aa2f547ea79)
-- [AI Observability Buyer's Guide 2026](https://www.braintrust.dev/articles/best-ai-observability-tools-2026)
-
-### Tertiary Sources (Context only)
-
-**Competitor Analysis:**
-- [12+ Best Character AI Alternatives 2026](https://gempages.net/blogs/shopify/character-ai-alternatives-guide)
-- [Replika vs Character AI Comparison](https://www.theaihunter.com/compare/replika-vs-character-ai/)
-- [Product Strategy of Companion Chatbots](https://medium.com/@lindseyliu/product-strategy-of-companion-chatbots-such-as-inflections-pi-2f3b7a1538b4)
-
-**Existing Codebase:**
-- app/api/chat/route.ts - Chat flow with RLM/Bedrock fallback
-- lib/soulprint/quick-pass.ts - Section generation pipeline
-- lib/opik.ts - Current tracing implementation
-- .planning/research/PROMPT-ARCHITECTURE.md - v1.2 prompt architecture analysis
+### Tertiary (LOW confidence, needs validation)
+- **Mobile constraints:**
+  - [Uploading Large Files from iOS Applications (Bipsync)](https://bipsync.com/blog/uploading-large-files-from-ios-applications/) — iOS memory constraints (~100-200MB)
+  - [Mobile vs Desktop Usage Statistics (Research.com)](https://research.com/software/guides/mobile-vs-desktop-usage) — device usage patterns
 
 ---
-
-**Research completed:** 2026-02-08
-**Ready for roadmap:** Yes
-
-**Next step:** Roadmapper agent can use this summary to structure phases, with emphasis on evaluation-first approach and sequential dependencies identified in Phase Ordering Rationale.
+*Research completed: 2026-02-09*
+*Ready for roadmap: yes*
