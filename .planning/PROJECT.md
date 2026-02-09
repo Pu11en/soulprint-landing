@@ -56,7 +56,11 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 
 ### Active
 
-(No active milestone — planning next)
+#### v2.1 Hardening & Integration
+
+- [ ] RLM service uses emotional intelligence parameters (emotion detection, relationship arc)
+- [ ] Cross-language and integration test type errors fixed (zero TypeScript errors in build)
+- [ ] Web search citations validated against hallucination before surfacing to users
 
 ### Out of Scope
 
@@ -145,5 +149,14 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 | P97.5 latency percentile | autocannon limitation vs P95 | ✓ Good — close approximation |
 | PR-triggered regression testing | Only on prompt file changes, avoids expensive evals | ✓ Good — cost-efficient CI |
 
+## Current Milestone: v2.1 Hardening & Integration
+
+**Goal:** Close known gaps from v2.0 — wire EI into RLM, fix all test type errors, and validate web search citations against hallucination.
+
+**Target features:**
+- RLM emotional intelligence integration (both AI paths get EI)
+- Zero TypeScript build errors (fix cross-lang tests, integration mocks)
+- Web search citation validation (prevent hallucinated sources)
+
 ---
-*Last updated: 2026-02-09 after v2.0 milestone complete*
+*Last updated: 2026-02-09 after v2.1 milestone started*

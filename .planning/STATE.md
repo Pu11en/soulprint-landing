@@ -6,16 +6,16 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** Planning next milestone
+**Current focus:** v2.1 Hardening & Integration
 
 ## Current Position
 
-Phase: Not started
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-02-09 - v2.0 AI Quality & Personalization milestone complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-09 — Milestone v2.1 started
 
-Progress: [██████████] 100% (v2.0 complete, next milestone TBD)
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -47,7 +47,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
-- Run `20260209_quality_breakdown.sql` migration in Supabase SQL Editor (from v2.0 Phase 4)
+- DB migrations executed (confirmed 2026-02-09)
 
 ### Blockers/Concerns
 
