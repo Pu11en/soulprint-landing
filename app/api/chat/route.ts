@@ -17,6 +17,12 @@ import { parseRequestBody, chatRequestSchema } from '@/lib/api/schemas';
 import { createLogger } from '@/lib/logger';
 import { PromptBuilder } from '@/lib/soulprint/prompt-builder';
 import { traceChatRequest, flushOpik } from '@/lib/opik';
+import {
+  detectEmotion,
+  getRelationshipArc,
+  determineTemperature,
+  EmotionalState,
+} from '@/lib/soulprint/emotional-intelligence';
 
 const log = createLogger('API:Chat');
 
@@ -312,6 +318,28 @@ export async function POST(request: NextRequest) {
       // Continue without web search - graceful degradation
     }
 
+    // Emotion detection (EMOT-01) -- lightweight, fail-safe
+    let emotionalState: EmotionalState = { primary: 'neutral', confidence: 0.5, cues: [] };
+    try {
+      emotionalState = await detectEmotion(message, history.slice(-5));
+      reqLog.debug({ emotion: emotionalState.primary, confidence: emotionalState.confidence }, 'Emotion detected');
+    } catch (error) {
+      reqLog.warn({ error: error instanceof Error ? error.message : String(error) }, 'Emotion detection failed, defaulting to neutral');
+    }
+
+    // Relationship arc (EMOT-03) -- message count from chat_messages
+    let relationshipArc: { stage: 'early' | 'developing' | 'established'; messageCount: number } = { stage: 'early', messageCount: 0 };
+    try {
+      const { count: messageCount } = await adminSupabase
+        .from('chat_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      relationshipArc = getRelationshipArc(messageCount || 0);
+      reqLog.debug({ stage: relationshipArc.stage, messageCount: relationshipArc.messageCount }, 'Relationship arc determined');
+    } catch (error) {
+      reqLog.warn({ error: error instanceof Error ? error.message : String(error) }, 'Relationship arc query failed, defaulting to early');
+    }
+
     // Build sections object from parsed section MDs for RLM
     const parseSafe = (raw: string | null) => {
       if (!raw) return null;
@@ -425,7 +453,7 @@ export async function POST(request: NextRequest) {
     reqLog.info('RLM failed, falling back to Bedrock streaming');
 
     const promptBuilder = new PromptBuilder();
-    const systemPrompt = promptBuilder.buildSystemPrompt({
+    const systemPrompt = promptBuilder.buildEmotionallyIntelligentPrompt({
       profile: userProfile || { soulprint_text: null, import_status: 'none', ai_name: null, soul_md: null, identity_md: null, user_md: null, agents_md: null, tools_md: null, memory_md: null },
       dailyMemory: learnedFacts || [],
       memoryContext,
@@ -433,6 +461,8 @@ export async function POST(request: NextRequest) {
       isOwner: voiceVerified,
       webSearchContext,
       webSearchCitations,
+      emotionalState,
+      relationshipArc,
     });
 
     // Build messages for Bedrock Converse API
@@ -447,6 +477,10 @@ export async function POST(request: NextRequest) {
       },
     ];
 
+    // Dynamic temperature configuration (EMOT-01)
+    const tempConfig = determineTemperature(message, emotionalState, !!memoryContext);
+    reqLog.debug({ temperature: tempConfig.temperature, reason: tempConfig.reason }, 'Dynamic temperature set');
+
     // Use streaming command for token-by-token response
     const command = new ConverseStreamCommand({
       modelId: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
@@ -454,6 +488,8 @@ export async function POST(request: NextRequest) {
       messages: converseMessages,
       inferenceConfig: {
         maxTokens: 4096,
+        temperature: tempConfig.temperature,
+        // DO NOT set top_p -- Sonnet 4.5/Haiku 4.5 require temperature XOR top_p
       },
     });
 
@@ -514,7 +550,14 @@ export async function POST(request: NextRequest) {
               type: 'llm',
               input: { message, model: process.env.BEDROCK_MODEL_ID || 'claude-3-5-haiku', historyLength: history.length },
               output: { response: fullResponse.slice(0, 500), responseLength: fullResponse.length },
-              metadata: { durationMs: duration, fallback: true },
+              metadata: {
+                durationMs: duration,
+                fallback: true,
+                emotion: emotionalState.primary,
+                emotionConfidence: emotionalState.confidence,
+                relationshipStage: relationshipArc.stage,
+                temperature: tempConfig.temperature,
+              },
             });
             bedrockSpan.end();
             opikTrace.end();
