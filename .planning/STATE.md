@@ -6,22 +6,22 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** Phase 2 - Prompt Template System (Phase 1 complete)
+**Current focus:** Phase 2 - Prompt Template System (Plan 1 of 3 complete)
 
 ## Current Position
 
-Phase: 1 of 5 (Evaluation Foundation) -- COMPLETE
-Plan: 2 of 2 in phase
-Status: Phase complete
-Last activity: 2026-02-08 - Completed 01-02-PLAN.md (experiment runner, baseline, CLI scripts)
+Phase: 2 of 5 (Prompt Template System)
+Plan: 1 of 3 in phase
+Status: In progress
+Last activity: 2026-02-09 - Completed 02-01-PLAN.md (PromptBuilder class + chat route wiring)
 
-Progress: [██░░░░░░░░] 20% (1 phase complete, 2/2 plans in Phase 1)
+Progress: [██████░░░░] 60% (Phase 1 complete, Phase 2 plan 1/3 complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 49 (from v1.0-v2.0)
-- Average duration: ~23 min
+- Total plans completed: 50 (from v1.0-v2.0)
+- Average duration: ~22 min
 - Total execution time: ~21 hours across 6 milestones
 
 **By Milestone:**
@@ -34,9 +34,9 @@ Progress: [██░░░░░░░░] 20% (1 phase complete, 2/2 plans in P
 | v1.3 RLM Sync | 5 | 5 | Shipped |
 | v1.4 Personalization | 2 | 7 | Shipped |
 | v1.5 Full Chat | 6 | 8 | Shipped |
-| v2.0 AI Quality | 5 | 2 | In Progress |
+| v2.0 AI Quality | 5 | 3 | In Progress |
 
-*Metrics updated: 2026-02-08*
+*Metrics updated: 2026-02-09*
 
 ## Accumulated Context
 
@@ -68,6 +68,13 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - PromptVariant interface: { name, buildSystemPrompt } for pluggable prompt strategies
 - CLI scripts use DOTENV_CONFIG_PATH=.env.local with import dotenv/config
 
+**From 02-01 (PromptBuilder Class):**
+- PromptBuilder uses PromptParams object pattern (not positional args) for extensibility
+- v2 personality sections use flowing prose, only functional sections use ## headers
+- v2 section ordering: USER before AGENTS/IDENTITY, CONTEXT before REMEMBER
+- getPromptVersion() exported standalone for testing/logging without instantiating builder
+- PRMT-04 pattern: behavioral_rules from agents_md reinforced in ## REMEMBER after ## CONTEXT
+
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
@@ -75,7 +82,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ### Blockers/Concerns
 
 **For v2.0 planning:**
-- Phase 2 needs RLM prompt sync strategy (two prompt builders must produce identical output)
+- Phase 2 Plan 02 needs RLM prompt sync strategy (Python PromptBuilder must mirror TypeScript)
 - Phase 3 needs uncanny valley threshold research (how much mirroring is too much)
 - Quality scoring metrics need validation that they correlate r>0.7 with user satisfaction
 
@@ -84,9 +91,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-02-08
-Stopped at: Completed 01-02-PLAN.md (experiment runner, baseline, CLI scripts) -- Phase 1 complete
+Last session: 2026-02-09
+Stopped at: Completed 02-01-PLAN.md (PromptBuilder class + chat route wiring)
 Resume file: None
 
 ---
-*Last updated: 2026-02-08 -- Phase 1 (Evaluation Foundation) complete, ready for Phase 2 (Prompt Template System)*
+*Last updated: 2026-02-09 -- Phase 2 Plan 1 complete (PromptBuilder class with v1/v2, chat route wired)*
