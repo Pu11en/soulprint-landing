@@ -66,7 +66,7 @@ export async function signIn(formData: FormData) {
     }
 
     revalidatePath('/', 'layout')
-    redirect('/chat')
+    redirect('/dashboard')
 }
 
 export async function signOut() {

@@ -96,8 +96,8 @@ export async function GET(request: NextRequest) {
                     .eq('user_id', user.id)
 
                 if ((soulprintCount && soulprintCount > 0) || (importCount && importCount > 0)) {
-                    // Existing user with data - go directly to chat
-                    redirectUrl = '/chat'
+                    // Existing user with data - go to dashboard (they can navigate to chat from there)
+                    redirectUrl = '/dashboard'
                     isNewUser = false
                 }
 
