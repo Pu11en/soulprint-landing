@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 4 of 5 (Quality Scoring)
-Plan: 1 of 3 in phase
+Plan: 2 of 3 in phase
 Status: In progress
-Last activity: 2026-02-09 - Completed 04-01-PLAN.md (Quality Scoring Infrastructure)
+Last activity: 2026-02-09 - Completed 04-02-PLAN.md (Prompt Quality Integration)
 
-Progress: [█████████░] 91% (Phases 1-3 complete, Phase 4 Plan 1 complete)
+Progress: [█████████░] 92% (Phases 1-3 complete, Phase 4 Plans 1-2 complete)
 
 ## Performance Metrics
 
@@ -120,6 +120,13 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - GIN index on quality_breakdown JSONB for efficient threshold queries (find_low_quality_profiles)
 - CompletenessJudge validates section-specific expected fields (7 for soul, 5 for identity, etc.)
 
+**From 04-02 (Prompt Quality Integration):**
+- DATA CONFIDENCE section appears AFTER soulprint sections but BEFORE CONTEXT (RAG) to establish data quality awareness before retrieval results
+- Threshold 60/100 distinguishes high vs low confidence (matches quality-scoring.ts hasLowQualityScores default)
+- buildDataConfidenceSection private method: aggregates all 15 scores (5 sections × 3 metrics) for average
+- Both v1-technical and v2-natural-voice prompts include DATA CONFIDENCE identically
+- Backward compatible: null quality_breakdown produces no DATA CONFIDENCE section
+
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
@@ -136,8 +143,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 04-01-PLAN.md (Quality Scoring Infrastructure)
+Stopped at: Completed 04-02-PLAN.md (Prompt Quality Integration)
 Resume file: None
 
 ---
-*Last updated: 2026-02-09 -- Phase 4 Plan 1 COMPLETE (Quality Scoring: judges, orchestrator, database migration)*
+*Last updated: 2026-02-09 -- Phase 4 Plan 2 COMPLETE (Quality Scoring: DATA CONFIDENCE in prompts, uncertainty acknowledgment)*
