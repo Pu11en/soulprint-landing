@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 1 of 5 (Evaluation Foundation)
-Plan: Not yet planned
-Status: Ready to plan
-Last activity: 2026-02-08 - v2.0 roadmap created (5 phases, 16 requirements)
+Plan: 1 of 2 in phase
+Status: In progress
+Last activity: 2026-02-08 - Completed 01-01-PLAN.md (evaluation types, datasets, judges)
 
-Progress: [░░░░░░░░░░] 0% (0 phases complete)
+Progress: [█░░░░░░░░░] 10% (0 phases complete, 1/2 plans in Phase 1)
 
 ## Performance Metrics
 
@@ -34,7 +34,7 @@ Progress: [░░░░░░░░░░] 0% (0 phases complete)
 | v1.3 RLM Sync | 5 | 5 | Shipped |
 | v1.4 Personalization | 2 | 7 | Shipped |
 | v1.5 Full Chat | 6 | 8 | Shipped |
-| v2.0 AI Quality | 5 | 0 | In Progress |
+| v2.0 AI Quality | 5 | 1 | In Progress |
 
 *Metrics updated: 2026-02-08*
 
@@ -51,10 +51,16 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Two-pass generation: quick pass (~30s, Haiku 4.5) + full pass (RLM background)
 - 7-section structured context (SOUL, IDENTITY, USER, AGENTS, TOOLS, MEMORY, daily memory)
 
-**v2.0 Architecture decisions pending:**
+**v2.0 Architecture decisions:**
 - Evaluation-first approach: build measurement before changing prompts
-- Phase 1 → Phase 2 dependency: need metrics before prompt changes
+- Phase 1 -> Phase 2 dependency: need metrics before prompt changes
 - Phases 3 and 4 can run in parallel after Phase 2
+
+**From 01-01 (Evaluation Core Library):**
+- ChatEvalItem uses index signature for Opik DatasetItemData compatibility
+- zod v4 z.record() requires two args (key type + value type)
+- Minimum 10 valid pairs enforced for dataset statistical significance
+- BaseMetric extension pattern: validationSchema + score with safeParse guard
 
 ### Pending Todos
 
@@ -74,8 +80,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: v2.0 roadmap created with 5 phases mapping 16 requirements
+Stopped at: Completed 01-01-PLAN.md (evaluation types, datasets, judges)
 Resume file: None
 
 ---
-*Last updated: 2026-02-08 -- v2.0 roadmap created, ready for `/gsd:plan-phase 1`*
+*Last updated: 2026-02-08 -- 01-01-PLAN.md complete, ready for 01-02-PLAN.md execution*
