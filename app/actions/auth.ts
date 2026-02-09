@@ -105,17 +105,16 @@ export async function signInWithGoogle(referralCode?: string) {
         })
     }
 
-    // Get the base URL (works for both local and production)
     // Get the base URL
     let baseUrl = process.env.NEXT_PUBLIC_SITE_URL
 
     if (!baseUrl) {
-        if (process.env.NODE_ENV === 'production') {
+        if (process.env.VERCEL_URL) {
+            // Vercel preview/deployments
+            baseUrl = `https://${process.env.VERCEL_URL}`
+        } else if (process.env.NODE_ENV === 'production') {
             // Default to custom domain in production
             baseUrl = 'https://soulprintengine.ai'
-        } else if (process.env.VERCEL_URL) {
-            // Fallback for Vercel previews if NODE_ENV is somehow not prod or handled differently
-            baseUrl = `https://${process.env.VERCEL_URL}`
         } else {
             // Local development
             baseUrl = 'http://localhost:3000'
