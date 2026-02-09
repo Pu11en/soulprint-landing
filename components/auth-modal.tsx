@@ -113,22 +113,35 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'login' }: AuthModalP
       }
     }
 
-    const result = mode === 'login' 
-      ? await signIn(formData)
-      : await signUp(formData);
-    
-    if (result?.error) {
-      setError(result.error);
-      setIsLoading(false);
-    } else if ('success' in (result || {})) {
-      setSuccess(true);
+    try {
+      const result = mode === 'login'
+        ? await signIn(formData)
+        : await signUp(formData);
+
+      if (result?.error) {
+        setError(result.error);
+        setIsLoading(false);
+      } else if ('success' in (result || {})) {
+        setSuccess(true);
+        setIsLoading(false);
+      }
+      // If redirect() was called in the server action, execution won't reach here
+    } catch {
+      // Server action redirect throws NEXT_REDIRECT which is expected.
+      // Any other error means the action failed (e.g., network error).
+      // Reset loading state so the user can retry.
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
-    await signInWithGoogle(referralCode && referredBy ? referralCode : undefined);
+    try {
+      await signInWithGoogle(referralCode && referredBy ? referralCode : undefined);
+    } catch {
+      // Server action redirect throws NEXT_REDIRECT which is expected.
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;

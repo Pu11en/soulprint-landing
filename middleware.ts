@@ -20,26 +20,35 @@ export async function middleware(request: NextRequest) {
   // Skip CSRF for internal server-to-server calls (e.g., queue-processing → process-server)
   const isInternalCall = request.headers.get('X-Internal-User-Id') !== null
 
+  // Skip CSRF for Next.js server actions (identified by Next-Action header).
+  // Server actions are POST requests to the page URL with Content-Type text/plain.
+  // The CSRF middleware reads the request body to look for a token, which consumes
+  // the body and breaks the server action. Next.js already protects server actions
+  // against CSRF by comparing Origin and Host headers.
+  const isServerAction = request.headers.get('Next-Action') !== null
+
   // Apply CSRF protection (validates token on POST/PUT/DELETE, sets cookie on GET)
-  const csrfResponse = await csrfMiddleware(request)
+  // Skip entirely for server actions to avoid consuming the request body
+  const csrfResponse = isServerAction ? null : await csrfMiddleware(request)
 
   // If CSRF validation failed and this is NOT an internal call, return 403
-  if (csrfResponse.status === 403 && !isInternalCall) {
+  if (csrfResponse && csrfResponse.status === 403 && !isInternalCall) {
     return csrfResponse
   }
 
   // Pass through to Supabase auth session refresh
   const authResponse = await updateSession(request)
 
-  // Copy CSRF cookies from csrfResponse to authResponse
-  csrfResponse.cookies.getAll().forEach(cookie => {
-    authResponse.cookies.set(cookie.name, cookie.value, cookie)
-  })
+  // Copy CSRF cookies and token from csrfResponse to authResponse (when CSRF was applied)
+  if (csrfResponse) {
+    csrfResponse.cookies.getAll().forEach(cookie => {
+      authResponse.cookies.set(cookie.name, cookie.value, cookie)
+    })
 
-  // Copy CSRF token header to auth response (for Server Components to read)
-  const csrfToken = csrfResponse.headers.get('X-CSRF-Token')
-  if (csrfToken) {
-    authResponse.headers.set('X-CSRF-Token', csrfToken)
+    const csrfToken = csrfResponse.headers.get('X-CSRF-Token')
+    if (csrfToken) {
+      authResponse.headers.set('X-CSRF-Token', csrfToken)
+    }
   }
 
   // Set correlation ID on response header (for client-side debugging)
