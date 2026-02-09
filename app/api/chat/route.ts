@@ -147,6 +147,8 @@ async function tryRLMService(
   webSearchContext?: string,
   aiName?: string,
   sections?: Record<string, unknown> | null,
+  emotionalState?: EmotionalState,
+  relationshipArc?: { stage: 'early' | 'developing' | 'established'; messageCount: number },
 ): Promise<RLMResponse | null> {
   const rlmUrl = process.env.RLM_SERVICE_URL;
   if (!rlmUrl) return null;
@@ -170,6 +172,8 @@ async function tryRLMService(
         web_search_context: webSearchContext,
         ai_name: aiName,
         sections: sections || undefined,
+        emotional_state: emotionalState,
+        relationship_arc: relationshipArc,
       }),
       signal: AbortSignal.timeout(15000), // 15s timeout
     });
@@ -377,6 +381,8 @@ export async function POST(request: NextRequest) {
       webSearchContext || undefined,
       aiName,
       hasSections ? sections : null,
+      emotionalState,
+      relationshipArc,
     );
 
     if (rlmResponse) {
