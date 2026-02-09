@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 4 of 5 (Quality Scoring)
-Plan: 2 of 3 in phase
-Status: In progress
-Last activity: 2026-02-09 - Completed 04-02-PLAN.md (Prompt Quality Integration)
+Plan: 3 of 3 in phase
+Status: Phase complete
+Last activity: 2026-02-09 - Completed 04-03-PLAN.md (Quality Refinement Automation)
 
-Progress: [█████████░] 92% (Phases 1-3 complete, Phase 4 Plans 1-2 complete)
+Progress: [█████████░] 93% (Phases 1-4 complete)
 
 ## Performance Metrics
 
@@ -127,6 +127,13 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Both v1-technical and v2-natural-voice prompts include DATA CONFIDENCE identically
 - Backward compatible: null quality_breakdown produces no DATA CONFIDENCE section
 
+**From 04-03 (Quality Refinement Automation):**
+- Single RLM call per profile regenerates all sections, extract only low-quality ones (avoid wasteful per-section calls)
+- Fire-and-forget quality scoring in import pipeline: non-blocking, cron catches failures
+- Process max 10 profiles per cron run (5 unscored + 5 low-quality) to avoid Vercel timeout
+- Array.from(Set) pattern for ES2017 target compatibility (downlevelIteration not enabled)
+- Background cron finds both NULL quality_breakdown (unscored) AND below-threshold profiles
+
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
@@ -143,8 +150,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 04-02-PLAN.md (Prompt Quality Integration)
+Stopped at: Completed 04-03-PLAN.md (Quality Refinement Automation)
 Resume file: None
 
 ---
-*Last updated: 2026-02-09 -- Phase 4 Plan 2 COMPLETE (Quality Scoring: DATA CONFIDENCE in prompts, uncertainty acknowledgment)*
+*Last updated: 2026-02-09 -- Phase 4 COMPLETE (Quality Scoring: infrastructure, prompt integration, automated refinement)*
