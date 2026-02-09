@@ -1,5 +1,31 @@
 # Project Milestones: SoulPrint
 
+## v2.0 AI Quality & Personalization (Shipped: 2026-02-09)
+
+**Delivered:** Systematic AI quality infrastructure — LLM-as-judge evaluation framework, natural voice prompt system with cross-language parity, emotional intelligence with adaptive tone, soulprint quality scoring with automated refinement, and regression testing CI/CD.
+
+**Phases completed:** 1-5 (14 plans total)
+
+**Key accomplishments:**
+- Built Opik evaluation framework with three LLM-as-judge scorers (personality consistency, factuality, tone matching) and experiment runner for A/B prompt comparison
+- Created versioned PromptBuilder (v1-technical, v2-natural-voice) with character-identical Python implementation and cross-language sync tests
+- Implemented emotion detection via Bedrock Haiku 4.5 with relationship arc tracking, dynamic temperature tuning, and uncertainty acknowledgment
+- Built three-dimensional quality scoring (completeness, coherence, specificity) with parallel LLM judges and DATA CONFIDENCE prompt sections
+- Automated daily quality refinement cron job that detects and regenerates low-quality soulprint sections
+- Created regression testing infrastructure with statistical validation, long-session personality drift detection, latency benchmarking, and GitHub Actions CI/CD
+
+**Stats:**
+- 84 files created/modified (31 code files)
+- 19,346 lines added (TypeScript + Python)
+- 5 phases, 14 plans
+- ~16 hours wall clock (2026-02-08 19:20 → 2026-02-09 11:02 CST)
+
+**Git range:** `3d1b0ab` (milestone start) → `a4b2539` (audit complete)
+
+**What's next:** Next milestone TBD — potential areas include linguistic mirroring, memory narrative improvements, adaptive depth, or user-facing controls.
+
+---
+
 ## v1.2 Import UX Streamline (Shipped: 2026-02-07)
 
 **Delivered:** Replaced monolithic soulprint_text with 7 structured context sections (OpenClaw-inspired), implemented two-pass generation pipeline so users start chatting in ~30s while deep memory builds in background.

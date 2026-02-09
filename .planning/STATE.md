@@ -2,27 +2,27 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-08)
+See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** Phase 5 - Integration Validation (COMPLETE) — v2.0 MILESTONE COMPLETE
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 5 of 5 (Integration Validation)
-Plan: 3 of 3 in phase
-Status: Phase complete
-Last activity: 2026-02-09 - Completed 05-03-PLAN.md (CI/CD Automation & Quality Correlation)
+Phase: Not started
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-02-09 - v2.0 AI Quality & Personalization milestone complete
 
-Progress: [██████████] 100% (All phases complete)
+Progress: [██████████] 100% (v2.0 complete, next milestone TBD)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 53 (from v1.0-v2.0)
+- Total plans completed: 53 (from v1.0-v2.0) + 14 (v2.0) = 67
 - Average duration: ~18 min
-- Total execution time: ~21.15 hours across 6 milestones
+- Total execution time: ~21.15 hours across 7 milestones
 
 **By Milestone:**
 
@@ -34,7 +34,7 @@ Progress: [██████████] 100% (All phases complete)
 | v1.3 RLM Sync | 5 | 5 | Shipped |
 | v1.4 Personalization | 2 | 7 | Shipped |
 | v1.5 Full Chat | 6 | 8 | Shipped |
-| v2.0 AI Quality | 5 | 8 | Complete |
+| v2.0 AI Quality | 5 | 14 | Shipped |
 
 *Metrics updated: 2026-02-09*
 
@@ -44,131 +44,21 @@ Progress: [██████████] 100% (All phases complete)
 
 Decisions are logged in PROJECT.md Key Decisions table.
 
-**Carried forward from v1.5:**
-- Separate soulprint-rlm repo -- Production RLM deploys from Pu11en/soulprint-rlm
-- Sonnet 4.5 on Bedrock for chat quality (switched from Nova Lite)
-- OpenClaw-style prompt: minimal preamble, sections define personality
-- Two-pass generation: quick pass (~30s, Haiku 4.5) + full pass (RLM background)
-- 7-section structured context (SOUL, IDENTITY, USER, AGENTS, TOOLS, MEMORY, daily memory)
-
-**v2.0 Architecture decisions:**
-- Evaluation-first approach: build measurement before changing prompts
-- Phase 1 -> Phase 2 dependency: need metrics before prompt changes
-- Phases 3 and 4 can run in parallel after Phase 2
-
-**From 01-01 (Evaluation Core Library):**
-- ChatEvalItem uses index signature for Opik DatasetItemData compatibility
-- zod v4 z.record() requires two args (key type + value type)
-- Minimum 10 valid pairs enforced for dataset statistical significance
-- BaseMetric extension pattern: validationSchema + score with safeParse guard
-
-**From 01-02 (Experiment Runner & CLI Scripts):**
-- V1 prompt builder copied inline in baseline.ts (not extracted from chat route) to freeze baseline snapshot
-- Array.from(Map.entries()) pattern for ES2017 target compatibility
-- PromptVariant interface: { name, buildSystemPrompt } for pluggable prompt strategies
-- CLI scripts use DOTENV_CONFIG_PATH=.env.local with import dotenv/config
-
-**From 02-01 (PromptBuilder Class):**
-- PromptBuilder uses PromptParams object pattern (not positional args) for extensibility
-- v2 personality sections use flowing prose, only functional sections use ## headers
-- v2 section ordering: USER before AGENTS/IDENTITY, CONTEXT before REMEMBER
-- getPromptVersion() exported standalone for testing/logging without instantiating builder
-- PRMT-04 pattern: behavioral_rules from agents_md reinforced in ## REMEMBER after ## CONTEXT
-
-**From 02-02 (Cross-Language Prompt Sync):**
-- Python PromptBuilder mirrors TypeScript character-for-character for v1, v2, and imposter mode
-- Injectable currentDate/currentTime params added to TypeScript PromptParams for deterministic testing
-- Python _parse_section_safe handles both dict and JSON string inputs
-- _sections_to_profile helper bridges legacy sections dict to PromptBuilder profile format
-- JSON blob serialization pattern for subprocess param passing avoids shell escaping issues
-
-**From 02-03 (Wire v2 to Evaluation):**
-- v2 builder uses simplified PromptParams (no dailyMemory/memoryContext) for style comparison
-- recordBaseline() accepts optional variant parameter (non-breaking change, defaults to v1)
-- v1 baseline remains frozen (not refactored to use PromptBuilder) for historical accuracy
-- ChatEvalItem structured sections JSON.stringify into PromptBuilder *_md fields
-- VARIANTS map in CLI scripts for variant registry and name-based selection
-
-**From 03-01 (Emotional Intelligence Foundation):**
-- Haiku 4.5 on Bedrock for emotion detection (fast, cheap, 150 max tokens, temp 0.2)
-- Fail-safe neutral default on any detection error (never crash chat)
-- Confidence threshold 0.6 for adaptive tone application (avoid low-confidence misclassification)
-- Adaptive tone goes LAST in prompt composition (base → uncertainty → relationship → adaptive)
-- Relationship arc thresholds: early (<10), developing (10-50), established (50+)
-- Dynamic temperature ranges: factual (0.2), confused (0.25), creative (0.8), default (0.7)
-- EmotionallyIntelligentPromptParams extends PromptParams for backward compatibility
-
-**From 03-02 (Chat Route EI Integration):**
-- EI operations run BEFORE RLM call (data available for both paths)
-- RLM path does NOT use buildEmotionallyIntelligentPrompt (RLM builds prompts server-side)
-- Only Bedrock fallback uses emotionally intelligent prompt composition
-- All EI operations wrapped in try/catch with neutral defaults (never crash chat)
-- Relationship arc query uses .select('id', {count: 'exact', head: true}) for efficiency
-- Opik spans include EI metadata for evaluation correlation
-
-**From 03-03 (Python EI Prompt Sync):**
-- Python EI section builders are module-level functions (not class methods) to mirror TypeScript exports
-- Python PromptBuilder.build_emotionally_intelligent_prompt mirrors TypeScript character-for-character
-- No emotion detection in Python (RLM receives emotional_state as parameter from TypeScript caller)
-- Cross-language sync test verifies character-identical output for all EI sections
-- Confidence threshold 0.6 enforced in both TypeScript and Python for adaptive tone
-
-**From 04-01 (Quality Scoring Infrastructure):**
-- Three separate judge classes (Completeness, Coherence, Specificity) vs unified judge for specialized evaluation
-- Score normalization from 0.0-1.0 to 0-100 integer range for JSONB storage efficiency
-- Parallel scoring: 5 sections × 3 judges = 15 LLM calls in ~2-3 seconds (vs ~25s sequential)
-- GIN index on quality_breakdown JSONB for efficient threshold queries (find_low_quality_profiles)
-- CompletenessJudge validates section-specific expected fields (7 for soul, 5 for identity, etc.)
-
-**From 04-02 (Prompt Quality Integration):**
-- DATA CONFIDENCE section appears AFTER soulprint sections but BEFORE CONTEXT (RAG) to establish data quality awareness before retrieval results
-- Threshold 60/100 distinguishes high vs low confidence (matches quality-scoring.ts hasLowQualityScores default)
-- buildDataConfidenceSection private method: aggregates all 15 scores (5 sections × 3 metrics) for average
-- Both v1-technical and v2-natural-voice prompts include DATA CONFIDENCE identically
-- Backward compatible: null quality_breakdown produces no DATA CONFIDENCE section
-
-**From 04-03 (Quality Refinement Automation):**
-- Single RLM call per profile regenerates all sections, extract only low-quality ones (avoid wasteful per-section calls)
-- Fire-and-forget quality scoring in import pipeline: non-blocking, cron catches failures
-- Process max 10 profiles per cron run (5 unscored + 5 low-quality) to avoid Vercel timeout
-- Array.from(Set) pattern for ES2017 target compatibility (downlevelIteration not enabled)
-- Background cron finds both NULL quality_breakdown (unscored) AND below-threshold profiles
-
-**From 05-01 (Regression Testing Infrastructure):**
-- 20-sample minimum enforces 80% statistical power for medium effect size detection (Cohen's d=0.5 at α=0.05)
-- 5% degradation threshold balances sensitivity vs noise for LLM quality metrics
-- Absolute minimum thresholds (0.70/0.75/0.70) for regression tests vs relative baseline comparison
-- Exit code 0/1 pattern enables CI/CD integration for both regression and baseline CLIs
-- ComparisonResult interface tracks degradations/improvements separately
-
-**From 05-02 (Long-Session Testing & Latency Benchmarking):**
-- Use P97.5 percentile instead of P95 (autocannon limitation, close approximation)
-- Benchmark /api/health endpoint instead of /api/chat to isolate tracing overhead from application logic
-- Skip long-session E2E test in CI (requires authenticated user), manual run only
-- 3-second wait after sendMessage for streaming completion (LLM streaming may be in progress)
-- Personality drift detection: compare early vs late message violations for chatbot patterns
-
-**From 05-03 (CI/CD Automation & Quality Correlation):**
-- PR-triggered regression testing on prompt file changes only (avoids expensive LLM evals on unrelated PRs)
-- Three satisfaction proxies: avg_session_length, total_conversations, return_rate (multiple proxies provide robustness)
-- Pass if ANY proxy exceeds r > 0.7 threshold (quality may manifest differently for different user cohorts)
-- Default 10 profiles minimum for correlation, configurable via --min-profiles flag
-- GitHub Actions timeout 15 minutes for LLM evaluation runtime
-
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
+- Run `20260209_quality_breakdown.sql` migration in Supabase SQL Editor (from v2.0 Phase 4)
 
 ### Blockers/Concerns
 
-**Carried forward from v1.5:**
 - Web search (smartSearch) exists but citations not validated against hallucination
+- RLM service does NOT use EI parameters (only Bedrock fallback gets EI features)
 
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 05-03-PLAN.md (CI/CD Automation & Quality Correlation Validation)
+Stopped at: v2.0 milestone complete
 Resume file: None
 
 ---
-*Last updated: 2026-02-09 -- Phase 5 COMPLETE (Integration Validation: all 3 plans shipped)*
+*Last updated: 2026-02-09 -- v2.0 milestone archived*

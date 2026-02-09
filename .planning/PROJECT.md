@@ -2,11 +2,11 @@
 
 ## What This Is
 
-A privacy-first AI personalization platform. Users upload their ChatGPT export, we analyze it to create a "SoulPrint" (personality profile), and they get a personalized AI assistant that remembers them. The import-to-chat flow is hardened with defense in depth after v1.1 stabilization.
+A privacy-first AI personalization platform. Users upload their ChatGPT export, we analyze it to create a "SoulPrint" (personality profile), and they get a personalized AI assistant that remembers them. The AI adapts its tone based on emotional state, acknowledges uncertainty in low-confidence areas, and uses systematic evaluation to prevent personality drift.
 
 ## Core Value
 
-The import-to-chat flow must work reliably every time on production — no stuck imports, no memory leaks, no silent failures.
+The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
 ## Requirements
 
@@ -44,18 +44,19 @@ The import-to-chat flow must work reliably every time on production — no stuck
 - ✓ V2 sections silently upgrade after full pass completes — v1.2
 - ✓ Memory progress indicator during background processing — v1.2
 - ✓ 112 passing tests (unit + integration + E2E) — v1.2
+- ✓ Opik evaluation datasets & experiments for systematic prompt testing — v2.0
+- ✓ Natural voice system prompts (replace technical headers with personality) — v2.0
+- ✓ Versioned prompt system (v1-technical / v2-natural-voice) with cross-language parity — v2.0
+- ✓ Emotional intelligence: emotion detection, relationship arc, dynamic temperature — v2.0
+- ✓ Soulprint quality scoring (0-100) with automated refinement — v2.0
+- ✓ DATA CONFIDENCE in system prompts so AI acknowledges uncertainty — v2.0
+- ✓ Prompt regression testing with CI/CD automation — v2.0
+- ✓ Long-session personality drift detection — v2.0
+- ✓ Latency benchmarking infrastructure — v2.0
 
 ### Active
 
-#### v2.0 AI Quality & Personalization
-
-- [ ] Opik evaluation datasets & experiments for systematic prompt testing
-- [ ] Natural voice system prompts (replace technical section headers with personality)
-- [ ] Dynamic personality primer based on user data quality & relationship stage
-- [ ] Emotional intelligence & conversational awareness
-- [ ] Linguistic pattern mirroring from user's chat history
-- [ ] Soulprint quality scoring & iterative refinement
-- [ ] Memory integration improvements (narrative context, not raw lists)
+(No active milestone — planning next)
 
 ### Out of Scope
 
@@ -68,27 +69,24 @@ The import-to-chat flow must work reliably every time on production — no stuck
 - Concurrent chunk uploads — performance optimization, future work
 - Multi-platform channels (SMS, Telegram, WhatsApp) — v2+ OpenClaw-style gateway
 - Per-user cloud instances — v2+ each SoulPrint as deployable agent
-
-## Current Milestone: v2.0 AI Quality & Personalization
-
-**Goal:** Make the AI sound genuinely human and deeply personalized — using Opik for systematic evaluation, improving system prompts, adding emotional intelligence, linguistic mirroring, and iterative soulprint refinement.
-
-**Target features:**
-- Opik evaluation datasets & experiments for systematic prompt testing
-- Natural voice system prompts (replace technical headers with personality)
-- Dynamic personality primer based on user data quality & relationship stage
-- Emotional intelligence & conversational awareness
-- Linguistic pattern mirroring from user's chat history
-- Soulprint quality scoring & iterative refinement
-- Memory integration improvements (narrative context, not raw lists)
+- NLP libraries (winkNLP, compromise) — LLM-based extraction more accurate
+- Sentiment analysis libraries — Claude has native emotional intelligence via prompts
+- Real-time soulprint updates during chat — causes personality drift
+- Perfect linguistic mimicry — uncanny valley risk
+- Exposed evaluation scores to users — gamification anxiety
 
 ## Context
 
-### Current State (after v1.2)
+### Current State (after v2.0)
 
-- **Codebase:** ~86K lines TypeScript + Python, Next.js 16 App Router, Supabase, deployed on Vercel
+- **Codebase:** ~105K lines TypeScript + Python, Next.js 16 App Router, Supabase, deployed on Vercel
 - **RLM service:** FastAPI on Render with full pass pipeline (conversation chunking, fact extraction, MEMORY generation, v2 regeneration)
-- **Test coverage:** 112 Vitest tests, 10 Playwright E2E tests
+- **Evaluation:** Opik evaluation framework with LLM-as-judge (personality consistency, factuality, tone matching), experiment runner, regression CLI
+- **Prompts:** Versioned PromptBuilder (v1-technical, v2-natural-voice), cross-language Python parity, DATA CONFIDENCE sections
+- **Emotional Intelligence:** Emotion detection (Haiku 4.5), relationship arc tracking, dynamic temperature, uncertainty acknowledgment
+- **Quality:** Three-dimensional scoring (completeness, coherence, specificity), daily refinement cron, import pipeline hooks
+- **CI/CD:** GitHub Actions regression testing on prompt file changes, autocannon latency benchmarking
+- **Test coverage:** 112+ Vitest tests, Playwright E2E (import-to-chat + long-session drift detection)
 - **Security:** CSRF + rate limiting + Zod validation + RLS scripts ready
 - **Observability:** Pino structured logging, /api/health with dependency checks
 - **Type safety:** noUncheckedIndexedAccess, zero `any` in import/chat flows
@@ -97,10 +95,12 @@ The import-to-chat flow must work reliably every time on production — no stuck
 ### Known Issues
 
 - 10 test mock type errors in complete.test.ts (pre-existing, runtime works)
+- 7 type errors in cross-language sync tests (EmotionalState type mismatches)
 - RLS scripts need manual execution in Supabase SQL Editor
-- Database migrations pending: `20260206_add_tools_md.sql`, `20260207_full_pass_schema.sql`
+- Database migrations pending: `20260206_add_tools_md.sql`, `20260207_full_pass_schema.sql`, `20260209_quality_breakdown.sql`
 - Some routes use console.log instead of Pino
 - lib/retry.ts has no dedicated unit tests
+- RLM service does NOT use EI parameters (only Bedrock fallback gets EI features)
 
 ### Key Fragile Areas (mostly addressed)
 
@@ -131,16 +131,19 @@ The import-to-chat flow must work reliably every time on production — no stuck
 | Pino over Winston | Performance, modern JSON logging | ✓ Good — structured logs working |
 | noUncheckedIndexedAccess | Prevent undefined access bugs | ✓ Good — caught 57 issues |
 | Zod boundary validation | Validate external API responses at parse boundary | ✓ Good — catches malformed data |
-
-| Remove email gate for import | Users are already chatting by the time email arrives — unnecessary wait | ✓ Good — users go straight to chat |
-| OpenClaw-inspired structured context | Modular SOUL/USER/MEMORY sections vs monolithic soulprint_text blob | ✓ Good — 7 sections, clean composition |
+| Remove email gate for import | Users are already chatting by the time email arrives | ✓ Good — users go straight to chat |
+| OpenClaw-inspired structured context | Modular SOUL/USER/MEMORY sections vs monolithic blob | ✓ Good — 7 sections, clean composition |
 | Two-pass pipeline | Quick pass for speed, full pass for depth | ✓ Good — ~30s to chat, v2 upgrade in background |
-
-| Separate soulprint-rlm repo | Production RLM deploys from Pu11en/soulprint-rlm, not soulprint-landing/rlm-service/ | — Pending |
-| Hybrid merge for RLM sync | Add v1.2 processors to production without breaking existing endpoints | — Pending |
-
+| Separate soulprint-rlm repo | Production RLM deploys from Pu11en/soulprint-rlm | — Pending |
 | Switch to Sonnet 4.5 for chat | Nova Lite can't follow personality instructions | ✓ Good — natural personality |
 | OpenClaw-style prompt | Minimal preamble, let sections define personality | ✓ Good — deployed to production |
+| Evaluation-first approach | Build measurement before changing prompts | ✓ Good — baseline before changes |
+| Haiku 4.5 for emotion detection | Fast, cheap (150 max tokens, temp 0.2) | ✓ Good — ~200ms overhead |
+| Fail-safe neutral EI defaults | Never crash chat on detection error | ✓ Good — zero EI-related failures |
+| Three separate quality judges | Specialized evaluation per dimension | ✓ Good — parallel scoring in ~2-3s |
+| Fire-and-forget quality scoring | Non-blocking in import, cron catches failures | ✓ Good — no import slowdown |
+| P97.5 latency percentile | autocannon limitation vs P95 | ✓ Good — close approximation |
+| PR-triggered regression testing | Only on prompt file changes, avoids expensive evals | ✓ Good — cost-efficient CI |
 
 ---
-*Last updated: 2026-02-08 after v2.0 milestone started*
+*Last updated: 2026-02-09 after v2.0 milestone complete*
