@@ -1,116 +1,116 @@
-# Requirements: SoulPrint v1.5 Full Chat Experience
+# Requirements: SoulPrint v2.0 AI Quality & Personalization
 
 **Defined:** 2026-02-08
-**Core Value:** The AI must feel like YOUR AI -- personalized chat with full-featured UX.
+**Core Value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-## v1.5 Requirements
+## v2.0 Requirements
 
-Requirements for the Full Chat Experience milestone. Each maps to roadmap phases.
+Requirements for the AI Quality & Personalization milestone. Each maps to roadmap phases.
 
-### Conversation Management
+### Evaluation
 
-- [ ] **CONV-01**: User can see a sidebar listing all their conversations
-- [ ] **CONV-02**: User can create a new conversation
-- [ ] **CONV-03**: User can switch between conversations (messages load for selected conversation)
-- [ ] **CONV-04**: User can delete a conversation
-- [ ] **CONV-05**: User can rename a conversation
-- [ ] **CONV-06**: Conversations auto-generate a title from the first exchange
-- [x] **CONV-07**: Existing chat messages are migrated into a default conversation without data loss
+- [ ] **EVAL-01**: Opik evaluation datasets exist for personality consistency, factuality, and tone matching
+- [ ] **EVAL-02**: LLM-as-judge scoring rubrics evaluate prompt quality with >70% human agreement
+- [ ] **EVAL-03**: Experiment runner can compare prompt variants with aggregate scores
+- [ ] **EVAL-04**: Baseline metrics are recorded for current v1 prompt system before any changes
 
-### Streaming
+### Prompts
 
-- [x] **STRM-01**: User sees AI responses render token-by-token in real time
-- [x] **STRM-02**: User can stop/cancel AI response generation mid-stream
-- [x] **STRM-03**: Streaming works through Vercel serverless (no buffering, correct runtime config)
+- [ ] **PRMT-01**: System prompts use natural voice (flowing personality primer) instead of technical markdown headers
+- [ ] **PRMT-02**: Prompt template system supports versioned swap (v1-technical / v2-natural-voice via env var)
+- [ ] **PRMT-03**: Next.js and RLM prompt builders produce identical output for same sections
+- [ ] **PRMT-04**: Personality instructions are reinforced after RAG memory retrieval (not overridden by chunks)
 
-### Rich Rendering
+### Emotional Intelligence
 
-- [x] **RNDR-01**: AI responses render markdown (headers, lists, bold, italic, links, tables)
-- [x] **RNDR-02**: Code blocks render with syntax highlighting
-- [x] **RNDR-03**: Code blocks have a one-click copy button
-- [x] **RNDR-04**: Markdown rendering is XSS-safe (rehype-sanitize, no javascript: links)
+- [ ] **EMOT-01**: AI detects user frustration, satisfaction, and confusion from text patterns and adapts response style
+- [ ] **EMOT-02**: AI acknowledges uncertainty explicitly ("I don't have enough info about X") instead of hallucinating
+- [ ] **EMOT-03**: Relationship arc adapts tone based on conversation history depth (cautious early, confident later)
 
-### Web Search
+### Quality
 
-- [ ] **SRCH-01**: User can trigger web search / research mode for current-info queries
-- [ ] **SRCH-02**: AI responses include inline source citations with clickable links
-- [ ] **SRCH-03**: Citation URLs are validated against actual search results (no hallucinated links)
+- [ ] **QUAL-01**: Each soulprint section is scored 0-100 for data quality (completeness, coherence, specificity)
+- [ ] **QUAL-02**: Quality scores are surfaced in system prompt so AI knows its own data confidence
+- [ ] **QUAL-03**: Low-quality soulprints are flagged for automated refinement
 
-### Dark Mode
+### Validation
 
-- [x] **DARK-01**: User can toggle between dark and light themes
-- [x] **DARK-02**: Theme respects system preference on first visit
-- [x] **DARK-03**: All UI components render correctly in both themes (no invisible text, broken contrast)
+- [ ] **VALD-01**: Prompt regression test suite catches personality degradation before deploy
+- [ ] **VALD-02**: Long-session testing (10+ messages) validates no uncanny valley or personality drift
+- [ ] **VALD-03**: Async observability adds <100ms P95 latency overhead
 
-### Voice Input
-
-- [ ] **VOIC-01**: User can input messages via speech-to-text button
-- [ ] **VOIC-02**: Voice input detects browser compatibility and shows/hides accordingly
-- [ ] **VOIC-03**: Voice recording has a 2-minute time limit with auto-stop
-
-## v2 Requirements
+## v2.1 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
 
-### Conversation Management
+### Linguistic Mirroring
 
-- **CONV-08**: Conversation spaces/categories for organizing 50+ conversations
-- **CONV-09**: Cross-conversation memory highlights (surface relevant past conversations)
+- **LING-01**: User's formality level, emoji usage, humor style, and sentence structure are extracted from ChatGPT export
+- **LING-02**: AI mirrors user's linguistic patterns in responses (gradual adaptation over 3-4 exchanges)
+- **LING-03**: Linguistic profile is refined incrementally during chat conversations
 
-### Voice
+### Memory Narrative
 
-- **VOIC-04**: Voice output / text-to-speech for AI responses
-- **VOIC-05**: Offline voice recognition (privacy mode)
+- **MNAR-01**: Memory context is presented as flowing narrative paragraphs instead of bullet lists
+- **MNAR-02**: Signature greeting from identity section is used on first message of each session
 
-### Rendering
+### Adaptive Depth
 
-- **RNDR-05**: Rich media rendering (images, videos in responses)
-- **RNDR-06**: Memory evolution timeline visualization
+- **ADPT-01**: AI enforces depth preference (brief vs detailed) from tools section more strongly
+
+## v2.2+ Requirements
+
+Deferred to future release.
+
+### Iterative Refinement
+
+- **REFN-01**: Soulprint updates automatically from new conversations (with drift detection)
+- **REFN-02**: Conversation-level topic shift detection adjusts tone dynamically
+
+### User Controls
+
+- **CTRL-01**: User can view and edit specific memories
+- **CTRL-02**: A/B testing framework for prompt variations with statistical significance
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Model picker | User explicitly excluded -- single model (Sonnet 4.5) |
-| Artifact/canvas panel | User explicitly excluded -- defer to v2+ |
-| Real-time collaboration | Massive complexity, unclear value for personal AI |
-| Unlimited conversation branching | Confusing UI, ChatGPT doesn't do this |
-| Manual memory editing | Cognitive burden, users won't maintain |
-| Over-engineered persona switching | Dilutes core SoulPrint value |
+| NLP libraries (winkNLP, compromise) | LLM-based extraction more accurate and maintainable |
+| Sentiment analysis libraries | Claude has native emotional intelligence via prompts |
+| Alternative eval frameworks (DeepEval, RAGAS) | Opik already integrated and sufficient |
+| Real-time soulprint updates during chat | Causes personality drift -- research pitfall #1 |
+| Perfect linguistic mimicry | Uncanny valley -- research pitfall #3 |
+| Exposed evaluation scores to users | Gamification anxiety -- UX pitfall |
+| Model picker / persona switching | Dilutes core SoulPrint value |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONV-01 | Phase 10 | Pending |
-| CONV-02 | Phase 10 | Pending |
-| CONV-03 | Phase 10 | Pending |
-| CONV-04 | Phase 10 | Pending |
-| CONV-05 | Phase 10 | Pending |
-| CONV-06 | Phase 10 | Pending |
-| CONV-07 | Phase 8 | Complete |
-| STRM-01 | Phase 9 | Pending |
-| STRM-02 | Phase 9 | Pending |
-| STRM-03 | Phase 9 | Pending |
-| RNDR-01 | Phase 11 | Complete |
-| RNDR-02 | Phase 11 | Complete |
-| RNDR-03 | Phase 11 | Complete |
-| RNDR-04 | Phase 11 | Complete |
-| SRCH-01 | Phase 12 | Pending |
-| SRCH-02 | Phase 12 | Pending |
-| SRCH-03 | Phase 12 | Pending |
-| DARK-01 | Phase 11 | Complete |
-| DARK-02 | Phase 11 | Complete |
-| DARK-03 | Phase 11 | Complete |
-| VOIC-01 | Phase 13 | Pending |
-| VOIC-02 | Phase 13 | Pending |
-| VOIC-03 | Phase 13 | Pending |
+| EVAL-01 | - | Pending |
+| EVAL-02 | - | Pending |
+| EVAL-03 | - | Pending |
+| EVAL-04 | - | Pending |
+| PRMT-01 | - | Pending |
+| PRMT-02 | - | Pending |
+| PRMT-03 | - | Pending |
+| PRMT-04 | - | Pending |
+| EMOT-01 | - | Pending |
+| EMOT-02 | - | Pending |
+| EMOT-03 | - | Pending |
+| QUAL-01 | - | Pending |
+| QUAL-02 | - | Pending |
+| QUAL-03 | - | Pending |
+| VALD-01 | - | Pending |
+| VALD-02 | - | Pending |
+| VALD-03 | - | Pending |
 
 **Coverage:**
-- v1.5 requirements: 23 total
-- Mapped to phases: 23
-- Unmapped: 0
+- v2.0 requirements: 16 total
+- Mapped to phases: 0
+- Unmapped: 16 (pending roadmap creation)
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 -- traceability populated after roadmap creation*
+*Last updated: 2026-02-08 after user approval*
