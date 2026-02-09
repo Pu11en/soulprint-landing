@@ -16,6 +16,7 @@ import { createLogger } from '@/lib/logger';
 import { chatGPTExportSchema, ChatGPTRawConversation } from '@/lib/api/schemas';
 import { generateQuickPass, sectionsToSoulprintText } from '@/lib/soulprint/quick-pass';
 import type { ParsedConversation, ConversationMessage } from '@/lib/soulprint/types';
+import { calculateQualityBreakdown } from '@/lib/evaluation/quality-scoring';
 
 const log = createLogger('API:ImportProcessServer');
 
@@ -405,7 +406,35 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
       raw_export_path: rawExportPath,
     }, { onConflict: 'user_id' });
-    
+
+    // Fire-and-forget quality scoring (non-blocking)
+    // Scores the quick pass result immediately after generation
+    if (quickPassResult) {
+      void (async () => {
+        try {
+          const breakdown = await calculateQualityBreakdown({
+            soul_md: soulMd,
+            identity_md: identityMd,
+            user_md: userMd,
+            agents_md: agentsMd,
+            tools_md: toolsMd,
+          });
+
+          await adminSupabase
+            .from('user_profiles')
+            .update({
+              quality_breakdown: breakdown,
+              quality_scored_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId);
+
+          reqLog.info({ userId }, 'Quality scoring complete');
+        } catch (err) {
+          reqLog.error({ userId, error: String(err) }, 'Quality scoring failed (non-fatal)');
+        }
+      })();
+    }
+
     // Update profile status - RLM will do chunking + embedding + soulprint
     await adminSupabase.from('user_profiles').update({
       import_status: 'processing',
