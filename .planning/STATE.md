@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: 2 of 3 COMPLETE (Test Type Safety Fixes)
-Plan: 1/1 complete — Phase verified
-Status: Phases 1-2 complete, Phase 3 pending
-Last activity: 2026-02-09 — Phase 2 verified (6/6 must-haves passed)
+Phase: 3 of 3 (Web Search Citation Validation)
+Plan: 1 of 2 complete
+Status: Phase 3 in progress (Plan 03-01 complete)
+Last activity: 2026-02-09 — Completed 03-01-PLAN.md
 
-Progress: [██████░░░░] 66% (2/3 phases complete)
+Progress: [████████░░] 83% (2.5/3 phases complete)
 
 ## Performance Metrics
 
@@ -54,6 +54,10 @@ Recent decisions affecting current work:
 - v2.1 Phase 2 Plan 1: Use 'as const' assertions for union type literals instead of type annotations
 - v2.1 Phase 2 Plan 1: Use 'as any' for Vitest mock overrides (pragmatic test-only approach)
 - v2.1 Phase 2 Plan 1: Import actual types instead of inline test definitions (single source of truth)
+- v2.1 Phase 3 Plan 1: Use HEAD requests only for citation validation (fast, no body download)
+- v2.1 Phase 3 Plan 1: Validate before LLM prompt to prevent hallucinated citations
+- v2.1 Phase 3 Plan 1: Accept 2xx and 3xx status codes (legitimate redirects)
+- v2.1 Phase 3 Plan 1: Block localhost and private IPs for SSRF protection
 
 ### Pending Todos
 
@@ -65,14 +69,14 @@ Recent decisions affecting current work:
 Known gaps addressed by v2.1:
 - ~~RLM service does NOT use EI parameters (only Bedrock fallback gets EI) → Phase 1~~ ✅ RESOLVED (01-01)
 - ~~10 test mock type errors + 7 cross-language type errors → Phase 2~~ ✅ RESOLVED (02-01)
-- Web search citations not validated against hallucination → Phase 3
+- ~~Web search citations not validated against hallucination → Phase 3~~ ✅ PARTIAL (03-01 backend done, 03-02 frontend pending)
 
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Phase 2 execution complete and verified
+Stopped at: Completed 03-01-PLAN.md (Citation Validation Backend)
 Resume file: None
-Next step: `/gsd:plan-phase 3` to plan Web Search Citation Validation
+Next step: Execute Plan 03-02 (Frontend citation display)
 
 ---
-*Last updated: 2026-02-09 -- Phase 2 complete and verified*
+*Last updated: 2026-02-09 -- Phase 3 Plan 1 complete (citation validation backend)*
