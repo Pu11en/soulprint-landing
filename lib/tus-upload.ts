@@ -32,19 +32,28 @@ export interface TusUploadResult {
 export async function tusUpload(options: TusUploadOptions): Promise<TusUploadResult> {
   const { file, userId, filename, onProgress } = options;
 
-  // Force token refresh before reading session (getSession reads stale cache)
+  // Force explicit session refresh (getSession reads stale cache, getUser doesn't always refresh)
   const supabase = createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
 
-  if (userError || !user) {
+  if (refreshError || !refreshData.session?.access_token) {
+    console.error('[TUS] Session refresh failed:', refreshError);
     return { success: false, error: 'You must be logged in to upload' };
   }
 
-  // Now getSession returns the refreshed token
-  const { data: { session } } = await supabase.auth.getSession();
+  const session = refreshData.session;
 
-  if (!session?.access_token) {
-    return { success: false, error: 'You must be logged in to upload' };
+  // Debug: verify token is valid JWT format (header.payload.signature = exactly 2 dots)
+  const dotCount = (session.access_token.match(/\./g) || []).length;
+  console.log('[TUS] Token check:', {
+    length: session.access_token.length,
+    dots: dotCount,
+    prefix: session.access_token.substring(0, 30) + '...',
+  });
+
+  if (dotCount !== 2) {
+    console.error('[TUS] Token is NOT a valid JWT — expected 2 dots, got', dotCount);
+    return { success: false, error: 'Auth token is corrupted. Please log out and log back in.' };
   }
 
   // Extract project ID from Supabase URL
@@ -83,13 +92,11 @@ export async function tusUpload(options: TusUploadOptions): Promise<TusUploadRes
       },
       // Refresh JWT token before each chunk (prevents 401 on multi-hour uploads)
       onBeforeRequest: async (req) => {
-        // Force refresh first, then read the fresh session
-        await supabase.auth.getUser();
-        const { data: { session: freshSession } } = await supabase.auth.getSession();
-        if (!freshSession?.access_token) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (!refreshed.session?.access_token) {
           throw new Error('Session expired during upload');
         }
-        req.setHeader('Authorization', `Bearer ${freshSession.access_token}`);
+        req.setHeader('Authorization', `Bearer ${refreshed.session.access_token}`);
       },
       // Track upload progress
       onProgress: (bytesUploaded, bytesTotal) => {
