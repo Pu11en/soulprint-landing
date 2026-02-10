@@ -1,321 +1,737 @@
-# Project Research Summary
+# Research Summary: TUS Resumable Uploads for v2.3 Universal Uploads
 
-**Project:** v2.2 Bulletproof Imports — Moving ChatGPT Import Processing to RLM
-**Domain:** Large-file import processing with background pipeline migration
+**Milestone:** v2.3 Universal Uploads
+**Domain:** Browser-based resumable file uploads for ChatGPT exports (1MB-5GB)
 **Researched:** 2026-02-09
-**Confidence:** HIGH
+**Overall Confidence:** HIGH
 
 ## Executive Summary
 
-Moving import processing from Vercel serverless (1GB RAM, 300s timeout) to RLM service on Render eliminates the fundamental constraints causing import failures for large ChatGPT exports. The migration transforms Vercel into a thin authentication proxy while RLM owns the complete pipeline: download → parse → quick pass → chunk → embed → full pass.
-
-The convoviz project demonstrates quality parsing approaches that handle ChatGPT's complex DAG structure and polymorphic content types. By porting these patterns and adding streaming JSON parsing (ijson), the system can process exports of any size (tested up to 2GB) on Render's infrastructure without memory or timeout issues. The architecture shift from synchronous processing to fire-and-forget with status polling enables background processing and proper progress reporting.
-
-Critical risks center on cross-service integration patterns. Vercel's serverless function lifecycle can kill in-flight requests if not awaited with confirmation. Render's cold start delays (up to 60 seconds) require explicit UX handling to prevent user confusion. Database-driven progress polling is simpler and more reliable than WebSocket infrastructure for this use case. The migration delivers "works for any size export on any device" by moving heavy computation out of serverless constraints while maintaining the responsive upload UX.
-
-## Key Findings
-
-### Recommended Stack
-
-Research identified minimal additions to enable streaming large-file processing. The RLM service already has FastAPI, httpx, and Pydantic — only two new dependencies are required.
-
-**Core technologies:**
-- **ijson (^3.4.0)**: Streaming JSON parser — processes 300MB+ files with constant ~2-5MB memory usage vs loading entire file into RAM. Critical for eliminating OOM failures.
-- **supabase-py (^2.27.3)**: Python Supabase client — provides typed Storage API for downloading files with service role key auth. Built on httpx for streaming integration.
-- **httpx (already installed)**: Streaming HTTP downloads — supports `httpx.stream()` for chunked downloads without loading entire file into memory.
-- **Pydantic (already installed)**: Polymorphic content modeling — handles ChatGPT's complex content.parts structure (strings, dicts, tool outputs). Already in use for RLM models.
-
-**Deployment configuration:**
-- Render 2GB RAM instance minimum for 300MB+ files
-- Uvicorn workers tuned for memory efficiency (2 workers, periodic restart after 1000 requests)
-- Max concurrent imports limited to prevent memory exhaustion
-
-**What NOT to use:**
-- pandas.read_json (287MB peak memory vs ijson's 2-5MB)
-- NetworkX for DAG traversal (10MB+ dependency for simple parent→child relationships)
-- json.load() for large files (loads entire file into memory, causes OOM)
-
-### Expected Features
-
-Research revealed clear table stakes vs differentiators for large-file import systems.
-
-**Must have (table stakes):**
-- **Large file handling (300MB+)** — ChatGPT power users generate 100MB-2GB exports. Failing on large files eliminates core audience. Requires streaming parser.
-- **Processing status visibility** — Users need to know if import is running or stuck. Database polling with progress_percent tracking (0%, 20%, 40%, 60%, 100%).
-- **Error messages with actionable guidance** — "Import failed" → "File too large (2.3GB, max 2GB). Try exporting a smaller date range."
-- **Mobile upload support** — Users expect to upload from any device. Current chunked upload works; must test 100MB+ files on iOS/Android.
-- **Processing completion notification** — Email when ready. Industry standard for async operations taking >30 seconds.
-- **Resumable uploads on network failure** — Already implemented via Supabase Storage's chunked upload.
-
-**Should have (competitive advantage):**
-- **Accurate DAG traversal (real conversations only)** — Competitors show duplicate/dead-branch messages from edits. Use current_node→parent chain, not naive node iteration. Convoviz proves this achieves clean conversation history.
-- **Hidden message filtering** — Show users actual conversations, not internal tool outputs (web search, code execution). Improves soulprint quality by removing noise.
-- **Multi-part content parsing** — Users with images/files get complete history, not just first text fragment. Handle polymorphic content.parts array.
-- **Background processing with "close and come back"** — User can close browser, get email when done. Differentiator because many tools require keeping page open.
-- **Validation before heavy processing** — Check conversations.json structure BEFORE starting expensive parsing/embedding. Fail-fast reduces wasted RLM costs and user wait time.
-
-**Defer (v2+):**
-- **Real-time streaming progress (WebSocket)** — Anti-feature: adds architectural complexity, rarely watched, mobile battery drain. Database polling every 2s is sufficient.
-- **In-browser parsing of large files** — Anti-feature: browser memory constraints worse than server (especially mobile), crash loses all work.
-- **Parallel conversation processing** — Anti-feature: marginal speed gain (I/O bound), complicates progress reporting, harder to debug.
-
-### Architecture Approach
-
-The target architecture transforms Vercel from heavy processor to thin proxy, with RLM owning the entire pipeline. Progress flows back via database polling — simpler than WebSocket infrastructure and compatible with serverless constraints.
-
-**Major components:**
-
-1. **Client (Browser)** — Chunked XHR upload to Supabase Storage (direct, bypasses Vercel). Polls /api/import/status every 2s for progress. No change to upload flow (already works perfectly).
-
-2. **Vercel /api/import/trigger (new)** — Thin proxy with zero parsing. Auth check → mark import_status = 'processing' → POST to RLM /import with storage_path → return 202 Accepted. Must await RLM response with 10s timeout to confirm job acceptance (Vercel serverless lifecycle kills fire-and-forget requests mid-flight).
-
-3. **Vercel /api/import/status (new)** — Query user_profiles for {import_status, progress_percent, import_error}. Simple database passthrough.
-
-4. **RLM /import (new)** — Complete import orchestrator replacing Vercel's process-server. Accepts 202 immediately, runs background task: download from Supabase Storage → extract/parse → quick pass → chunk → embed → full pass. Updates progress_percent at each stage (0% → 20% → 40% → 60% → 100%).
-
-5. **RLM Quick Pass Generation (moved from Vercel)** — Port lib/soulprint/sample.ts and prompts.ts to Python. Use Anthropic Haiku 4.5 API (already configured in RLM). Generates 5 sections: soul, identity, user, agents, tools.
-
-6. **RLM DAG Traversal (already implemented)** — conversation_chunker.py lines 71-116. Handles ChatGPT's parent→child mapping structure with cycle detection. No changes needed.
-
-7. **Supabase Storage** — Stores uploaded files. RLM downloads with service role key. Storage path format: `imports/{user_id}/{timestamp}-conversations.json`
-
-8. **Supabase DB** — Add progress_percent column to user_profiles. RLM updates via HTTP PATCH throughout processing. Client polls via /api/import/status.
-
-**Key integration patterns:**
-- Vercel → RLM: POST with storage_path, await 10s for job acceptance
-- RLM → Storage: GET with service role key, stream to disk (not memory)
-- RLM → DB: PATCH progress updates at stage boundaries
-- Client → Vercel: Poll every 2s (not WebSocket) for status
-
-**What NOT to do:**
-- Don't parse in Vercel (moves problem, doesn't solve it)
-- Don't use WebSockets (overkill for minutes-long operations, serverless incompatible)
-- Don't pass raw conversations between services (send storage path instead)
-- Don't use synchronous RLM calls (Vercel timeout still applies)
-
-### Critical Pitfalls
-
-Research identified 10 critical pitfalls from serverless-to-worker migrations, ChatGPT parsing complexity, and cross-service integration.
-
-1. **Vercel Fire-and-Forget Termination** — Vercel kills serverless function immediately after sending client response, destroying in-flight RLM request. **Prevention:** Await RLM response with 10s timeout to confirm job acceptance. Current queue-processing/route.ts:145-153 does this correctly.
-
-2. **Render Cold Start Breaking Import UX** — Render free tier spins down after 15 minutes. Cold start takes 60+ seconds. User sees "Processing..." with no feedback, assumes breakage, refreshes, creates duplicates. **Prevention:** Keep-alive pings every 10 minutes (not 15), detect cold start in Vercel (>5s job acceptance), show "Service warming up, please wait 30 seconds."
-
-3. **ChatGPT Export Format Variations** — Real-world exports have edge cases: minified JSON (one giant line), multiple roots, no roots, malformed timestamps, non-UTF8 characters, 1000+ message conversations. **Prevention:** ijson streaming parser, defensive DAG traversal with cycle detection (conversation_chunker.py:71-75), truncate messages to 5000 chars, validate with Pydantic, gracefully skip malformed conversations.
-
-4. **Memory Exhaustion on Large Exports** — Loading 500MB conversations.json into memory with json.loads() spikes to 2GB+, Render kills process (OOM), import fails silently. **Prevention:** ijson streaming parser (processes file incrementally), download to disk first (not memory), batch processing (parse 1000 conversations → chunk → save → release memory → repeat).
-
-5. **Progress Reporting Dead Zone** — User uploads (progress works), Vercel queues (no progress), RLM processes 2 minutes (no progress), completes, user still sees "processing" until manual refresh. **Prevention:** Store granular stages in DB ("downloading", "parsing", "chunking"), RLM updates stage field, client polls and shows specific messages ("Analyzing 10,345 messages...").
-
-6. **Duplicate Import Race Condition** — User uploads, waits 30s (impatient), refreshes, uploads again. Both requests pass duplicate check (both see import_status='none' simultaneously), both process, database corrupted. **Prevention:** Atomic lock acquisition with Postgres advisory locks or conditional update (WHERE processing_started_at IS NULL).
-
-7. **Status Update Failures Leave User Stuck** — RLM completes successfully, tries to update user_profiles to 'complete', Supabase unreachable (network hiccup), update fails silently, user sits on "Processing..." forever. **Prevention:** Exponential backoff retry for status updates (3 attempts over 10 seconds), dead letter queue if all fail, client-side "Check import status" button after 10 minutes.
-
-8. **DAG Traversal Stack Overflow** — User has conversation with 500+ messages (1000 nodes), recursive traversal hits Python's recursion limit (1000), throws RecursionError. **Prevention:** Convert recursive to iterative with explicit stack (queue-based BFS or stack-based DFS), or add depth limit.
-
-9. **Cross-Service Authentication Token Expiry** — Vercel generates signed URL (1 hour expiry), passes to RLM, RLM queues, processes 90 minutes later (cold start + busy), signed URL expired, 403 Forbidden. **Prevention:** Use storage_path + service role key (no expiry), not presigned URLs for cross-service communication.
-
-10. **Service Key Exposure in RLM** — RLM needs SUPABASE_SERVICE_ROLE_KEY for downloads/updates. If RLM compromised, key gives full database access. **Prevention:** Use Supabase Storage signed URLs (generated by Vercel) for downloads, Edge Functions with RLS policies for database writes. Phase 1 can use service key, Phase 3 hardens security.
-
-## Implications for Roadmap
-
-Based on combined research, the migration breaks into clear phases with distinct deliverables and pitfall avoidance strategies.
-
-### Phase 1: Core Migration — Streaming Parser + RLM Pipeline
-**Rationale:** Foundation must work before adding enhancements. Streaming parser eliminates OOM failures (Pitfall #4), RLM pipeline eliminates timeout constraints, job acceptance pattern prevents fire-and-forget termination (Pitfall #1).
-
-**Delivers:**
-- ijson streaming JSON parser (handles 300MB+ files)
-- RLM /import endpoint with complete pipeline (download → parse → quick pass → chunk → full pass)
-- Vercel /api/import/trigger (thin proxy with job acceptance confirmation)
-- Vercel /api/import/status (database polling endpoint)
-- Database schema change (progress_percent column)
-- Port quick pass generation from Vercel to RLM (lib/soulprint → processors/quick_pass.py)
-- Atomic duplicate detection (advisory locks)
-- Iterative DAG traversal (prevents stack overflow, Pitfall #8)
-
-**Addresses features:**
-- Large file handling (300MB+) — streaming parser
-- Accurate DAG traversal — port convoviz patterns
-- Hidden message filtering — metadata inspection
-- Multi-part content parsing — polymorphic parts handling
-- Processing status visibility — progress_percent tracking
-- Validation before processing — fail-fast schema checks
-
-**Avoids pitfalls:**
-- #1 (Fire-and-forget) — await job acceptance with timeout
-- #3 (Format variations) — defensive parsing, Pydantic validation
-- #4 (Memory exhaustion) — streaming parser, batch processing
-- #6 (Duplicate race) — atomic lock acquisition
-- #8 (Stack overflow) — iterative traversal
-- #9 (Token expiry) — use storage_path, not signed URLs
-
-**Research flag:** SKIP — patterns well-documented, libraries proven (ijson, convoviz reference). Standard streaming and async patterns.
-
-### Phase 2: Resilience + Progress Enhancement
-**Rationale:** Once core works, add production hardening. Retry logic prevents status update failures (Pitfall #7), granular progress reduces perceived wait time and stuck-import confusion (Pitfall #5).
-
-**Delivers:**
-- Exponential backoff retry for database updates (3 attempts, 10s total)
-- Dead letter queue for failed updates (alert webhook)
-- Granular progress stages ("downloading", "parsing", "chunking", "embedding", "generating_soulprint")
-- Stage-specific messages in UI ("Analyzing 10,345 messages...")
-- Cold start detection and user feedback ("Service warming up...")
-- Processing time estimates based on conversation count
-
-**Addresses features:**
-- Detailed progress reporting (stages) — reduces perceived wait time
-- Smart retry on transient failures — reduces support burden
-- Actionable error messages — specific guidance per failure type
-
-**Avoids pitfalls:**
-- #5 (Progress dead zone) — granular stage tracking
-- #7 (Status update failures) — retry logic, dead letter queue
-- #2 (Cold start UX) — detection + user messaging
-
-**Research flag:** SKIP — standard retry patterns, well-documented UX guidelines (Nielsen Norman Group).
-
-### Phase 3: Security Hardening + Production Readiness
-**Rationale:** Core functionality proven, now reduce attack surface. Service key exposure is highest security risk (Pitfall #10). Production monitoring catches issues before users report them.
-
-**Delivers:**
-- Replace service role key with Storage signed URLs (Vercel generates, RLM uses)
-- Replace direct DB writes with Supabase Edge Functions + RLS policies
-- Rate limiting on RLM endpoints (prevent spam attacks)
-- File size validation before queuing (prevent DoS)
-- Memory profiling and explicit limits in RLM
-- Monitoring dashboards (cold start frequency, completion times, error rates)
-- Alert webhooks for stuck imports (>15 min no progress)
-
-**Addresses features:**
-- Mobile-specific optimizations (test 100MB+ files on iOS/Android) — based on analytics
-
-**Avoids pitfalls:**
-- #10 (Service key exposure) — Storage signed URLs, Edge Functions
-- #2 (Cold start) — monitoring + alerting for failed keep-alive pings
-
-**Research flag:** LOW — Edge Functions need API research for RLS patterns. Otherwise standard security hardening.
-
-### Phase 4: UX Polish + Edge Cases
-**Rationale:** With robust foundation, improve user experience for edge cases. Import history, manual status fixes, and cancel functionality address power user needs and stuck-import recovery.
-
-**Delivers:**
-- Import history UI (list past imports with timestamps)
-- Manual status fix UI for admins (recover stuck imports)
-- Cancel import button (user can stop stuck processing)
-- Export validation guide (documentation for malformed file errors)
-- Edge case testing (ChatGPT exports from 2021-2025)
-
-**Addresses features:**
-- Import history (power user feature) — nice-to-have, deferred until demand proven
-
-**Avoids pitfalls:**
-- Recovery tooling for edge cases discovered in production
-
-**Research flag:** SKIP — standard admin UI patterns.
-
-### Phase Ordering Rationale
-
-**Dependencies dictate sequence:**
-- Phase 1 must complete before Phase 2 (can't enhance progress for non-existent pipeline)
-- Phase 2 must complete before Phase 3 (security hardening requires stable baseline for load testing)
-- Phase 3 must complete before Phase 4 (can't test edge cases without production-ready infrastructure)
-
-**Grouping rationale:**
-- Phase 1: Foundation (architecture change) — everything else depends on this working
-- Phase 2: Production hardening (operational) — retry/progress improvements don't change architecture
-- Phase 3: Security (non-functional) — can be done independently once core is stable
-- Phase 4: Polish (nice-to-have) — deferred until core validated with real users
-
-**Pitfall avoidance sequence:**
-- Phase 1 addresses launch-blocking pitfalls (#1, #3, #4, #6, #8, #9) — can't ship without these
-- Phase 2 addresses operational pitfalls (#2, #5, #7) — production UX quality
-- Phase 3 addresses security pitfall (#10) — reduces attack surface
-- Phase 4 addresses recovery (no specific pitfall, just edge case tooling)
-
-**Early validation opportunities:**
-- Phase 1: Test with 5 real ChatGPT exports (50MB, 150MB, 300MB, 1GB, 2GB)
-- Phase 2: Monitor cold start frequency and progress polling load for 2 weeks
-- Phase 3: Security audit before removing service key access
-- Phase 4: Gather user feedback on import experience, prioritize polish items
-
-### Research Flags
-
-**Phases needing deeper research during planning:**
-- **Phase 3** — Supabase Edge Functions with RLS policies. Medium confidence. Need API research for service account patterns and RLS policy syntax. Context7 library search for "supabase edge functions rls" during planning.
-
-**Phases with standard patterns (skip research-phase):**
-- **Phase 1** — Streaming parser (ijson well-documented), FastAPI background tasks (standard pattern), convoviz reference implementation exists, DAG algorithms established.
-- **Phase 2** — Retry patterns (exponential backoff), progress reporting UX (Nielsen Norman guidelines), cold start detection (Render docs).
-- **Phase 4** — Admin UI patterns (CRUD operations), validation guides (documentation writing), edge case testing (QA process).
-
-## Confidence Assessment
-
-| Area | Confidence | Notes |
-|------|------------|-------|
-| Stack | HIGH | All libraries verified with PyPI, official docs, and memory benchmarks. ijson proven for 300MB+ files. Supabase Python client built on httpx (already installed). Pydantic V2 already in use. |
-| Features | MEDIUM | Strong consensus on table stakes (large files, progress, mobile). Convoviz proves DAG traversal achievable. Lower confidence on ChatGPT format edge cases (no official spec, inferred from community + convoviz). |
-| Architecture | HIGH | Direct code inspection of current RLM service, Vercel endpoints, and Supabase patterns. Thin proxy + background task pattern well-established for serverless migrations. Database polling simpler than WebSocket for this use case. |
-| Pitfalls | HIGH | 10 pitfalls identified from: serverless platform constraints (Vercel docs), Render cold start behavior (official docs), cross-service integration patterns (production experience), ChatGPT format issues (OpenAI community + convoviz behavior), current codebase inspection. |
-
-**Overall confidence:** HIGH
-
-Research grounded in official documentation (Vercel, Render, Supabase, library PyPI pages), proven reference implementation (convoviz), and direct codebase inspection. Medium confidence areas (ChatGPT format edge cases, hidden message metadata) have defensive fallbacks (graceful skip, filter by role).
-
-### Gaps to Address
-
-**ChatGPT export format variations (Medium risk):**
-- **Gap:** No official OpenAI spec for conversations.json structure. Format evolved 2021-2025. Edge cases inferred from community discussions and convoviz behavior.
-- **Handle during:** Phase 1 execution — test with 5+ real exports spanning different date ranges. Phase 4 — gather user reports of parsing failures, add defensive handling.
-
-**Hidden message metadata fields (Low risk):**
-- **Gap:** Specific fields for filtering (is_visually_hidden_from_conversation, message types) inferred from community knowledge, not documented by OpenAI.
-- **Handle during:** Phase 1 execution — inspect actual export structure, verify fields exist. Fallback: filter by author.role only (user/assistant vs tool/system).
-
-**Mobile large file limits (Low risk):**
-- **Gap:** No testing yet for 100MB+ files on iOS/Android. Browser memory constraints vary by device.
-- **Handle during:** Phase 3 — test matrix (iOS Safari, Android Chrome, 50/150/300MB files, slow network simulation).
-
-**Render memory requirements (Low risk):**
-- **Gap:** Theoretical calculations (100MB peak with streaming) need validation with real 300MB-2GB exports under load.
-- **Handle during:** Phase 1 validation — memory profiling with sample exports. Phase 3 — production monitoring for OOM warnings.
-
-**Supabase rate limits (Low risk):**
-- **Gap:** Unknown rate limits for Storage downloads and Database writes at scale (10K+ imports/day).
-- **Handle during:** Phase 3 — load testing before production rollout. Add retry with exponential backoff.
+Adding TUS (The Upload Server) protocol to SoulPrint is a **low-risk, high-value upgrade** that solves mobile upload reliability issues with minimal architectural changes. The integration is client-side only — requiring one new library (tus-js-client), one new module (lib/tus-upload.ts), and modifications to the upload orchestration in app/import/page.tsx. No backend changes, no database schema changes, no RLM service changes.
+
+**Critical insight:** TUS uploads produce identical storage paths to existing XHR uploads (imports/{user_id}/{timestamp}-{filename}), ensuring zero impact on downstream processing. The primary value is automatic resume on network interruption, better mobile reliability via smaller 6MB chunks, and built-in exponential retry logic.
+
+**Estimated effort:** 1-2 days implementation + testing, gradual rollout via feature flag.
+
+## Key Technical Decisions
+
+### 1. Client-Side Integration Only
+
+**Decision:** Integrate TUS at the browser upload layer only. No server-side changes.
+
+**Rationale:**
+- Supabase Storage natively supports TUS protocol at `/storage/v1/upload/resumable` endpoint
+- Current backend flow (trigger API → RLM service) works with storage paths, not upload mechanism
+- TUS metadata configuration produces same storage path format as XHR uploads
+- RLS policies apply automatically via bearer token authentication
+
+**What changes:**
+- `lib/tus-upload.ts` (NEW) — wrapper around tus-js-client
+- `app/import/page.tsx` (MODIFIED) — upload orchestration (lines 510-598)
+- `package.json` (MODIFIED) — add tus-js-client dependency
+
+**What stays unchanged:**
+- `/api/import/trigger` endpoint
+- RLM service integration
+- Supabase RLS policies
+- Database schema
+- Storage bucket configuration
+
+### 2. Library Selection: tus-js-client (not Uppy)
+
+**Decision:** Use tus-js-client directly instead of Uppy framework.
+
+**Rationale:**
+- Lighter bundle (15KB vs 60KB+)
+- Simple API vs full UI framework (already have custom UI)
+- Native TypeScript types included
+- Maintained by TUS protocol authors
+- Supabase official docs use tus-js-client in examples
+
+**Installation:**
+```bash
+npm install tus-js-client
+```
+
+### 3. Hardcoded 6MB Chunk Size (Supabase Requirement)
+
+**Decision:** Use exactly 6MB chunks. Do not make configurable.
+
+**Rationale:**
+- Supabase Storage requires 6MB chunks for TUS uploads (documentation explicitly states "must be 6MB, do not change")
+- Non-6MB chunks cause upload stalls at 6MB mark or complete failures
+- Smaller than current 50MB XHR chunks, but provides better resume granularity and mobile compatibility
+
+**Implementation:**
+```typescript
+const upload = new tus.Upload(file, {
+  chunkSize: 6 * 1024 * 1024, // MUST be exactly 6MB
+  // ...
+});
+```
+
+### 4. JWT Token Refresh Strategy
+
+**Decision:** Implement onBeforeRequest callback to refresh access tokens before each chunk upload.
+
+**Rationale:**
+- Supabase JWT access tokens expire after 1 hour
+- Large file uploads on slow connections can take multiple hours
+- Each chunk upload requires valid authorization header
+- tus-js-client doesn't auto-refresh tokens
+
+**Implementation:**
+```typescript
+const upload = new tus.Upload(file, {
+  onBeforeRequest: async (req) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('No valid session');
+    }
+    req.setHeader('Authorization', `Bearer ${session.access_token}`);
+  },
+  // ...
+});
+```
+
+### 5. Storage Path Compatibility
+
+**Decision:** Use TUS metadata to specify storage path, ensuring identical format to XHR uploads.
+
+**Rationale:**
+- RLM service downloads files using storage path from trigger API
+- Path format must remain `imports/{user_id}/{timestamp}-{filename}`
+- TUS supports path specification via metadata.objectName
+
+**Implementation:**
+```typescript
+const upload = new tus.Upload(file, {
+  endpoint: `https://${projectId}.storage.supabase.co/storage/v1/upload/resumable`,
+  metadata: {
+    bucketName: 'imports',
+    objectName: `${userId}/${timestamp}-${filename}`,
+    contentType: 'application/json',
+    cacheControl: '3600'
+  },
+  // ...
+});
+```
+
+### 6. Gradual Rollout via Feature Flag
+
+**Decision:** Deploy with environment variable feature flag, enable progressively (10% → 50% → 100%).
+
+**Rationale:**
+- Low risk: Easy rollback if issues discovered
+- Metrics comparison: Upload success rate, time, error types
+- User segmentation: Test mobile vs desktop separately
+- Validation: Verify RLM integration works before full cutover
+
+**Implementation:**
+```typescript
+const USE_TUS = process.env.NEXT_PUBLIC_USE_TUS_UPLOAD === 'true';
+const uploadResult = USE_TUS
+  ? await tusUploadWithProgress(blob, userId, filename, onProgress)
+  : await uploadWithProgress(blob, url, token, contentType, onProgress);
+```
+
+## Critical Risks
+
+### Risk 1: Client-Side ZIP Extraction Memory Exhaustion (CRITICAL)
+
+**Problem:** Loading entire ZIP file into browser memory to extract conversations.json causes Out-of-Memory crashes on mobile devices, especially for files >500MB.
+
+**Impact:**
+- Silent failures on mobile (iOS Safari kills tab without error)
+- Android Chrome shows "Out of Memory" error
+- Affects 1GB+ files severely (requires 2GB+ RAM due to UTF-16 encoding)
+
+**Prevention:**
+- **REMOVE client-side ZIP extraction entirely**
+- Upload ZIP directly via TUS (no JSZip processing before upload)
+- Move extraction to server-side (Vercel API route or background job)
+- Server has predictable memory, can stream extraction
+
+**Implementation:**
+```javascript
+// OLD: Extract before upload (causes memory issues)
+const zip = await JSZip.loadAsync(file);
+const conversations = await zip.file('conversations.json').async('text');
+// then upload conversations
+
+// NEW: Upload ZIP directly via TUS
+const upload = new tus.Upload(zipFile, { /* config */ });
+upload.start();
+// Extract server-side in /api/import/extract
+```
+
+**Detection:**
+- Monitor upload failures by device type (mobile vs desktop)
+- Track browser crashes via window.addEventListener('error')
+- Log device memory at upload start (navigator.deviceMemory)
+
+**Phase:** Must address in Phase 1 (TUS Client Implementation)
+
+### Risk 2: JWT Token Expiry During Long Uploads (CRITICAL)
+
+**Problem:** Supabase JWT access tokens expire after 1 hour. Multi-hour uploads (large files on slow connections) fail with 401 Unauthorized mid-upload.
+
+**Impact:**
+- Upload proceeds for 1 hour, then fails with authentication error
+- User loses progress if fingerprint not stored
+- No clear error message to user
+
+**Prevention:**
+- Implement onBeforeRequest callback to refresh token before each chunk
+- Add retry logic for 401 errors
+- Alternative: Use createSignedUploadUrl() for 24-hour validity (no refresh needed)
+
+**Implementation:** See "JWT Token Refresh Strategy" in Key Technical Decisions above.
+
+**Detection:**
+- Monitor 401 errors in upload callbacks
+- Track upload duration vs file size (flag uploads >50 minutes)
+- Log token expiry timestamps vs upload start time
+
+**Phase:** Must address in Phase 1 (TUS Client Implementation)
+
+### Risk 3: localStorage Fingerprint Collisions (HIGH)
+
+**Problem:** tus-js-client caches upload fingerprints in localStorage. Uploading same file twice reuses cached upload URL, causing silent failures if URL expired.
+
+**Impact:**
+- User re-uploads same file → instant "success" but no actual transfer
+- 404 errors when trying to access uploaded file
+- 5-10% of uploads affected in production (per Supabase GitHub issues)
+
+**Prevention:**
+```typescript
+const upload = new tus.Upload(file, {
+  removeFingerprintOnSuccess: true, // Critical: clean up after success
+  metadata: {
+    uploadId: crypto.randomUUID(), // Force unique fingerprint per upload
+    // ...
+  },
+});
+```
+
+**Detection:**
+- Check localStorage for tus:: keys between uploads
+- Monitor "instant" upload completions (<100ms for large files)
+- Verify file exists in storage after upload success callback
+
+**Phase:** Must address in Phase 1 (TUS Client Implementation)
+
+### Risk 4: iOS Safari Memory Limits (HIGH)
+
+**Problem:** iOS Safari has severe memory constraints (~100MB practical limit). Large file uploads (>500MB) exhaust memory and crash the browser tab.
+
+**Impact:**
+- Tab crashes during upload with no error message
+- Particularly bad on older devices (iPhone 8, iPad Air 2)
+- Upload progress lost on tab reload
+
+**Prevention:**
+- Warn users before mobile uploads >100MB
+- Implement upload recovery UI (detect interrupted uploads on page load)
+- Use TUS resume capability to survive crashes
+- Consider suggesting desktop browser for 1GB+ files
+
+**Implementation:**
+```typescript
+// Detect device capability
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const memory = navigator.deviceMemory;
+
+if (isIOS && file.size > 500 * 1024 * 1024) {
+  showWarning('Large uploads on iOS may fail. Consider using a desktop browser.');
+}
+
+// On page load, check for interrupted uploads
+const previousUploads = await tus.Upload.getResumeableUploads();
+if (previousUploads.length > 0) {
+  showResumeDialog(); // Let user resume
+}
+```
+
+**Detection:**
+- Track mobile vs desktop upload success rates
+- Monitor iOS-specific crashes via analytics
+- Log device memory at upload start
+
+**Phase:** Should address in Phase 2 (Mobile Browser Support) or Phase 3 (UX Polish)
+
+### Risk 5: Using Anon Key Instead of Session Token (CRITICAL)
+
+**Problem:** Developer uses NEXT_PUBLIC_SUPABASE_ANON_KEY for authorization instead of user's session token, causing RLS policy violations.
+
+**Impact:**
+- All TUS uploads fail with 403 Forbidden
+- RLS policy violations logged in Supabase
+- Security vulnerability if bucket RLS bypassed to "fix" issue
+
+**Prevention:**
+```typescript
+// WRONG: Using anon key
+const upload = new tus.Upload(file, {
+  headers: {
+    'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}` // ❌
+  }
+});
+
+// RIGHT: Using session token
+const { data: { session } } = await supabase.auth.getSession();
+const upload = new tus.Upload(file, {
+  headers: {
+    'Authorization': `Bearer ${session.access_token}` // ✅
+  }
+});
+```
+
+**Detection:**
+- Monitor 403 errors during upload
+- Check Supabase logs for RLS violations
+- Validate authorization header contains JWT pattern (eyJ...), not static key
+
+**Phase:** Must address in Phase 1 (TUS Client Implementation)
+
+## Recommended Architecture
+
+### Component Boundaries
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Browser (Client-Side)                                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  app/import/page.tsx (Upload Orchestration)                    │
+│    ↓                                                            │
+│  lib/tus-upload.ts (NEW - TUS Wrapper)                         │
+│    ↓                                                            │
+│  tus-js-client (NPM Package)                                   │
+│    ↓                                                            │
+│  Direct upload to Supabase Storage (bypasses Next.js)          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Supabase Storage (External Service)                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  TUS Endpoint: /storage/v1/upload/resumable                    │
+│    ↓                                                            │
+│  Stores to: imports/{user_id}/{timestamp}-{filename}           │
+│    ↓                                                            │
+│  RLS policies enforced via bearer token                        │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ Next.js API Routes (UNCHANGED)                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  /api/import/trigger (receives storagePath)                    │
+│    ↓                                                            │
+│  Calls RLM service with storage path                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ RLM Service (UNCHANGED)                                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Downloads file from Supabase using storagePath               │
+│  Processes conversations                                       │
+│  Generates soulprint                                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+**1. File Selection**
+```
+User selects ZIP → File object in browser
+```
+
+**2. Upload Initiation**
+```typescript
+// app/import/page.tsx
+const uploadResult = await tusUploadWithProgress(
+  uploadBlob,
+  user.id,
+  uploadFilename,
+  (percent) => setProgress(15 + percent * 0.35) // Map to 15-50% range
+);
+```
+
+**3. TUS Upload**
+```typescript
+// lib/tus-upload.ts
+const upload = new tus.Upload(blob, {
+  endpoint: 'https://{project}.storage.supabase.co/storage/v1/upload/resumable',
+  metadata: {
+    bucketName: 'imports',
+    objectName: `${userId}/${timestamp}-${filename}`,
+    contentType: 'application/json',
+    cacheControl: '3600'
+  },
+  headers: {
+    authorization: `Bearer ${session.access_token}`
+  },
+  chunkSize: 6 * 1024 * 1024,
+  onProgress: (uploaded, total) => onProgress((uploaded / total) * 100)
+});
+
+upload.start();
+```
+
+**4. Upload Completion**
+```typescript
+onSuccess: () => {
+  // Extract storagePath from upload.url
+  const storagePath = new URL(upload.url).pathname
+    .replace('/storage/v1/object/', '');
+  // → 'imports/{user_id}/{timestamp}-{filename}'
+
+  return { success: true, storagePath };
+}
+```
+
+**5. Trigger Processing** (UNCHANGED)
+```typescript
+// app/import/page.tsx
+await fetch('/api/import/trigger', {
+  method: 'POST',
+  body: JSON.stringify({ storagePath })
+});
+```
+
+**6. RLM Download and Processing** (UNCHANGED)
+```
+RLM service receives storage_path
+Downloads from Supabase Storage
+Processes conversations
+Saves soulprint to database
+```
+
+### Error Handling Flow
+
+```typescript
+// lib/tus-upload.ts
+const upload = new tus.Upload(file, {
+  // ...
+
+  onError: (error) => {
+    // Map TUS errors to user-friendly messages
+    const userMessage = classifyTusError(error);
+    return { success: false, error: userMessage };
+  },
+
+  onShouldRetry: (err, retryAttempt, options) => {
+    const status = err?.originalResponse?.getStatus();
+
+    // Retry on 401 (token expired) and 5xx errors
+    if (status === 401 || (status >= 500 && status < 600)) {
+      return retryAttempt < 3;
+    }
+    return false;
+  },
+
+  retryDelays: [0, 3000, 5000, 10000, 20000]
+});
+
+function classifyTusError(error) {
+  const status = error?.originalResponse?.getStatus();
+  const message = error.message?.toLowerCase() || '';
+
+  if (status === 401 || message.includes('unauthorized')) {
+    return 'Session expired. Please refresh the page and try again.';
+  }
+
+  if (status === 409 || message.includes('conflict')) {
+    return 'Upload already in progress. Please wait or cancel the previous upload.';
+  }
+
+  if (status === 410 || message.includes('gone') || message.includes('expired')) {
+    return 'Upload session expired. Starting fresh...';
+  }
+
+  if (status === 413 || message.includes('too large')) {
+    return 'File too large for current plan. Contact support.';
+  }
+
+  if (status >= 500) {
+    return 'Server issue. Retrying...';
+  }
+
+  return 'Upload failed. Please try again.';
+}
+```
+
+## Implementation Scope
+
+### In Scope (MVP)
+
+**Must-have features:**
+- TUS upload for all files (replace XHR entirely)
+- Automatic resume after network disconnect
+- Real-time progress tracking (onProgress → UI)
+- Retry on network failure (built-in exponential backoff)
+- Upload cancellation (abort() button)
+- 6MB chunk size (Supabase requirement)
+- JWT token refresh (onBeforeRequest callback)
+- Fingerprint cleanup on success (removeFingerprintOnSuccess: true)
+- Storage path compatibility (identical format to XHR)
+- RLS policy enforcement (via bearer token)
+- Error classification (map TUS errors to user messages)
+
+**Files to create:**
+- `lib/tus-upload.ts` (TUS wrapper module)
+
+**Files to modify:**
+- `app/import/page.tsx` (upload orchestration, lines 510-598)
+- `package.json` (add tus-js-client dependency)
+- `.env.local` (add NEXT_PUBLIC_USE_TUS_UPLOAD feature flag)
+
+**Testing checklist:**
+- Small file upload (<10MB)
+- Large file upload (>100MB)
+- Network interruption → auto-resume
+- Mobile devices (iOS Safari, Chrome Mobile)
+- RLM integration (verify downloads work)
+- RLS enforcement (user can't upload to other folders)
+
+### Out of Scope (Defer to Future)
+
+**Nice-to-have features (post-MVP):**
+- Resume after browser close detection (findPreviousUploads() on page load)
+- Upload speed estimation ("X minutes remaining")
+- Pause/resume control (manual pause button)
+- Presigned URLs (for guest uploads)
+- Parallel chunk upload (Concatenation extension)
+- Multi-file batch upload (not needed for SoulPrint)
+
+**Explicitly excluded:**
+- Server-side TUS implementation (Supabase handles this)
+- Custom chunk sizes (must use 6MB per Supabase)
+- Checksum verification (not in tus-js-client)
+- Upload queue management (single file at a time)
+
+### Phase Breakdown
+
+**Phase 1: TUS Upload Module (4-6 hours)**
+- Install tus-js-client
+- Create lib/tus-upload.ts
+- Implement tusUploadWithProgress() function
+- Configure endpoint, metadata, auth, retries
+- Extract storagePath from upload.url
+- Write unit tests
+
+**Phase 2: Frontend Integration (2-3 hours)**
+- Add feature flag to .env
+- Modify app/import/page.tsx upload logic
+- Map progress callbacks to existing UI
+- Add TUS error classification
+- Test locally with small/large files
+
+**Phase 3: Testing & Validation (2-3 hours)**
+- Deploy to staging with feature flag
+- Test network interruption/resume
+- Test on mobile devices (iOS/Android)
+- Verify RLM integration
+- Check RLS policy enforcement
+
+**Phase 4: Gradual Rollout (1-2 days)**
+- Deploy to production (flag disabled)
+- Enable for 10% of users → monitor 24hr
+- Enable for 50% of users → monitor 24hr
+- Enable for 100% of users → monitor 48hr
+- Remove feature flag + XHR code path
+- Delete lib/chunked-upload.ts
+
+**Total effort:** 1-2 days implementation + testing, 2-3 days monitoring during rollout
+
+## Dependencies & Prerequisites
+
+### Technical Dependencies
+
+**New NPM packages:**
+```json
+{
+  "dependencies": {
+    "tus-js-client": "^4.3.1"
+  }
+}
+```
+
+**Why tus-js-client 4.3.1:**
+- Latest stable release (January 2025)
+- Built-in TypeScript types (no @types package needed)
+- Requires Node.js v18+ (Vercel supports this)
+- No breaking changes from v3.x → v4.x
+
+**Existing dependencies (unchanged):**
+- `@supabase/supabase-js` (auth and storage client)
+- `jszip` (ZIP extraction, move to server-side)
+- Next.js, React (no version changes)
+
+### Environment Variables
+
+**New variables:**
+```env
+NEXT_PUBLIC_USE_TUS_UPLOAD=false  # Feature flag (enable gradually)
+```
+
+**Existing variables (unchanged):**
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://swvljsixpvvcirjmflze.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+### Supabase Configuration
+
+**Storage bucket settings:**
+- Bucket: `imports` (existing)
+- Pro plan (active) ✓
+- Global file size limit: 5GB minimum (verify in dashboard)
+- RLS policies: Already configured ✓
+
+**Verification checklist:**
+- [ ] Supabase Dashboard → Storage → Settings → Global file size limit ≥ 5GB
+- [ ] Storage → imports bucket → File size limit setting
+- [ ] Auth → Users → Confirm JWT expiry = 3600s (1 hour)
+
+### Browser Compatibility
+
+**Supported browsers:**
+- Chrome/Edge 90+
+- Firefox 88+
+- Safari 14+
+- Mobile Safari iOS 14+
+- Chrome Mobile Android 90+
+
+**Not supported:**
+- IE11 (File API limitations)
+
+**Verification:**
+```typescript
+if (!window.File || !window.FileReader || !window.Blob) {
+  showError('Browser does not support file uploads');
+}
+```
+
+### Infrastructure Requirements
+
+**Vercel deployment:**
+- No changes needed (TUS upload bypasses Vercel, goes direct to Supabase)
+- No body size limit applies (not going through Next.js API routes)
+- Works with existing Vercel configuration
+
+**Local development:**
+- Works with `npm run dev` (tus-js-client is browser-only)
+- Note: Supabase CLI local development has known issues with TUS uploads >6MB
+  - Workaround: Test against production/staging Supabase instance
+  - GitHub Issue #2729 tracks this (still open as of 2025)
+
+### Monitoring Setup
+
+**Metrics to track:**
+- Upload success rate (TUS vs XHR baseline)
+- Average upload time by file size
+- Resume frequency (how often users benefit from resume)
+- Error types and frequencies
+- Mobile vs desktop performance differences
+
+**Alert conditions:**
+- TUS success rate <90% (below XHR baseline)
+- Upload time >2x XHR baseline
+- Error rate spike for specific browser/device
+
+**Implementation:**
+```typescript
+// Track upload metrics
+analytics.track('upload_started', {
+  fileSize: file.size,
+  uploadMethod: 'tus',
+  browser: navigator.userAgent,
+  deviceMemory: navigator.deviceMemory
+});
+
+analytics.track('upload_completed', {
+  fileSize: file.size,
+  uploadMethod: 'tus',
+  duration: Date.now() - startTime,
+  resumeCount: resumeCount
+});
+
+analytics.track('upload_failed', {
+  fileSize: file.size,
+  uploadMethod: 'tus',
+  error: error.message,
+  errorStatus: error?.originalResponse?.getStatus()
+});
+```
+
+## Success Criteria
+
+### Must-Have (Phase 1)
+- [ ] TUS uploads create files at `imports/{user_id}/{timestamp}-{filename}` (RLM compatibility)
+- [ ] RLM service downloads TUS-uploaded files successfully
+- [ ] Progress tracking works on desktop and mobile
+- [ ] RLS policies enforce user folder restrictions
+- [ ] Error messages are user-friendly (classified via existing system)
+- [ ] JWT token refresh works (no auth failures on long uploads)
+- [ ] Fingerprint cleanup prevents collision issues
+- [ ] 6MB chunks configured correctly (Supabase requirement)
+
+### Should-Have (Phase 2-3)
+- [ ] Upload resumes automatically after network interruption
+- [ ] Mobile uploads succeed for large files (>100MB)
+- [ ] Upload time comparable to or better than XHR
+- [ ] Feature flag allows gradual rollout
+- [ ] Monitoring dashboard tracks success rate, errors, duration
+
+### Nice-to-Have (Post-MVP)
+- [ ] Resume after browser close detection
+- [ ] Pause/resume UI controls
+- [ ] Upload speed metrics in progress display
+
+### Rollout Metrics
+
+| Metric | XHR Baseline | TUS Target | How to Measure |
+|--------|--------------|------------|----------------|
+| Upload success rate | ~95% | >97% | Log completion vs failures |
+| Avg upload time (100MB) | ~60s | <90s | Track start to completion |
+| Resume usage | N/A | 5-10% | Count resume events |
+| Mobile success rate | ~80% | >90% | Filter by user-agent |
+| Network error recovery | 0% | >80% | Count successful resumes |
 
 ## Sources
 
-### Primary (HIGH confidence)
-- **Direct codebase inspection:**
-  - /home/drewpullen/clawd/soulprint-landing/rlm-service/main.py — RLM service structure, Supabase integration
-  - /home/drewpullen/clawd/soulprint-landing/rlm-service/processors/conversation_chunker.py — DAG traversal implementation (lines 71-116)
-  - /home/drewpullen/clawd/soulprint-landing/app/api/import/process-server/route.ts — Current problematic architecture
-  - /home/drewpullen/clawd/soulprint-landing/app/import/page.tsx — Frontend upload and polling patterns
+**High confidence (official documentation):**
+- [Supabase Storage Resumable Uploads](https://supabase.com/docs/guides/storage/uploads/resumable-uploads)
+- [Supabase Storage v3 Blog Post](https://supabase.com/blog/storage-v3-resumable-uploads)
+- [tus-js-client GitHub](https://github.com/tus/tus-js-client)
+- [tus-js-client NPM](https://www.npmjs.com/package/tus-js-client)
+- [TUS Protocol Specification](https://tus.io/)
 
-- **Official documentation:**
-  - [ijson PyPI](https://pypi.org/project/ijson/) — version 3.4.0
-  - [Processing Large JSON Files Without Running Out of Memory](https://pythonspeed.com/articles/json-memory-streaming/) — ijson memory benchmarks (287MB pandas vs 2-5MB ijson)
-  - [Supabase Python Storage API](https://supabase.com/docs/reference/python/storage-from-download) — download method, service role key auth
-  - [FastAPI Production Deployment Best Practices (Render)](https://render.com/articles/fastapi-production-deployment-best-practices) — worker config, memory management
-  - [Render Free Tier Documentation](https://render.com/docs/free) — cold start behavior, resource limits
+**Medium confidence (community discussions):**
+- [Supabase Storage 6MB Issue #563](https://github.com/supabase/storage/issues/563)
+- [5-10% Upload Failures #419](https://github.com/supabase/storage/issues/419)
+- [RLS Policy Issue #22039](https://github.com/orgs/supabase/discussions/22039)
+- [Secure Upload Auth #26424](https://github.com/orgs/supabase/discussions/26424)
+- [Transloadit Case Study](https://transloadit.com/casestudies/2023/08/supabase/)
 
-### Secondary (MEDIUM confidence)
-- **Community knowledge + reference implementation:**
-  - [GitHub - mohamed-chs/convoviz](https://github.com/mohamed-chs/convoviz) — quality parsing reference, DAG traversal patterns
-  - [Decoding Exported Data by Parsing conversations.json (OpenAI Community)](https://community.openai.com/t/decoding-exported-data-by-parsing-conversations-json-and-or-chat-html/403144) — DAG traversal fix, mapping structure, sorting by create_time
-  - [Questions About JSON Structures in conversations.json (OpenAI Community)](https://community.openai.com/t/questions-about-the-json-structures-in-the-exported-conversations-json/954762) — format variations, edge cases
-
-- **UX research:**
-  - [Response Time Limits (Nielsen Norman Group)](https://www.nngroup.com/articles/response-times-3-important-limits/) — progress indicator thresholds (<1s, 1-10s, >10s)
-  - [Progress Trackers and Indicators (UserGuiding)](https://userguiding.com/blog/progress-trackers-and-indicators) — stage-based vs time-based progress
-  - [Error Messages: Examples, Best Practices (CXL)](https://cxl.com/blog/error-messages/) — actionable error guidance
-
-### Tertiary (LOW confidence, needs validation)
-- **Mobile constraints:**
-  - [Uploading Large Files from iOS Applications (Bipsync)](https://bipsync.com/blog/uploading-large-files-from-ios-applications/) — iOS memory constraints (~100-200MB)
-  - [Mobile vs Desktop Usage Statistics (Research.com)](https://research.com/software/guides/mobile-vs-desktop-usage) — device usage patterns
+**Low confidence (community reports, unverified):**
+- [Brave Browser Upload Issues](https://community.brave.app/t/file-upload-impossible/558641)
+- [Android Chrome Memory Errors](https://dir-blogs.hashnode.dev/android-phone-cant-upload-files-in-browser-due-to-low-memory)
+- [Mobile Safari Memory Limits](https://lapcatsoftware.com/articles/2026/1/7.html)
 
 ---
-*Research completed: 2026-02-09*
-*Ready for roadmap: yes*
+
+**Research complete. Ready for implementation planning.**
+
+*Synthesized by: gsd-researcher-synthesizer*
+*Date: 2026-02-09*
