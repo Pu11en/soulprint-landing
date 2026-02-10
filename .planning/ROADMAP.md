@@ -10,7 +10,7 @@
 - SHIPPED **v1.5 Full Chat Experience** -- Phases 8-13 (shipped 2026-02-08)
 - SHIPPED **v2.0 AI Quality & Personalization** -- Phases 1-5, 14 plans (shipped 2026-02-09)
 - SHIPPED **v2.1 Hardening & Integration** -- Phases 1-3 (shipped 2026-02-09)
-- ACTIVE **v2.2 Bulletproof Imports** -- Phases 1-3 (in progress)
+- SHIPPED **v2.2 Bulletproof Imports** -- Phases 1-3, 8 plans (shipped 2026-02-10)
 
 ## Phases
 
@@ -110,7 +110,7 @@ See: Previous active milestone content (collapsed)
 
 </details>
 
-## v2.2 Bulletproof Imports (ACTIVE)
+## v2.2 Bulletproof Imports (SHIPPED 2026-02-10)
 
 **Milestone Goal:** Move all heavy import processing from Vercel to RLM (Render), port convoviz-quality parsing (DAG traversal, hidden message filtering, polymorphic parts), make imports work for any size export on any device.
 
@@ -172,8 +172,8 @@ Plans:
 **Plans:** 2 plans in 2 waves
 
 Plans:
-- [ ] 03-01-PLAN.md — Stage-aware progress UI with RingProgress, visibility-aware polling, returning-user fix (Wave 1)
-- [ ] 03-02-PLAN.md — Error classification with actionable messages, non-blocking mobile warning (Wave 2)
+- [x] 03-01-PLAN.md — Stage-aware progress UI with RingProgress, visibility-aware polling, returning-user fix (Wave 1)
+- [x] 03-02-PLAN.md — Error classification with actionable messages, non-blocking mobile warning (Wave 2)
 
 ## Progress
 
@@ -184,7 +184,7 @@ Phases execute sequentially: 1 -> 2 -> 3. Each phase builds on the previous infr
 |-------|----------------|--------|-----------|
 | 1. Core Migration | 5/5 | Complete | 2026-02-10 |
 | 2. Parsing Quality | 1/1 | Complete | 2026-02-10 |
-| 3. UX Enhancement | 0/2 | Not started | - |
+| 3. UX Enhancement | 2/2 | Complete | 2026-02-10 |
 
 ---
-*Last updated: 2026-02-10 -- Phase 2 COMPLETE (1/1 plans, DAG parsing deployed to production)*
+*Last updated: 2026-02-10 -- v2.2 SHIPPED (all 3 phases, 8 plans complete)*
