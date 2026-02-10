@@ -216,10 +216,10 @@ Plans:
 2. All upload flows use TUS (verified via code search for old upload function names)
 3. Upload success rate maintains or exceeds baseline after XHR removal (monitoring confirms no regressions)
 
-**Plans:** TBD (will be defined during plan-phase)
+**Plans:** 1 plan in 1 wave
 
 Plans:
-- [ ] 02-01: [TBD during planning]
+- [ ] 02-01-PLAN.md — Delete old XHR chunked-upload files and verify clean codebase (Wave 1)
 
 ## Progress
 
