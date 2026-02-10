@@ -1,11 +1,14 @@
 /**
- * Upload file to Supabase Storage via signed URL (no client-side JWT needed)
+ * Upload file to Supabase Storage using the standard JS client
  *
- * Flow:
- * 1. Server generates signed upload URL (service role, bypasses RLS)
- * 2. Client uploads directly to signed URL via XHR (progress tracking)
- * 3. No JWT auth headers needed — the signed URL IS the auth
+ * Uses supabase.storage.upload() which handles auth internally.
+ * The Supabase client's built-in auth works for DB queries, so it
+ * should work for storage too — unlike raw TUS headers which failed.
+ *
+ * Keeps the same interface name (tusUpload) so the import page doesn't change.
  */
+
+import { createClient } from '@/lib/supabase/client';
 
 export interface TusUploadOptions {
   file: Blob;
@@ -20,84 +23,48 @@ export interface TusUploadResult {
   error?: string;
 }
 
-/**
- * Upload a file to Supabase Storage using a server-generated signed URL.
- * Keeps the same interface as the old TUS upload so the import page doesn't change.
- */
 export async function tusUpload(options: TusUploadOptions): Promise<TusUploadResult> {
-  const { file, onProgress } = options;
+  const { file, userId, filename, onProgress } = options;
 
   try {
-    // 1. Get signed upload URL from server
-    const res = await fetch('/api/storage/upload-url', {
-      method: 'POST',
-      credentials: 'include',
-    });
+    const supabase = createClient();
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return { success: false, error: err.error || 'Failed to prepare upload' };
+    // Verify auth first
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: 'You must be logged in to upload' };
     }
 
-    const { signedUrl, token, path, storagePath } = await res.json();
+    // Build storage path
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const objectName = `${userId}/${Date.now()}-${sanitizedFilename}`;
 
-    if (!signedUrl || !token) {
-      return { success: false, error: 'Server returned invalid upload URL' };
+    onProgress(10); // Starting upload
+
+    console.log('[Upload] Starting standard upload to:', objectName, 'size:', (file.size / 1024 / 1024).toFixed(1), 'MB');
+
+    // Standard Supabase Storage upload — client handles auth internally
+    const { data, error } = await supabase.storage
+      .from('imports')
+      .upload(objectName, file, {
+        contentType: 'application/json',
+        upsert: true,
+        duplex: 'half',
+      });
+
+    if (error) {
+      console.error('[Upload] Supabase storage error:', error);
+      return { success: false, error: `Upload failed: ${error.message}` };
     }
 
-    console.log('[Upload] Got signed URL for path:', path);
-
-    // 2. Upload to signed URL with XHR (for progress tracking)
-    await uploadWithProgress(signedUrl, token, file, onProgress);
-
+    onProgress(100);
+    const storagePath = `imports/${data.path}`;
     console.log('[Upload] Complete:', storagePath);
     return { success: true, storagePath };
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Upload failed';
-    console.error('[Upload] Failed:', msg);
+    console.error('[Upload] Error:', msg);
     return { success: false, error: msg };
   }
-}
-
-/** Upload file to Supabase signed URL using XHR for progress events */
-function uploadWithProgress(
-  signedUrl: string,
-  token: string,
-  file: Blob,
-  onProgress: (percent: number) => void
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
-      }
-    });
-
-    xhr.addEventListener('load', () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed: ${xhr.status} ${xhr.responseText}`));
-      }
-    });
-
-    xhr.addEventListener('error', () => {
-      reject(new Error('Network error during upload'));
-    });
-
-    xhr.addEventListener('abort', () => {
-      reject(new Error('Upload was cancelled'));
-    });
-
-    // Supabase signed upload URL expects PUT with the token in the URL
-    // The signedUrl already contains the token as a query param
-    xhr.open('PUT', signedUrl);
-    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-    // Token goes in x-upsert header for signed uploads
-    xhr.setRequestHeader('x-upsert', 'true');
-    xhr.send(file);
-  });
 }
