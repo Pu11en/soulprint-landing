@@ -961,6 +961,27 @@ export default function ChatPage() {
                 Rename AI
               </button>
 
+              {/* Re-import Data */}
+              <button
+                onClick={async () => {
+                  if (!confirm('This will reset your personality profile and let you re-import. Continue?')) return;
+                  try {
+                    const csrfToken = await getCsrfToken();
+                    const res = await fetch('/api/user/reset', {
+                      method: 'DELETE',
+                      headers: { 'X-CSRF-Token': csrfToken },
+                    });
+                    if (!res.ok) throw new Error('Reset failed');
+                    router.push('/import');
+                  } catch {
+                    alert('Reset failed. Please try again.');
+                  }
+                }}
+                className="w-full py-4 bg-muted text-foreground rounded-xl font-medium border border-border hover:bg-accent transition-colors"
+              >
+                Re-import Data
+              </button>
+
               {/* Sign Out */}
               <button
                 onClick={handleSignOut}
