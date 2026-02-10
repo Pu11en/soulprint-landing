@@ -83,21 +83,24 @@ export async function GET(request: NextRequest) {
             let redirectUrl = '/import' // New users go to import
             let isNewUser = true
 
-            // Check for existing soulprint or imported chats
+            // Check user_profiles for existing soulprint
             if (user) {
-                const { count: soulprintCount } = await supabase
-                    .from('soulprints')
-                    .select('*', { count: 'exact', head: true })
+                const { data: profile } = await supabase
+                    .from('user_profiles')
+                    .select('import_status, soulprint_text')
                     .eq('user_id', user.id)
+                    .single()
 
-                const { count: importCount } = await supabase
-                    .from('imported_chats')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', user.id)
+                const hasSoulprint = profile?.soulprint_text ||
+                    profile?.import_status === 'complete' ||
+                    profile?.import_status === 'quick_ready'
 
-                if ((soulprintCount && soulprintCount > 0) || (importCount && importCount > 0)) {
-                    // Existing user with data - go to dashboard (they can navigate to chat from there)
+                if (hasSoulprint) {
                     redirectUrl = '/dashboard'
+                    isNewUser = false
+                } else if (profile?.import_status === 'processing') {
+                    // Import in progress — send to import page to see progress
+                    redirectUrl = '/import'
                     isNewUser = false
                 }
 

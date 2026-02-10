@@ -193,62 +193,6 @@ export const rlmProcessResponseSchema = z.object({
 // Mem0 API Response Schemas (Phase 7)
 // ============================================
 
-/**
- * Mem0 Memory Object Schema
- * Single memory entry returned by Mem0 API
- */
-export const mem0MemorySchema = z.object({
-  id: z.string(),
-  memory: z.string(),
-  hash: z.string().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  created_at: z.string().optional(),
-  updated_at: z.string().optional(),
-});
-
-/**
- * Mem0 Add Memory Response Schema
- * Response from POST /v1/memories/ (add operation)
- */
-export const mem0AddResponseSchema = z.object({
-  results: z.array(mem0MemorySchema),
-  relations: z.array(z.unknown()).optional(),
-});
-
-/**
- * Mem0 Search Result Schema
- * Single search result with relevance score
- */
-export const mem0SearchResultSchema = z.object({
-  id: z.string(),
-  memory: z.string(),
-  score: z.number().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
-
-/**
- * Mem0 Search Response Schema
- * Response from POST /v1/memories/search/
- */
-export const mem0SearchResponseSchema = z.object({
-  results: z.array(mem0SearchResultSchema),
-});
-
-/**
- * Mem0 Get All Response Schema
- * Response from GET /v1/memories/ (get all operation)
- */
-export const mem0GetAllResponseSchema = z.object({
-  results: z.array(mem0MemorySchema),
-});
-
-/**
- * Mem0 Delete Response Schema
- * Response from DELETE operations
- */
-export const mem0DeleteResponseSchema = z.object({
-  message: z.string(),
-});
 
 /**
  * Cloudinary Upload Result Schema

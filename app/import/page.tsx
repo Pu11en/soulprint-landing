@@ -1,1181 +1,368 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useRef, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Upload, Shield, CheckCircle2, AlertCircle, Loader2, Lock, ExternalLink, Settings, Mail, Download, FileArchive, ChevronRight, MessageSquare, Trash2 } from 'lucide-react';
+import { Upload, Shield, AlertCircle, Loader2, Lock, ChevronRight, Settings, Mail, Download, FileArchive, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BackgroundBeams } from '@/components/ui/background-beams';
 import { RingProgress } from '@/components/ui/ring-progress';
-// Client-side soulprint generation removed - all imports now use server-side RLM
 import { createClient } from '@/lib/supabase/client';
 import JSZip from 'jszip';
 import { tusUpload } from '@/lib/tus-upload';
 import { getCsrfToken } from '@/lib/csrf';
 
-// Detect mobile devices (conservative - if unsure, treat as mobile)
-function isMobileDevice(): boolean {
-  if (typeof window === 'undefined') return true;
-  const ua = navigator.userAgent.toLowerCase();
-  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
-}
-
-type ImportStatus = 'idle' | 'processing' | 'saving' | 'success' | 'error';
-type Step = 'export' | 'upload' | 'processing' | 'done';
-
-// Safe JSON parsing - handles non-JSON error responses from server
-async function safeJsonParse(response: Response): Promise<{ ok: boolean; data?: unknown; error?: string }> {
-  try {
-    const text = await response.text();
-    try {
-      const data: unknown = JSON.parse(text);
-      return { ok: response.ok, data };
-    } catch {
-      // Response was not JSON (e.g., "Request Entity Too Large")
-      return { ok: false, error: text || `HTTP ${response.status}` };
-    }
-  } catch (e) {
-    return { ok: false, error: 'Failed to read response' };
-  }
-}
-
-// Import stage configuration — maps RLM import_stage strings to user-facing labels
-const IMPORT_STAGES = [
-  { key: 'downloading', match: /download/i, label: 'Downloading your export', threshold: 0 },
-  { key: 'parsing', match: /pars/i, label: 'Reading conversations', threshold: 20 },
-  { key: 'generating', match: /generat|soulprint/i, label: 'Building your profile', threshold: 50 },
-  { key: 'complete', match: /complete/i, label: 'Analysis complete!', threshold: 100 },
-] as const;
-
-function getCurrentStageLabel(importStage: string): string {
-  const stage = IMPORT_STAGES.find(s => s.match.test(importStage));
-  return stage?.label ?? 'Processing...';
-}
-
-// Error classification for actionable user-facing messages
-interface ClassifiedError {
-  title: string;
-  message: string;
-  action: string;
-  canRetry: boolean;
-  severity: 'warning' | 'error';
-}
-
-function classifyImportError(rawError: string): ClassifiedError {
-  const lower = rawError.toLowerCase();
-
-  // Empty export
-  if (lower.includes('no conversations') || lower.includes('empty'))
-    return {
-      title: 'Empty export',
-      message: 'No conversations were found in your file.',
-      action: 'Make sure you have ChatGPT history before exporting.',
-      canRetry: false,
-      severity: 'error',
-    };
-
-  // Wrong file format
-  if (lower.includes('conversations.json') || lower.includes('format') || lower.includes("doesn't look like") || lower.includes('not a valid'))
-    return {
-      title: 'Wrong file format',
-      message: 'This file doesn\'t appear to be a valid ChatGPT export.',
-      action: 'Go to ChatGPT Settings \u2192 Data Controls \u2192 Export Data, then upload the ZIP file you receive by email.',
-      canRetry: false,
-      severity: 'error',
-    };
-
-  // ZIP-specific errors
-  if (lower.includes('zip'))
-    return {
-      title: 'Invalid ZIP file',
-      message: 'The file could not be read as a ZIP archive.',
-      action: 'Make sure you\'re uploading the original ZIP file from ChatGPT without unzipping it first.',
-      canRetry: false,
-      severity: 'error',
-    };
-
-  // File too large (storage plan limit)
-  if (lower.includes('entity too large') || lower.includes('too large') || lower.includes('size'))
-    return {
-      title: 'File exceeds storage limit',
-      message: rawError,
-      action: 'Your file is larger than the current storage plan allows. Contact support for large file imports.',
-      canRetry: false,
-      severity: 'error',
-    };
-
-  // Download/storage errors (RLM couldn't fetch from Supabase)
-  if (lower.includes('download') || lower.includes('storage'))
-    return {
-      title: 'Download failed',
-      message: 'We couldn\'t retrieve your uploaded file for processing.',
-      action: 'Please try uploading again.',
-      canRetry: true,
-      severity: 'error',
-    };
-
-  // RLM processing errors
-  if (lower.includes('rlm error') || lower.includes('quick pass') || lower.includes('processing'))
-    return {
-      title: 'Processing error',
-      message: 'Our analysis service encountered an issue.',
-      action: 'This is usually temporary. Please try again in a few minutes.',
-      canRetry: true,
-      severity: 'error',
-    };
-
-  // Session/auth errors
-  if (lower.includes('logged in') || lower.includes('unauthorized') || lower.includes('session'))
-    return {
-      title: 'Not logged in',
-      message: 'Your login session has expired.',
-      action: 'Redirecting to login...',
-      canRetry: false,
-      severity: 'warning',
-    };
-
-  // Network/connection errors
-  if (lower.includes('network') || lower.includes('fetch') || lower.includes('timeout') || lower.includes('connection'))
-    return {
-      title: 'Connection issue',
-      message: 'The connection was interrupted during processing.',
-      action: 'Check your internet connection and try again.',
-      canRetry: true,
-      severity: 'warning',
-    };
-
-  // Duplicate import (409 conflict - already processing)
-  if (lower.includes('already processing'))
-    return {
-      title: 'Import already in progress',
-      message: rawError,
-      action: 'Wait for the current import to finish, or reset your profile to start over.',
-      canRetry: false,
-      severity: 'warning',
-    };
-
-  // Default fallback — pass through raw error but with friendly framing
-  return {
-    title: 'Something went wrong',
-    message: rawError,
-    action: 'Please try again. If the problem persists, contact support.',
-    canRetry: true,
-    severity: 'error',
-  };
-}
-
-// IndexedDB helpers for storing large datasets client-side
-const DB_NAME = 'soulprint_import';
-const DB_VERSION = 1;
-
-async function openImportDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('chunks')) {
-        db.createObjectStore('chunks', { keyPath: 'id', autoIncrement: true });
-      }
-      if (!db.objectStoreNames.contains('raw')) {
-        db.createObjectStore('raw', { keyPath: 'id', autoIncrement: true });
-      }
-    };
-  });
-}
-
-async function storeChunksInDB(db: IDBDatabase, chunks: unknown[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('chunks', 'readwrite');
-    const store = tx.objectStore('chunks');
-    store.clear(); // Clear old data
-    chunks.forEach(chunk => store.add(chunk));
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function storeRawInDB(db: IDBDatabase, conversations: unknown[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('raw', 'readwrite');
-    const store = tx.objectStore('raw');
-    store.clear(); // Clear old data
-    conversations.forEach(conv => store.add(conv));
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
+type Phase = 'loading' | 'instructions' | 'upload' | 'processing' | 'error';
 
 function ImportPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isReimport = searchParams.get('reimport') === 'true';
-  const [status, setStatus] = useState<ImportStatus>('idle');
-  const [checkingExisting, setCheckingExisting] = useState(true);
-  const [isReturningUser, setIsReturningUser] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isResetting, setIsResetting] = useState(false);
+  const [phase, setPhase] = useState<Phase>('loading');
+  const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
-  const [progressStage, setProgressStage] = useState('');
-  const [currentStep, setCurrentStep] = useState<Step>('export');
+  const [stage, setStage] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [showReimportModal, setShowReimportModal] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [hasExistingSoulprint, setHasExistingSoulprint] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadProgressIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const visibilityHandlerRef = useRef<(() => void) | null>(null);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cleanup intervals and visibility listener on unmount
+  // Cleanup polling on unmount
   useEffect(() => {
-    return () => {
-      if (uploadProgressIntervalRef.current) clearInterval(uploadProgressIntervalRef.current);
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      if (visibilityHandlerRef.current) {
-        document.removeEventListener('visibilitychange', visibilityHandlerRef.current);
-        visibilityHandlerRef.current = null;
-      }
-    };
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  const handleReset = async () => {
-    if (!confirm('This will delete all your imported data and let you start fresh. Are you sure?')) return;
+  // Poll import status from database
+  const startPolling = useCallback((userId: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    const supabase = createClient();
 
+    pollRef.current = setInterval(async () => {
+      try {
+        const { data, error: pollError } = await supabase
+          .from('user_profiles')
+          .select('progress_percent, import_stage, import_status, import_error')
+          .eq('user_id', userId)
+          .single();
+
+        if (pollError || !data) return;
+
+        setProgress(data.progress_percent || 0);
+        setStage(data.import_stage || 'Processing...');
+
+        if (data.import_status === 'quick_ready' || data.import_status === 'complete') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setProgress(100);
+          setStage('Done! Opening chat...');
+          setTimeout(() => router.push('/chat'), 800);
+        } else if (data.import_status === 'failed') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setError(data.import_error || 'Import failed. Please try again.');
+          setPhase('error');
+        }
+      } catch {
+        // Ignore poll errors, will retry next interval
+      }
+    }, 3000);
+  }, [router]);
+
+  // Auth gate + status check on page load
+  useEffect(() => {
+    const init = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      // Check current import status
+      try {
+        const res = await fetch('/api/memory/status');
+        const data = await res.json();
+
+        if (data.status === 'ready' || data.hasSoulprint) {
+          router.push('/chat');
+          return;
+        }
+
+        if (data.status === 'processing') {
+          setPhase('processing');
+          setProgress(data.progress_percent ?? 0);
+          setStage(data.import_stage ?? 'Processing...');
+          startPolling(user.id);
+          return;
+        }
+
+        if (data.status === 'failed') {
+          setError(data.import_error || 'Previous import failed.');
+          setPhase('error');
+          return;
+        }
+      } catch {
+        // If status check fails, just show upload screen
+      }
+
+      setPhase('instructions');
+    };
+    init();
+  }, [router, startPolling]);
+
+  // Handle file upload
+  const handleFile = async (file: File) => {
+    if (!file.name.endsWith('.zip')) {
+      setError('Please upload a ZIP file from ChatGPT.');
+      setPhase('error');
+      return;
+    }
+
+    setPhase('processing');
+    setProgress(0);
+    setStage('Extracting conversations...');
+
+    try {
+      // 1. Extract conversations.json from ZIP (all devices)
+      const zip = await JSZip.loadAsync(file);
+      const conversationsFile = zip.file('conversations.json');
+
+      if (!conversationsFile) {
+        throw new Error('No conversations.json found in the ZIP. Make sure this is a ChatGPT export.');
+      }
+
+      const jsonBlob = await conversationsFile.async('blob');
+      const sizeMB = (jsonBlob.size / 1024 / 1024).toFixed(1);
+      setProgress(10);
+      setStage(`Extracted ${sizeMB}MB — uploading...`);
+
+      // 2. Get auth
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      // 3. Upload via TUS
+      const result = await tusUpload({
+        file: jsonBlob,
+        userId: user.id,
+        filename: 'conversations.json',
+        onProgress: (pct) => {
+          setProgress(10 + Math.round(pct * 0.4)); // 10-50%
+          setStage(`Uploading... ${pct}%`);
+        },
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      setProgress(55);
+      setStage('Starting analysis...');
+
+      // 4. Trigger RLM
+      const csrfToken = await getCsrfToken();
+      const triggerRes = await fetch('/api/import/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        credentials: 'include',
+        body: JSON.stringify({ storagePath: result.storagePath }),
+      });
+
+      if (triggerRes.status === 409) {
+        setStage('Import already in progress...');
+      } else if (!triggerRes.ok) {
+        const err = await triggerRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to start processing');
+      }
+
+      // 5. Poll for completion
+      setStage('Analyzing your conversations...');
+      startPolling(user.id);
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+
+      // Auth errors → redirect to login
+      if (msg.toLowerCase().includes('logged in') || msg.toLowerCase().includes('session expired')) {
+        router.push('/login');
+        return;
+      }
+
+      setError(msg);
+      setPhase('error');
+    }
+  };
+
+  // Reset user data
+  const handleReset = async () => {
+    if (!confirm('This will delete all your imported data. Are you sure?')) return;
     setIsResetting(true);
     try {
-      // Use user self-reset endpoint (works for any logged-in user)
       const csrfToken = await getCsrfToken();
       const res = await fetch('/api/user/reset', {
         method: 'DELETE',
         headers: { 'X-CSRF-Token': csrfToken },
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Reset failed');
-      }
-
-      // Navigate to import page (avoids stale cookie issue with hard reload)
-      router.push('/import');
-    } catch (err) {
-      alert('Reset failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      if (!res.ok) throw new Error('Reset failed');
+      setError('');
+      setPhase('instructions');
+    } catch {
+      alert('Reset failed. Please try again.');
     } finally {
       setIsResetting(false);
     }
   };
 
-  useEffect(() => {
-    const checkExisting = async () => {
-      try {
-        // Auth gate: check if user is actually logged in FIRST
-        const supabaseCheck = createClient();
-        const { data: { user: authUser } } = await supabaseCheck.auth.getUser();
-        if (!authUser) {
-          // Not logged in — redirect to login page
-          router.push('/login');
-          return;
-        }
-
-        const res = await fetch('/api/memory/status');
-        const data = await res.json();
-
-        // Allow retry if import failed - show the error message
-        if (data.status === 'failed' || data.failed) {
-          setIsReturningUser(true);
-          if (data.import_error) {
-            setErrorMessage(data.import_error);
-            setStatus('error');
-          }
-          setCheckingExisting(false);
-          return;
-        }
-
-        // Check for STUCK imports (processing for >15 minutes)
-        if (data.status === 'processing' && data.processing_started_at) {
-          const startedAt = new Date(data.processing_started_at).getTime();
-          const minutesElapsed = (Date.now() - startedAt) / 1000 / 60;
-
-          if (minutesElapsed > 15) {
-            // Import appears stuck - let user retry
-            console.log(`[Import] Stuck detected: processing for ${minutesElapsed.toFixed(0)} minutes`);
-            setIsReturningUser(true);
-            setErrorMessage(
-              `Your import has been processing for ${Math.round(minutesElapsed)} minutes. ` +
-              `This is longer than expected. You can try again or contact support.`
-            );
-            setStatus('error');
-            setCheckingExisting(false);
-            return;
-          }
-        }
-
-        // Check if user already has a soulprint (locked or complete)
-        if (data.status === 'ready' || data.hasSoulprint || data.locked) {
-          setHasExistingSoulprint(true);
-          // If not explicitly re-importing, redirect to chat
-          if (!isReimport) {
-            router.push('/chat');
-            return;
-          }
-        }
-        // DO NOT redirect if processing - user should stay on import page to see progress
-        // This prevents redirect loop with chat page
-        // Set the step to 'processing' so user sees the progress screen
-        // Also poll for completion so user isn't stuck on a static screen
-        if (data.status === 'processing') {
-          setCurrentStep('processing');
-          setStatus('processing');
-          setProgress(data.progress_percent ?? 0);
-          setProgressStage(data.import_stage ?? 'Processing...');
-
-          // Poll for completion every 5 seconds (use progressIntervalRef for cleanup on unmount)
-          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-          progressIntervalRef.current = setInterval(async () => {
-            try {
-              const pollRes = await fetch('/api/memory/status');
-              if (!pollRes.ok) return;
-              const pollData = await pollRes.json();
-
-              // Update progress from real data
-              if (pollData.progress_percent !== undefined) setProgress(pollData.progress_percent);
-              if (pollData.import_stage) setProgressStage(pollData.import_stage);
-
-              if (pollData.status === 'ready' || pollData.hasSoulprint) {
-                if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-                setProgress(100);
-                setProgressStage('Analysis complete! Opening chat...');
-                setTimeout(() => router.push('/chat'), 800);
-              } else if (pollData.status === 'failed' || pollData.failed) {
-                if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-                setErrorMessage(pollData.import_error || 'Processing failed. Please try again.');
-                setStatus('error');
-              }
-            } catch {
-              // Ignore poll errors, will retry on next interval
-            }
-          }, 5000);
-
-          // Visibility-aware polling for returning users too
-          const handleReturnVisibility = () => {
-            if (document.visibilityState === 'visible' && progressIntervalRef.current) {
-              // Immediate poll on tab focus
-              fetch('/api/memory/status').then(r => r.json()).then(pollData => {
-                if (pollData.progress_percent !== undefined) setProgress(pollData.progress_percent);
-                if (pollData.import_stage) setProgressStage(pollData.import_stage);
-                if (pollData.status === 'ready' || pollData.hasSoulprint) {
-                  if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-                  setProgress(100);
-                  setProgressStage('Analysis complete! Opening chat...');
-                  setTimeout(() => router.push('/chat'), 800);
-                } else if (pollData.status === 'failed' || pollData.failed) {
-                  if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-                  setErrorMessage(pollData.import_error || 'Processing failed. Please try again.');
-                  setStatus('error');
-                }
-              }).catch(() => {});
-            }
-          };
-          document.addEventListener('visibilitychange', handleReturnVisibility);
-          visibilityHandlerRef.current = handleReturnVisibility;
-        }
-
-        // If re-importing, mark as returning user to show appropriate UI
-        if (isReimport && (data.hasSoulprint || data.status === 'ready')) {
-          setIsReturningUser(true);
-        }
-        // Check if this is a returning user (logged in but no soulprint)
-        // They'll see a friendly message about re-importing
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && !data.hasSoulprint) {
-          setIsReturningUser(true);
-        }
-      } catch (error) {
-        console.error('[Import] Error checking existing status:', error);
-      }
-      setCheckingExisting(false);
-    };
-    checkExisting();
-  }, [router, isReimport]);
-
-  // Auto-reset then proceed with import
-  const handleReimportChoice = async (keepHistory: boolean) => {
-    setShowReimportModal(false);
-    const file = pendingFile;
-    if (!file) return;
-
-    setStatus('processing');
-    setCurrentStep('processing');
-    setProgress(0);
-    setProgressStage('Resetting your profile...');
-
-    try {
-      const csrfToken = await getCsrfToken();
-      const resetUrl = keepHistory
-        ? '/api/user/reset?keepChatHistory=true'
-        : '/api/user/reset';
-      const res = await fetch(resetUrl, {
-        method: 'DELETE',
-        headers: { 'X-CSRF-Token': csrfToken },
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Reset failed');
-      }
-
-      setHasExistingSoulprint(false);
-      setProgress(3);
-      setProgressStage('Profile reset! Starting fresh import...');
-
-      // Small delay so user sees the reset message
-      await new Promise(r => setTimeout(r, 500));
-
-      // Now proceed with the actual import
-      await processFile(file);
-    } catch (err) {
-      setErrorMessage('Reset failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
-      setStatus('error');
-    }
-  };
-
-  const handleFile = async (file: File) => {
-    if (!file.name.endsWith('.zip')) {
-      setErrorMessage('Please upload a ZIP file');
-      setStatus('error');
-      return;
-    }
-
-    // If user has existing soulprint, show re-import modal first
-    if (hasExistingSoulprint) {
-      setPendingFile(file);
-      setShowReimportModal(true);
-      return;
-    }
-
-    await processFile(file);
-  };
-
-  const processFile = async (file: File) => {
-    const isMobile = isMobileDevice();
-
-    setStatus('processing');
-    setCurrentStep('processing');
-    setProgress(0);
-
-    try {
-      // All imports use server-side RLM processing
-        let uploadBlob: Blob;
-        let uploadFilename: string;
-
-        // DESKTOP: Extract conversations.json from ZIP client-side (much smaller upload!)
-        // MOBILE: Upload full ZIP (JSZip crashes mobile browsers on large files)
-        if (!isMobile) {
-          setProgressStage('Extracting conversations...');
-          setProgress(5);
-
-          try {
-            console.log('[Import] Desktop: extracting conversations.json from ZIP...');
-            const zip = await JSZip.loadAsync(file);
-            const conversationsFile = zip.file('conversations.json');
-
-            if (!conversationsFile) {
-              throw new Error('No conversations.json found in ZIP. Make sure you uploaded the correct ChatGPT export.');
-            }
-
-            const jsonContent = await conversationsFile.async('blob');
-            uploadBlob = jsonContent;
-            uploadFilename = 'conversations.json';
-
-            const originalMB = (file.size / 1024 / 1024).toFixed(1);
-            const extractedMB = (jsonContent.size / 1024 / 1024).toFixed(1);
-            const extractedSizeNum = jsonContent.size / 1024 / 1024;
-            console.log(`[Import] Extracted conversations.json: ${extractedMB}MB (original ZIP: ${originalMB}MB)`);
-            
-            // Warn for very large JSON files
-            if (extractedSizeNum > 500) {
-              setProgressStage(`Large file (${extractedMB}MB) — this may take several minutes...`);
-            } else {
-              setProgressStage(`Extracted ${extractedMB}MB (was ${originalMB}MB ZIP)`);
-            }
-          } catch (extractErr) {
-            console.error('[Import] Desktop extraction failed, falling back to ZIP upload:', extractErr);
-            // Fall back to ZIP upload if extraction fails
-            uploadBlob = file;
-            uploadFilename = file.name;
-          }
-        } else {
-          // Mobile: upload full ZIP
-          uploadBlob = file;
-          uploadFilename = file.name;
-        }
-
-        // Upload via TUS resumable protocol to Supabase Storage
-        setProgressStage('Uploading securely to storage...');
-        setProgress(15);
-
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('You must be logged in to upload');
-
-        const blobSizeMB = uploadBlob.size / 1024 / 1024;
-        console.log(`[Import] Starting TUS upload: ${blobSizeMB.toFixed(1)}MB mobile=${isMobile}`);
-        setProgressStage(`Uploading ${blobSizeMB.toFixed(1)}MB...`);
-
-        const uploadResult = await tusUpload({
-          file: uploadBlob,
-          userId: user.id,
-          filename: uploadFilename,
-          onProgress: (percent) => {
-            // Map upload progress to 15-50% range
-            const mappedProgress = 15 + (percent * 0.35);
-            setProgress(Math.round(mappedProgress));
-            setProgressStage(`Uploading... ${percent}%`);
-          },
-        });
-
-        if (!uploadResult.success) {
-          console.error('[Import] TUS upload failed:', uploadResult.error);
-          throw new Error(uploadResult.error || 'Upload failed');
-        }
-
-        const storagePath = uploadResult.storagePath!;
-
-        console.log('[Import] Upload complete');
-        setProgressStage('Upload complete! Starting processing...');
-        setProgress(52);
-
-        setProgressStage('Starting analysis...');
-        setProgress(55);
-
-        // Small delay to let browser settle after large upload
-        await new Promise(r => setTimeout(r, 500));
-
-        // Trigger RLM import via thin proxy (returns 202 immediately)
-        let triggerRes;
-        try {
-          const csrfToken = await getCsrfToken();
-          triggerRes = await fetch('/api/import/trigger', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-            credentials: 'include',
-            body: JSON.stringify({ storagePath }),
-          });
-        } catch (e) {
-          console.error('[Import] trigger failed:', e);
-          throw new Error('Processing failed. Please try again.');
-        }
-
-        // Handle duplicate import (409 Conflict) specifically
-        if (triggerRes.status === 409) {
-          const dupData = await triggerRes.json().catch(() => ({ elapsedMinutes: 0 }));
-          const mins = dupData.elapsedMinutes ?? 0;
-          setErrorMessage(
-            `An import is already processing (started ${mins} minute${mins === 1 ? '' : 's'} ago). ` +
-            `Please wait for it to complete, or try again in a few minutes.`
-          );
-          setStatus('error');
-          return;
-        }
-
-        if (!triggerRes.ok) {
-          const err = await triggerRes.json().catch((e) => { console.warn("[JSON parse]", e); return {}; });
-          console.error('[Import] trigger error:', err);
-          throw new Error(err.error || 'Processing failed. Please try again.');
-        }
-
-        console.log('[Import] Trigger accepted (202), starting progress polling');
-
-        // Poll user_profiles for real progress from RLM (every 2 seconds)
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = setInterval(async () => {
-          try {
-            const { data, error } = await supabase
-              .from('user_profiles')
-              .select('progress_percent, import_stage, import_status, import_error')
-              .eq('user_id', user.id)
-              .single();
-
-            if (error) {
-              console.error('[Import] Progress poll error:', error);
-              return;
-            }
-
-            // Update UI with real progress from RLM
-            setProgress(data.progress_percent || 0);
-            setProgressStage(data.import_stage || 'Processing...');
-
-            // Stop polling when complete or failed
-            if (data.import_status === 'quick_ready' || data.import_status === 'complete') {
-              if (progressIntervalRef.current) {
-                clearInterval(progressIntervalRef.current);
-                progressIntervalRef.current = null;
-              }
-              // Success - redirect to chat
-              setProgress(100);
-              setProgressStage('Analysis complete! Opening chat...');
-              await new Promise(r => setTimeout(r, 800));
-              router.push('/chat');
-            } else if (data.import_status === 'failed') {
-              if (progressIntervalRef.current) {
-                clearInterval(progressIntervalRef.current);
-                progressIntervalRef.current = null;
-              }
-              // Failed - show error
-              setErrorMessage(data.import_error || 'Import failed');
-              setStatus('error');
-            }
-          } catch (e) {
-            console.error('[Import] Progress polling error:', e);
-          }
-        }, 2000);
-
-        // Immediate poll when tab becomes visible (Chrome throttles background intervals to 60s)
-        const handleVisibilityChange = () => {
-          if (document.visibilityState === 'visible' && progressIntervalRef.current) {
-            // Re-poll immediately when user returns to tab
-            (async () => {
-              try {
-                const { data, error } = await supabase
-                  .from('user_profiles')
-                  .select('progress_percent, import_stage, import_status, import_error')
-                  .eq('user_id', user.id)
-                  .single();
-                if (error || !data) return;
-                setProgress(data.progress_percent || 0);
-                setProgressStage(data.import_stage || 'Processing...');
-                if (data.import_status === 'quick_ready' || data.import_status === 'complete') {
-                  if (progressIntervalRef.current) {
-                    clearInterval(progressIntervalRef.current);
-                    progressIntervalRef.current = null;
-                  }
-                  document.removeEventListener('visibilitychange', handleVisibilityChange);
-                  visibilityHandlerRef.current = null;
-                  setProgress(100);
-                  setProgressStage('Analysis complete! Opening chat...');
-                  await new Promise(r => setTimeout(r, 800));
-                  router.push('/chat');
-                } else if (data.import_status === 'failed') {
-                  if (progressIntervalRef.current) {
-                    clearInterval(progressIntervalRef.current);
-                    progressIntervalRef.current = null;
-                  }
-                  document.removeEventListener('visibilitychange', handleVisibilityChange);
-                  visibilityHandlerRef.current = null;
-                  setErrorMessage(data.import_error || 'Import failed');
-                  setStatus('error');
-                }
-              } catch (e) {
-                console.error('[Import] Visibility poll error:', e);
-              }
-            })();
-          }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        visibilityHandlerRef.current = handleVisibilityChange;
-
-        // Don't continue to the success block below — polling handles completion
-        return;
-    } catch (err) {
-      console.error('Import error:', err);
-      // Map technical errors to user-friendly messages
-      let userMessage = 'Processing failed. Please try again.';
-      if (err instanceof Error) {
-        const msg = err.message.toLowerCase();
-        if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
-          userMessage = 'Network error. Please check your connection and try again.';
-        } else if (msg.includes('timeout')) {
-          userMessage = 'Upload timed out. Try with a smaller file or better connection.';
-        } else if (msg.includes('entity too large')) {
-          userMessage = 'File exceeds storage limit. Contact support for large file imports.';
-        } else if (msg.includes('chatgpt export') || msg.includes("doesn't look like")) {
-          // New validation error - pass through as-is (it's already user-friendly)
-          userMessage = err.message;
-        } else if (msg.includes('zip') || msg.includes('format') || msg.includes('conversations.json')) {
-          userMessage = 'Invalid file format. Please upload the original ZIP from ChatGPT.';
-        } else if (msg.includes('logged in') || msg.includes('unauthorized') || msg.includes('session expired')) {
-          // Auth is broken — redirect to login instead of showing confusing error
-          router.push('/login');
-          return;
-        } else if (msg.includes('no conversations') || msg.includes('empty')) {
-          userMessage = 'No conversations found in your export. Make sure you have ChatGPT history before exporting.';
-        } else {
-          // Pass through server error messages (they're user-friendly now)
-          userMessage = err.message;
-        }
-      }
-      setErrorMessage(userMessage);
-      setStatus('error');
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    if (e.dataTransfer.files?.[0]) {
-      handleFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
-  };
-
-  const handleCancel = () => {
-    setStatus('idle');
-    setProgress(0);
-    setProgressStage('');
-    setCurrentStep('upload');
-  };
-
-  const handleRetry = () => {
-    setStatus('idle');
-    setErrorMessage('');
-    setCurrentStep('upload');
-  };
-
-  if (checkingExisting) {
+  // Loading screen
+  if (phase === 'loading') {
     return (
-      <main className="h-[100dvh] bg-black flex items-center justify-center overflow-hidden">
+      <main className="h-[100dvh] bg-black flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
       </main>
     );
   }
-
-  const steps = [
-    { id: 'export', label: 'Export' },
-    { id: 'upload', label: 'Upload' },
-    { id: 'processing', label: 'Process' },
-    { id: 'done', label: 'Done' },
-  ];
-
-  const stepIndex = steps.findIndex(s => s.id === currentStep);
 
   return (
     <main className="h-[100dvh] bg-black flex flex-col overflow-hidden relative">
       <BackgroundBeams />
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-5 sm:px-6 py-3 sm:py-4 border-b border-white/10 flex-shrink-0 pt-[calc(env(safe-area-inset-top,0px)+12px)]">
+      <header className="relative z-10 flex items-center justify-between px-5 py-3 border-b border-white/10 flex-shrink-0 pt-[calc(env(safe-area-inset-top,0px)+12px)]">
         <Link href="/" className="flex items-center gap-2.5">
-          <img src="/logo.svg" alt="SoulPrint" className="w-7 h-7 sm:w-8 sm:h-8" />
-          <span className="text-white font-semibold text-sm sm:text-base">SoulPrint</span>
+          <img src="/logo.svg" alt="SoulPrint" className="w-7 h-7" />
+          <span className="text-white font-semibold text-sm">SoulPrint</span>
         </Link>
-
         <div className="flex items-center gap-3">
-          {/* Reset Button - Only show if user has data (returning user or has error) */}
-          {(isReturningUser || errorMessage || status === 'error') && (
+          {(phase === 'error' || phase === 'instructions') && (
             <button
               onClick={handleReset}
               disabled={isResetting}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs sm:text-sm disabled:opacity-50 transition-colors"
-              title="Reset and start fresh"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs disabled:opacity-50 transition-colors"
             >
-              {isResetting ? (
-                <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
-              ) : (
-                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              )}
+              {isResetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Settings className="w-3.5 h-3.5" />}
               <span>{isResetting ? 'Resetting...' : 'Reset'}</span>
             </button>
           )}
-
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs sm:text-sm">
-            <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs">
+            <Lock className="w-3.5 h-3.5" />
             <span>Private</span>
           </div>
         </div>
       </header>
 
-      {/* Error Banner - Shows when there's an error */}
-      {errorMessage && (
-        <div className="relative z-10 mx-4 mt-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex-shrink-0">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-red-400 text-sm font-medium">{classifyImportError(errorMessage).title}</p>
-              <p className="text-white/70 text-xs mt-1">{errorMessage}</p>
-            </div>
-            <button
-              onClick={() => setErrorMessage('')}
-              className="text-white/50 hover:text-white/80 text-xs"
-            >
-              ✕
-            </button>
-          </div>
-          <button
-            onClick={handleReset}
-            disabled={isResetting}
-            className="mt-2 w-full py-1.5 rounded bg-red-500/20 text-red-400 text-xs hover:bg-red-500/30 disabled:opacity-50"
-          >
-            {isResetting ? 'Resetting...' : '🔄 Reset & Try Again'}
-          </button>
-        </div>
-      )}
-
-      {/* Step Indicator - Horizontal dots */}
-      <div className="relative z-10 flex items-center justify-center gap-2 py-3 sm:py-4 flex-shrink-0">
-        {steps.map((step, i) => (
-          <div key={step.id} className="flex items-center gap-2">
-            <div
-              className={`w-2 h-2 rounded-full transition-colors ${i < stepIndex ? 'bg-orange-500' :
-                i === stepIndex ? 'bg-orange-500' : 'bg-white/20'
-                }`}
-            />
-            {i < steps.length - 1 && (
-              <div className={`w-6 h-0.5 transition-colors ${i < stepIndex ? 'bg-orange-500' : 'bg-white/10'
-                }`} />
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Main Content - Fills remaining space */}
-      <div className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4 relative z-10 overflow-hidden min-h-0">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 overflow-hidden min-h-0">
         <AnimatePresence mode="wait">
-          {/* EXPORT STEP */}
-          {currentStep === 'export' && (
-            <motion.div
-              key="export"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="w-full max-w-sm flex flex-col justify-center"
-            >
-              {isReturningUser && (
-                <div className="mb-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/30">
-                  <p className="text-orange-400 text-sm text-center font-medium">Welcome back! 👋</p>
-                  <p className="text-white/70 text-xs text-center mt-1">We&apos;ve upgraded our memory system. Please re-import your data for the best experience.</p>
-                </div>
-              )}
-              <h1 className="text-lg sm:text-xl font-bold text-white mb-0.5 text-center">Export Your ChatGPT Data</h1>
-              <p className="text-white/50 text-xs md:text-sm mb-3 text-center">We&apos;ll guide you through it step by step</p>
 
-              <div className="space-y-2 sm:space-y-2.5 mb-3">
-                <div className="flex gap-2.5 p-2.5 sm:p-3 rounded-lg bg-white/[0.03] border border-white/10">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <Settings className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium leading-tight">1. Open ChatGPT Settings</p>
-                    <p className="text-white/50 text-xs leading-snug mt-0.5">
-                      Go to <a href="https://chat.openai.com" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">chat.openai.com</a> → Click your profile picture → Select <span className="text-white/70">Settings</span>
-                    </p>
-                  </div>
-                </div>
+          {/* INSTRUCTIONS */}
+          {phase === 'instructions' && (
+            <motion.div key="instructions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-sm">
+              <h1 className="text-lg font-bold text-white mb-0.5 text-center">Export Your ChatGPT Data</h1>
+              <p className="text-white/50 text-xs mb-3 text-center">Follow these steps, then upload the ZIP</p>
 
-                <div className="flex gap-2.5 p-2.5 sm:p-3 rounded-lg bg-white/[0.03] border border-white/10">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <FileArchive className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" />
+              <div className="space-y-2 mb-3">
+                {[
+                  { icon: Settings, title: '1. Open ChatGPT Settings', desc: 'Go to chat.openai.com → Profile → Settings' },
+                  { icon: FileArchive, title: '2. Export your data', desc: 'Data Controls → Export Data → Confirm' },
+                  { icon: Mail, title: '3. Check your email', desc: 'OpenAI emails you a download link (usually minutes)' },
+                  { icon: Download, title: '4. Download the ZIP', desc: 'Click the link — upload the .zip file here' },
+                ].map(({ icon: Icon, title, desc }) => (
+                  <div key={title} className="flex gap-2.5 p-2.5 rounded-lg bg-white/[0.03] border border-white/10">
+                    <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                      <Icon className="w-3 h-3 text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="text-white text-sm font-medium leading-tight">{title}</p>
+                      <p className="text-white/50 text-xs mt-0.5">{desc}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium leading-tight">2. Request your data export</p>
-                    <p className="text-white/50 text-xs leading-snug mt-0.5">
-                      Click <span className="text-white/70">Data controls</span> → <span className="text-white/70">Export data</span> → <span className="text-white/70">Confirm export</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2.5 p-2.5 sm:p-3 rounded-lg bg-white/[0.03] border border-white/10">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <Mail className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium leading-tight">3. Check your email</p>
-                    <p className="text-white/50 text-xs leading-snug mt-0.5">
-                      OpenAI will email you a download link (usually within minutes)
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2.5 p-2.5 sm:p-3 rounded-lg bg-white/[0.03] border border-white/10">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium leading-tight">4. Download the ZIP file</p>
-                    <p className="text-white/50 text-xs leading-snug mt-0.5">
-                      Click the link in your email — you&apos;ll get a <span className="text-white/70">.zip</span> file to upload here
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
 
-              <Button
-                onClick={() => setCurrentStep('upload')}
-                className="w-full bg-orange-500 hover:bg-orange-400 text-black font-semibold h-10"
-              >
+              <Button onClick={() => setPhase('upload')} className="w-full bg-orange-500 hover:bg-orange-400 text-black font-semibold h-10">
                 I have my ZIP file <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
-
-              <a
-                href="https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1 mt-2 text-xs text-white/40 hover:text-white/60"
-              >
+              <a href="https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1 mt-2 text-xs text-white/40 hover:text-white/60">
                 Detailed guide <ExternalLink className="w-3 h-3" />
               </a>
             </motion.div>
           )}
 
-          {/* UPLOAD STEP */}
-          {currentStep === 'upload' && status !== 'error' && (
-            <motion.div
-              key="upload"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="w-full max-w-sm flex flex-col justify-center"
-            >
-              <h1 className="text-lg sm:text-xl font-bold text-white mb-0.5 sm:mb-1 text-center">Upload Your Export</h1>
-              <p className="text-white/50 text-xs sm:text-sm mb-3 sm:mb-4 text-center">Drop the ZIP file you downloaded</p>
+          {/* UPLOAD */}
+          {phase === 'upload' && (
+            <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-sm">
+              <h1 className="text-lg font-bold text-white mb-0.5 text-center">Upload Your Export</h1>
+              <p className="text-white/50 text-xs mb-3 text-center">Drop the ZIP file you downloaded</p>
 
               <div
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
+                onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
+                onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); setDragActive(false); e.dataTransfer.files?.[0] && handleFile(e.dataTransfer.files[0]); }}
                 onClick={() => fileInputRef.current?.click()}
-                className={`
-                  cursor-pointer border-2 border-dashed rounded-xl sm:rounded-2xl p-5 sm:p-8 text-center transition-all
-                  ${dragActive
-                    ? 'border-orange-500 bg-orange-500/10'
-                    : 'border-white/15 bg-white/[0.02] hover:border-orange-500/40'
-                  }
-                `}
+                className={`cursor-pointer border-2 border-dashed rounded-xl p-6 text-center transition-all ${
+                  dragActive ? 'border-orange-500 bg-orange-500/10' : 'border-white/15 bg-white/[0.02] hover:border-orange-500/40'
+                }`}
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".zip"
-                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-                  className="hidden"
-                />
-                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3 transition-colors ${dragActive ? 'bg-orange-500/20' : 'bg-white/5'}`}>
-                  <Upload className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors ${dragActive ? 'text-orange-400' : 'text-white/40'}`} />
+                <input ref={fileInputRef} type="file" accept=".zip" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} className="hidden" />
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 transition-colors ${dragActive ? 'bg-orange-500/20' : 'bg-white/5'}`}>
+                  <Upload className={`w-6 h-6 ${dragActive ? 'text-orange-400' : 'text-white/40'}`} />
                 </div>
-                <p className="text-white font-medium text-sm sm:text-base mb-0.5 sm:mb-1">
-                  {dragActive ? 'Drop it here!' : 'Drop ZIP file here'}
-                </p>
+                <p className="text-white font-medium text-sm mb-0.5">{dragActive ? 'Drop it here!' : 'Drop ZIP file here'}</p>
                 <p className="text-white/40 text-xs">or tap to browse</p>
               </div>
 
-              <div className="flex items-center gap-2 mt-3 sm:mt-4 p-2 sm:p-3 rounded-lg sm:rounded-xl bg-green-500/5 border border-green-500/20">
-                <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400 flex-shrink-0" />
-                <p className="text-white/50 text-[11px] sm:text-xs">
-                  Your data is encrypted and processed securely
-                </p>
+              <div className="flex items-center gap-2 mt-3 p-2 rounded-lg bg-green-500/5 border border-green-500/20">
+                <Shield className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                <p className="text-white/50 text-[11px]">Your data is encrypted and processed securely</p>
               </div>
 
-              <button
-                onClick={() => setCurrentStep('export')}
-                className="mt-3 sm:mt-4 text-white/40 text-xs hover:text-white/60"
-              >
-                ← Back to instructions
+              <button onClick={() => setPhase('instructions')} className="mt-3 text-white/40 text-xs hover:text-white/60 w-full text-center">
+                &larr; Back to instructions
               </button>
             </motion.div>
           )}
 
-          {/* ERROR STATE */}
-          {status === 'error' && (
-            <motion.div
-              key="error"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm flex flex-col justify-center text-center"
-            >
-              {(() => {
-                const classified = classifyImportError(errorMessage);
-                return (
-                  <>
-                    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 ${
-                      classified.severity === 'warning' ? 'bg-yellow-500/15' : 'bg-red-500/15'
-                    }`}>
-                      <AlertCircle className={`w-6 h-6 sm:w-7 sm:h-7 ${
-                        classified.severity === 'warning' ? 'text-yellow-500' : 'text-red-500'
-                      }`} />
-                    </div>
-                    <h2 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2">{classified.title}</h2>
-                    <p className="text-white/50 text-xs sm:text-sm mb-1">{classified.message}</p>
-                    <p className="text-white/40 text-xs mb-4 sm:mb-6">{classified.action}</p>
-                    {classified.canRetry ? (
-                      <Button
-                        onClick={handleRetry}
-                        variant="outline"
-                        className="border-white/20 text-white hover:bg-white/10 h-9 sm:h-10"
-                      >
-                        Try Again
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleRetry}
-                        variant="outline"
-                        className="border-white/20 text-white hover:bg-white/10 h-9 sm:h-10"
-                      >
-                        Start Over
-                      </Button>
-                    )}
-                  </>
-                );
-              })()}
-            </motion.div>
-          )}
-
-          {/* PROCESSING STEP */}
-          {currentStep === 'processing' && status !== 'error' && (
-            <motion.div
-              key="processing"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md flex flex-col justify-center text-center"
-            >
-              <div className="mb-4 sm:mb-6 flex flex-col items-center">
-                <RingProgress
-                  progress={progress}
-                  size={80}
-                  strokeWidth={6}
-                  showPercentage={true}
-                />
+          {/* PROCESSING */}
+          {phase === 'processing' && (
+            <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-md text-center">
+              <div className="mb-4 flex flex-col items-center">
+                <RingProgress progress={progress} size={80} strokeWidth={6} showPercentage />
               </div>
-              <h2 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2">
-                {getCurrentStageLabel(progressStage)}
-              </h2>
-
-              <div className="flex items-center justify-center gap-3 mt-3">
-                {IMPORT_STAGES.slice(0, -1).map((stage, i) => {
-                  const nextThreshold = IMPORT_STAGES[i + 1]?.threshold ?? 100;
-                  const isComplete = progress >= nextThreshold;
-                  const isCurrent = !isComplete && progress >= stage.threshold;
-                  return (
-                    <div key={stage.key} className="flex items-center gap-3">
-                      <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
-                        isComplete ? 'bg-green-500' :
-                        isCurrent ? 'bg-orange-500 animate-pulse' :
-                        'bg-white/20'
-                      }`} />
-                      {i < IMPORT_STAGES.length - 2 && (
-                        <div className={`w-6 h-0.5 transition-colors duration-300 ${isComplete ? 'bg-green-500' : 'bg-white/10'}`} />
-                      )}
-                    </div>
-                  );
-                })}
+              <h2 className="text-lg font-bold text-white mb-1">{stage || 'Processing...'}</h2>
+              <div className="mt-4 w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <motion.div className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full" animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} />
               </div>
-
               {progress >= 55 ? (
-                <p className="text-green-400/80 text-xs mt-3">
-                  Safe to close this tab — processing continues in the background
-                </p>
+                <p className="text-green-400/80 text-xs mt-3">Safe to close this tab — processing continues in the background</p>
               ) : (
-                <p className="text-orange-400/80 text-xs mt-3">
-                  Please keep this tab open until upload completes
-                </p>
+                <p className="text-orange-400/80 text-xs mt-3">Please keep this tab open until upload completes</p>
               )}
+            </motion.div>
+          )}
 
-              <div className="mt-4 sm:mt-6 w-full h-1 sm:h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.3 }}
-                />
+          {/* ERROR */}
+          {phase === 'error' && (
+            <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-sm text-center">
+              <div className="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-3">
+                <AlertCircle className="w-6 h-6 text-red-500" />
               </div>
-
-              <button
-                onClick={handleCancel}
-                className="mt-6 text-white/40 text-sm hover:text-white/60 transition-colors"
-              >
-                Cancel
-              </button>
+              <h2 className="text-lg font-bold text-white mb-1">Something went wrong</h2>
+              <p className="text-white/50 text-xs mb-4">{error}</p>
+              <div className="space-y-2">
+                <Button onClick={() => { setError(''); setPhase('upload'); }} variant="outline" className="w-full border-white/20 text-white hover:bg-white/10 h-9">
+                  Try Again
+                </Button>
+                <button onClick={handleReset} disabled={isResetting} className="w-full py-1.5 rounded bg-red-500/20 text-red-400 text-xs hover:bg-red-500/30 disabled:opacity-50">
+                  {isResetting ? 'Resetting...' : 'Reset & Start Fresh'}
+                </button>
+              </div>
             </motion.div>
           )}
 
-          {/* DONE STEP */}
-          {currentStep === 'done' && (
-            <motion.div
-              key="done"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm flex flex-col justify-center text-center"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', delay: 0.1 }}
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-500/15 flex items-center justify-center mx-auto mb-3 sm:mb-4"
-              >
-                <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8 text-green-500" />
-              </motion.div>
-              <h2 className="text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">Analysis Complete!</h2>
-              <p className="text-white/50 text-xs sm:text-sm mb-4">Opening your personalized chat...</p>
-              <div className="w-6 h-6 border-2 border-[#EA580C] border-t-transparent rounded-full animate-spin mx-auto" />
-            </motion.div>
-          )}
         </AnimatePresence>
       </div>
-
-      {/* Re-import Modal - asks about chat history before resetting */}
-      {showReimportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-6"
-          >
-            <h3 className="text-lg font-bold text-white mb-2">Re-import your data?</h3>
-            <p className="text-white/60 text-sm mb-5">
-              This will replace your current SoulPrint with a fresh analysis. Would you like to keep your chat history?
-            </p>
-
-            <div className="space-y-2.5">
-              <button
-                onClick={() => handleReimportChoice(true)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/10 hover:border-orange-500/40 hover:bg-orange-500/5 transition-colors text-left"
-              >
-                <div className="w-9 h-9 rounded-full bg-orange-500/15 flex items-center justify-center flex-shrink-0">
-                  <MessageSquare className="w-4 h-4 text-orange-400" />
-                </div>
-                <div>
-                  <p className="text-white text-sm font-medium">Keep chat history</p>
-                  <p className="text-white/40 text-xs">Only reset SoulPrint, keep conversations</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleReimportChoice(false)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/10 hover:border-red-500/40 hover:bg-red-500/5 transition-colors text-left"
-              >
-                <div className="w-9 h-9 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
-                  <Trash2 className="w-4 h-4 text-red-400" />
-                </div>
-                <div>
-                  <p className="text-white text-sm font-medium">Fresh start</p>
-                  <p className="text-white/40 text-xs">Clear everything and start from scratch</p>
-                </div>
-              </button>
-            </div>
-
-            <button
-              onClick={() => {
-                setShowReimportModal(false);
-                setPendingFile(null);
-              }}
-              className="mt-4 w-full text-center text-white/40 text-xs hover:text-white/60 transition-colors"
-            >
-              Cancel
-            </button>
-          </motion.div>
-        </div>
-      )}
-
     </main>
   );
 }
@@ -1183,8 +370,8 @@ function ImportPageContent() {
 export default function ImportPage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-pulse text-white/50">Loading...</div>
+      <main className="h-[100dvh] bg-black flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
       </main>
     }>
       <ImportPageContent />
