@@ -32,8 +32,15 @@ export interface TusUploadResult {
 export async function tusUpload(options: TusUploadOptions): Promise<TusUploadResult> {
   const { file, userId, filename, onProgress } = options;
 
-  // Get current session
+  // Force token refresh before reading session (getSession reads stale cache)
   const supabase = createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return { success: false, error: 'You must be logged in to upload' };
+  }
+
+  // Now getSession returns the refreshed token
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
@@ -76,6 +83,8 @@ export async function tusUpload(options: TusUploadOptions): Promise<TusUploadRes
       },
       // Refresh JWT token before each chunk (prevents 401 on multi-hour uploads)
       onBeforeRequest: async (req) => {
+        // Force refresh first, then read the fresh session
+        await supabase.auth.getUser();
         const { data: { session: freshSession } } = await supabase.auth.getSession();
         if (!freshSession?.access_token) {
           throw new Error('Session expired during upload');
