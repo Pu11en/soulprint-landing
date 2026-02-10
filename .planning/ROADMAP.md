@@ -141,7 +141,7 @@ Plans:
 ### Phase 2: Parsing Quality - DAG Traversal and Content Handling
 **Goal:** Conversation parsing uses DAG traversal for accurate history and handles all content types correctly
 
-**Depends on:** Phase 1 (needs RLM pipeline established)
+**Depends on:** Phase 1 (needs RLM pipeline established) -- COMPLETE
 
 **Requirements:** PAR-01, PAR-02, PAR-03, PAR-04
 
@@ -151,10 +151,10 @@ Plans:
 3. User's conversations with images or attachments are fully captured (all content.parts, not just parts[0])
 4. Import works for both raw array and wrapped export formats ([...] and { conversations: [...] })
 
-**Plans:** TBD
+**Plans:** 1 plan in 1 wave
 
 Plans:
-- [ ] TBD during planning
+- [ ] 02-01-PLAN.md — DAG traversal helpers, streaming import integration, chunker update (Wave 1)
 
 ### Phase 3: UX Enhancement - Progress and Error Clarity
 **Goal:** Users see real processing progress and receive actionable error messages when imports fail
@@ -177,13 +177,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute sequentially: 1 → 2 → 3. Each phase builds on the previous infrastructure.
+Phases execute sequentially: 1 -> 2 -> 3. Each phase builds on the previous infrastructure.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Migration | 5/5 | Complete | 2026-02-10 |
-| 2. Parsing Quality | 0/TBD | Planning | - |
+| 2. Parsing Quality | 0/1 | Ready | - |
 | 3. UX Enhancement | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-10 -- Phase 1 complete (verified on prod), Phase 2 planning*
+*Last updated: 2026-02-10 -- Phase 2 planned (1 plan), ready for execution*
