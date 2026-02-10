@@ -11,7 +11,7 @@
 - SHIPPED **v2.0 AI Quality & Personalization** -- Phases 1-5, 14 plans (shipped 2026-02-09)
 - SHIPPED **v2.1 Hardening & Integration** -- Phases 1-3 (shipped 2026-02-09)
 - SHIPPED **v2.2 Bulletproof Imports** -- Phases 1-3, 8 plans (shipped 2026-02-10)
-- ACTIVE **v2.3 Universal Uploads** -- Phases 1-2 (in progress)
+- SHIPPED **v2.3 Universal Uploads** -- Phases 1-2, 2 plans (shipped 2026-02-10)
 
 ## Phases
 
@@ -219,7 +219,7 @@ Plans:
 **Plans:** 1 plan in 1 wave
 
 Plans:
-- [ ] 02-01-PLAN.md — Delete old XHR chunked-upload files and verify clean codebase (Wave 1)
+- [x] 02-01-PLAN.md — Delete old XHR chunked-upload files and verify clean codebase (Wave 1)
 
 ## Progress
 
@@ -229,7 +229,7 @@ Phases execute sequentially: 1 -> 2. Each phase builds on the previous infrastru
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. TUS Upload Implementation | 1/1 | ✓ Complete | 2026-02-10 |
-| 2. Cleanup & Verification | 0/TBD | Not started | - |
+| 2. Cleanup & Verification | 1/1 | ✓ Complete | 2026-02-10 |
 
 ---
-*Last updated: 2026-02-10 -- Phase 1 complete (TUS Upload Implementation)*
+*Last updated: 2026-02-10 -- Phase 2 complete (Cleanup & Verification). Milestone v2.3 complete.*

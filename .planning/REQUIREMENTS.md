@@ -31,7 +31,7 @@ Requirements for the Universal Uploads milestone. Replace raw XHR upload with TU
 
 ### Cleanup
 
-- [ ] **CLN-01**: Old XHR upload code path and chunked-upload module are removed after TUS is verified
+- [x] **CLN-01**: Old XHR upload code path and chunked-upload module are removed after TUS is verified
 
 ## Future Requirements
 
@@ -70,7 +70,7 @@ Deferred to next milestone. Tracked but not in current roadmap.
 | CMP-02 | Phase 1 | ✓ Complete |
 | INT-01 | Phase 1 | ✓ Complete |
 | INT-02 | Phase 1 | ✓ Complete |
-| CLN-01 | Phase 2 | Pending |
+| CLN-01 | Phase 2 | ✓ Complete |
 
 **Coverage:**
 - v2.3 requirements: 11 total
@@ -79,4 +79,4 @@ Deferred to next milestone. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-10 -- Phase 1 requirements complete (10/11)*
+*Last updated: 2026-02-10 -- All requirements complete (11/11). Milestone shipped.*
