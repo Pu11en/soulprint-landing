@@ -78,7 +78,7 @@ export async function tusUpload(options: TusUploadOptions): Promise<TusUploadRes
     const upload = new tus.Upload(file, {
       endpoint: tusEndpoint,
       headers: {
-        authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${session.access_token}`,
         apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       },
       chunkSize: 6 * 1024 * 1024, // MUST be 6MB - Supabase requirement
