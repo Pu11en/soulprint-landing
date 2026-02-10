@@ -53,14 +53,19 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 - ✓ Prompt regression testing with CI/CD automation — v2.0
 - ✓ Long-session personality drift detection — v2.0
 - ✓ Latency benchmarking infrastructure — v2.0
+- ✓ All import processing runs on RLM (Render) with streaming JSON — v2.2
+- ✓ DAG traversal parsing (convoviz-quality), hidden message filtering — v2.2
+- ✓ Real progress UI with stage indicators and visibility-aware polling — v2.2
+- ✓ Actionable error classification (10 categories) — v2.2
+- ✓ Full pass auto-triggered after quick pass (chunks, facts, memory, v2 sections) — v2.2
 
 ### Active
 
-#### v2.2 Bulletproof Imports
+#### v2.3 Universal Uploads
 
-- [ ] All import processing runs on RLM (Render), not Vercel serverless
-- [ ] ChatGPT export parsing uses DAG traversal (convoviz-quality)
-- [ ] Imports work for any size export on any device (mobile + desktop)
+- [ ] Any size file uploads successfully on any device/browser via TUS resumable protocol
+- [ ] Upload progress shown accurately for all file sizes
+- [ ] Failed/interrupted uploads can resume without re-uploading from scratch
 
 ### Out of Scope
 
@@ -151,16 +156,16 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 | P97.5 latency percentile | autocannon limitation vs P95 | ✓ Good — close approximation |
 | PR-triggered regression testing | Only on prompt file changes, avoids expensive evals | ✓ Good — cost-efficient CI |
 
-## Current Milestone: v2.2 Bulletproof Imports
+## Current Milestone: v2.3 Universal Uploads
 
-**Goal:** Move all heavy import processing from Vercel to RLM (Render), port convoviz-quality parsing (DAG traversal, hidden message filtering, polymorphic parts), make imports work for any size export on any device.
+**Goal:** Replace raw XHR upload with TUS resumable protocol so any file size works on any device/browser. Fix the Supabase Storage transport limit (~50MB on REST endpoint) that blocks large ChatGPT exports.
 
 **Target features:**
-- Move heavy processing off Vercel (1GB RAM, 300s timeout) to RLM on Render (2-4GB RAM, no timeout)
-- Port convoviz-quality ChatGPT parsing: DAG traversal via current_node→parent chain, polymorphic content.parts, hidden message filtering
-- Handle both `[...]` and `{ conversations: [...] }` export formats
-- Vercel becomes thin proxy (auth + trigger), RLM does all heavy lifting
-- Any size export works on any device (mobile + desktop)
+- TUS resumable uploads via tus-js-client (Supabase Pro supports up to 5GB via TUS)
+- Real progress tracking for uploads of any size
+- Resumable uploads — interrupted transfers pick up where they left off
+- Remove all client-side file size warnings/blocks
+- Works identically on mobile and desktop, all browsers (Chrome, Safari, Firefox, Brave)
 
 ---
-*Last updated: 2026-02-09 after v2.2 milestone started*
+*Last updated: 2026-02-09 after v2.3 milestone started*
