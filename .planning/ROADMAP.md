@@ -132,11 +132,11 @@ See: Previous active milestone content (collapsed)
 **Plans:** 5 plans in 4 waves
 
 Plans:
-- [ ] 01-01-PLAN.md — Database schema + RLM streaming dependencies (Wave 1)
-- [ ] 01-02-PLAN.md — Port quick pass logic to Python (Wave 1, parallel with 01-01)
-- [ ] 01-03-PLAN.md — RLM streaming import endpoint (Wave 2)
-- [ ] 01-04-PLAN.md — Vercel thin proxy integration (Wave 3)
-- [ ] 01-05-PLAN.md — End-to-end verification (Wave 4, checkpoint)
+- [x] 01-01-PLAN.md — Database schema + RLM streaming dependencies (Wave 1)
+- [x] 01-02-PLAN.md — Port quick pass logic to Python (Wave 1, parallel with 01-01)
+- [x] 01-03-PLAN.md — RLM streaming import endpoint (Wave 2)
+- [x] 01-04-PLAN.md — Vercel thin proxy integration (Wave 3)
+- [x] 01-05-PLAN.md — End-to-end verification (Wave 4, checkpoint)
 
 ### Phase 2: Parsing Quality - DAG Traversal and Content Handling
 **Goal:** Conversation parsing uses DAG traversal for accurate history and handles all content types correctly
@@ -181,9 +181,9 @@ Phases execute sequentially: 1 → 2 → 3. Each phase builds on the previous in
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Migration | 0/5 | Not started | - |
-| 2. Parsing Quality | 0/TBD | Not started | - |
+| 1. Core Migration | 5/5 | Complete | 2026-02-10 |
+| 2. Parsing Quality | 0/TBD | Planning | - |
 | 3. UX Enhancement | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-09 -- Phase 1 plans created, ready for execution*
+*Last updated: 2026-02-10 -- Phase 1 complete (verified on prod), Phase 2 planning*

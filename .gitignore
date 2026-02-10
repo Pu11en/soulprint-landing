@@ -53,6 +53,10 @@ playwright/.auth/
 playwright-report/
 test-results/
 
+# Python virtual environments
+**/venv/
+**/__pycache__/
+
 # Drift: ignore caches and temporary data
 .drift/lake/
 .drift/cache/
