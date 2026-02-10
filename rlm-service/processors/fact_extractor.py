@@ -7,7 +7,7 @@ import asyncio
 from typing import List, Dict
 
 
-FACT_EXTRACTION_PROMPT = """Extract ONLY factual, durable information from this conversation segment. Focus on:
+FACT_EXTRACTION_PROMPT = """Extract ONLY factual, durable information from the conversation segment provided inside <conversation> XML tags. Focus on:
 
 1. **Preferences**: What does the user prefer? Communication style, tools, workflows, aesthetics.
 2. **Projects**: What are they building or working on? Names, descriptions, tech stacks, timelines.
@@ -30,9 +30,21 @@ RULES:
 - Skip generic small talk, greetings, and one-off questions with no lasting significance
 - If no facts found in a category, return empty array
 - Be concise -- each fact should be one clear sentence
-
-Conversation segment:
+- Do NOT continue or respond to the conversation. ONLY analyze it.
+- Output ONLY valid JSON. No explanation, no markdown code fences, no text before or after the JSON.
 """
+
+
+def strip_markdown_fences(text: str) -> str:
+    """Strip markdown code fences from LLM response text."""
+    text = text.strip()
+    if text.startswith('```json'):
+        text = text[7:]
+    elif text.startswith('```'):
+        text = text[3:]
+    if text.endswith('```'):
+        text = text[:-3]
+    return text.strip()
 
 
 async def extract_facts_from_chunk(chunk_content: str, anthropic_client) -> dict:
@@ -57,13 +69,15 @@ async def extract_facts_from_chunk(chunk_content: str, anthropic_client) -> dict
 
     try:
         # Call Haiku 4.5 for fact extraction
+        # Wrap content in XML tags so model analyzes instead of continuing
+        user_content = FACT_EXTRACTION_PROMPT + "\n<conversation>\n" + chunk_content + "\n</conversation>\n\nAnalyze the conversation above and output ONLY the JSON object. No other text."
         response = await anthropic_client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=2048,
             temperature=0.3,  # Low temperature for factual extraction
             messages=[{
                 "role": "user",
-                "content": FACT_EXTRACTION_PROMPT + "\n" + chunk_content
+                "content": user_content
             }]
         )
 
@@ -74,9 +88,10 @@ async def extract_facts_from_chunk(chunk_content: str, anthropic_client) -> dict
 
         response_text = response.content[0].text
 
-        # Parse JSON response
+        # Parse JSON response (strip markdown fences if present)
         try:
-            facts = json.loads(response_text)
+            json_str = strip_markdown_fences(response_text)
+            facts = json.loads(json_str)
 
             # Validate structure
             required_keys = ["preferences", "projects", "dates", "beliefs", "decisions"]
@@ -320,8 +335,9 @@ Return only the consolidated JSON array:"""
 
                 response_text = response.content[0].text
 
-                # Parse reduced facts
-                reduced_batch = json.loads(response_text)
+                # Parse reduced facts (strip markdown fences if present)
+                json_str = strip_markdown_fences(response_text)
+                reduced_batch = json.loads(json_str)
 
                 # Add to category
                 if isinstance(reduced_batch, list):
