@@ -199,10 +199,10 @@ Plans:
 4. User's upload retries automatically on transient server errors (5xx, timeout) without manual intervention
 5. User's JWT token refreshes automatically during multi-hour uploads (no 401 failures after 1hr)
 
-**Plans:** TBD (will be defined during plan-phase)
+**Plans:** 1 plan in 1 wave
 
 Plans:
-- [ ] 01-01: [TBD during planning]
+- [ ] 01-01-PLAN.md — Install tus-js-client, create TUS wrapper, integrate into import page (Wave 1)
 
 ### Phase 2: Cleanup & Verification
 **Goal:** Old XHR upload code path is removed after TUS is verified in production
@@ -228,7 +228,7 @@ Phases execute sequentially: 1 -> 2. Each phase builds on the previous infrastru
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. TUS Upload Implementation | 0/TBD | Not started | - |
+| 1. TUS Upload Implementation | 0/1 | Not started | - |
 | 2. Cleanup & Verification | 0/TBD | Not started | - |
 
 ---
