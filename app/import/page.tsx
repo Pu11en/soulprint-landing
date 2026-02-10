@@ -115,12 +115,17 @@ function ImportPageContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadProgressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const visibilityHandlerRef = useRef<(() => void) | null>(null);
 
-  // Cleanup intervals on unmount
+  // Cleanup intervals and visibility listener on unmount
   useEffect(() => {
     return () => {
       if (uploadProgressIntervalRef.current) clearInterval(uploadProgressIntervalRef.current);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      if (visibilityHandlerRef.current) {
+        document.removeEventListener('visibilitychange', visibilityHandlerRef.current);
+        visibilityHandlerRef.current = null;
+      }
     };
   }, []);
 
@@ -203,8 +208,8 @@ function ImportPageContent() {
         if (data.status === 'processing') {
           setCurrentStep('processing');
           setStatus('processing');
-          setProgress(60);
-          setProgressStage('Processing your conversations...');
+          setProgress(data.progress_percent ?? 0);
+          setProgressStage(data.import_stage ?? 'Processing...');
 
           // Poll for completion every 5 seconds (use progressIntervalRef for cleanup on unmount)
           if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
@@ -213,6 +218,10 @@ function ImportPageContent() {
               const pollRes = await fetch('/api/memory/status');
               if (!pollRes.ok) return;
               const pollData = await pollRes.json();
+
+              // Update progress from real data
+              if (pollData.progress_percent !== undefined) setProgress(pollData.progress_percent);
+              if (pollData.import_stage) setProgressStage(pollData.import_stage);
 
               if (pollData.status === 'ready' || pollData.hasSoulprint) {
                 if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
@@ -228,6 +237,29 @@ function ImportPageContent() {
               // Ignore poll errors, will retry on next interval
             }
           }, 5000);
+
+          // Visibility-aware polling for returning users too
+          const handleReturnVisibility = () => {
+            if (document.visibilityState === 'visible' && progressIntervalRef.current) {
+              // Immediate poll on tab focus
+              fetch('/api/memory/status').then(r => r.json()).then(pollData => {
+                if (pollData.progress_percent !== undefined) setProgress(pollData.progress_percent);
+                if (pollData.import_stage) setProgressStage(pollData.import_stage);
+                if (pollData.status === 'ready' || pollData.hasSoulprint) {
+                  if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+                  setProgress(100);
+                  setProgressStage('Analysis complete! Opening chat...');
+                  setTimeout(() => router.push('/chat'), 800);
+                } else if (pollData.status === 'failed' || pollData.failed) {
+                  if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+                  setErrorMessage(pollData.import_error || 'Processing failed. Please try again.');
+                  setStatus('error');
+                }
+              }).catch(() => {});
+            }
+          };
+          document.addEventListener('visibilitychange', handleReturnVisibility);
+          visibilityHandlerRef.current = handleReturnVisibility;
         }
 
         // If re-importing, mark as returning user to show appropriate UI
@@ -552,6 +584,50 @@ function ImportPageContent() {
             console.error('[Import] Progress polling error:', e);
           }
         }, 2000);
+
+        // Immediate poll when tab becomes visible (Chrome throttles background intervals to 60s)
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible' && progressIntervalRef.current) {
+            // Re-poll immediately when user returns to tab
+            (async () => {
+              try {
+                const { data, error } = await supabase
+                  .from('user_profiles')
+                  .select('progress_percent, import_stage, import_status, import_error')
+                  .eq('user_id', user.id)
+                  .single();
+                if (error || !data) return;
+                setProgress(data.progress_percent || 0);
+                setProgressStage(data.import_stage || 'Processing...');
+                if (data.import_status === 'quick_ready' || data.import_status === 'complete') {
+                  if (progressIntervalRef.current) {
+                    clearInterval(progressIntervalRef.current);
+                    progressIntervalRef.current = null;
+                  }
+                  document.removeEventListener('visibilitychange', handleVisibilityChange);
+                  visibilityHandlerRef.current = null;
+                  setProgress(100);
+                  setProgressStage('Analysis complete! Opening chat...');
+                  await new Promise(r => setTimeout(r, 800));
+                  router.push('/chat');
+                } else if (data.import_status === 'failed') {
+                  if (progressIntervalRef.current) {
+                    clearInterval(progressIntervalRef.current);
+                    progressIntervalRef.current = null;
+                  }
+                  document.removeEventListener('visibilitychange', handleVisibilityChange);
+                  visibilityHandlerRef.current = null;
+                  setErrorMessage(data.import_error || 'Import failed');
+                  setStatus('error');
+                }
+              } catch (e) {
+                console.error('[Import] Visibility poll error:', e);
+              }
+            })();
+          }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        visibilityHandlerRef.current = handleVisibilityChange;
 
         // Don't continue to the success block below — polling handles completion
         return;
