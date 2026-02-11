@@ -179,6 +179,16 @@ async def run_full_pass_pipeline(
 
     print(f"[FullPass] Saved {len(chunks)} chunks to database")
 
+    # Step 3.5: Generate embeddings for saved chunks
+    try:
+        from processors.embedding_generator import generate_embeddings_for_chunks
+        embedded_count = await generate_embeddings_for_chunks(user_id)
+        print(f"[FullPass] Generated embeddings for {embedded_count} chunks")
+    except Exception as e:
+        # Non-fatal: embeddings can be regenerated later, don't fail the pipeline
+        print(f"[FullPass] WARNING: Embedding generation failed: {e}")
+        # Pipeline continues — chunks are saved, facts can still be extracted
+
     # Step 4: Extract facts in parallel
     from processors.fact_extractor import (
         extract_facts_parallel,
