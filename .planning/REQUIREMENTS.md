@@ -17,20 +17,20 @@ Requirements for v3.0 Deep Memory. Each maps to roadmap phases.
 
 ### Memory in Chat
 
-- [ ] **MEM-01**: memory_md from full pass is passed to RLM service and included in chat system prompt
-- [ ] **MEM-02**: Conversation chunks retrieved via semantic search during chat for RAG context
-- [ ] **MEM-03**: Chat quality measurably improves when full pass is complete vs quick_ready (Opik A/B evaluation)
+- [x] **MEM-01**: memory_md from full pass is passed to RLM service and included in chat system prompt
+- [x] **MEM-02**: Conversation chunks retrieved via semantic search during chat for RAG context
+- [x] **MEM-03**: Chat quality measurably improves when full pass is complete vs quick_ready (Opik A/B evaluation)
 
 ### Vector Search
 
 - [x] **VSRC-01**: pgvector extension enabled, embedding column added to conversation_chunks with HNSW index
 - [x] **VSRC-02**: Titan Embed v2 (768 dims) embeddings generated for all chunks during full pass
-- [ ] **VSRC-03**: Semantic similarity search at query time replaces "fetch recent chunks" approach
-- [ ] **VSRC-04**: Embedding cost under $0.10 per user import (verified by cost tracking)
+- [x] **VSRC-03**: Semantic similarity search at query time replaces "fetch recent chunks" approach
+- [x] **VSRC-04**: Embedding cost under $0.10 per user import (verified by cost tracking)
 
 ### Cost Tracking
 
-- [ ] **COST-01**: Per-user import cost tracked (LLM calls + embeddings) and visible in admin panel
+- [x] **COST-01**: Per-user import cost tracked (LLM calls + embeddings) and visible in admin panel
 
 ## Future Requirements
 

@@ -337,8 +337,8 @@ Plans:
 **Plans:** 2 plans in 1 wave
 
 Plans:
-- [ ] 04-01-PLAN.md — Cost tracking: CostTracker module, pipeline instrumentation, admin endpoint (Wave 1)
-- [ ] 04-02-PLAN.md — Quality evaluation: MemoryDepthJudge, A/B experiment script (Wave 1)
+- [x] 04-01-PLAN.md — Cost tracking: CostTracker module, pipeline instrumentation, admin endpoint (Wave 1)
+- [x] 04-02-PLAN.md — Quality evaluation: MemoryDepthJudge, A/B experiment script (Wave 1)
 
 ## Progress
 
@@ -350,7 +350,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Pipeline Reliability | v3.0 | 3/3 | ✓ Complete | 2026-02-11 |
 | 2. Vector Infrastructure | v3.0 | 1/1 | ✓ Complete | 2026-02-11 |
 | 3. Memory in Chat | v3.0 | 2/2 | ✓ Complete | 2026-02-11 |
-| 4. Cost & Quality Measurement | v3.0 | 0/2 | Not started | - |
+| 4. Cost & Quality Measurement | v3.0 | 2/2 | ✓ Complete | 2026-02-11 |
 
 ---
 *Roadmap created: 2026-02-11*
