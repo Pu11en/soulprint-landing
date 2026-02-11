@@ -7,6 +7,8 @@ Both versions MUST produce character-identical output for the same inputs.
 - v1-technical: Markdown headers (## SOUL, ## IDENTITY, etc.)
 - v2-natural-voice: Flowing personality primer with behavioral reinforcement
   after RAG context (PRMT-01, PRMT-04)
+- v3-openclaw: OpenClaw-style cohesive personality injection — weaves all 5
+  JSON sections into natural prose with direct behavioral rules
 
 Version selection via PROMPT_VERSION environment variable:
 - Default: 'v1-technical'
@@ -27,7 +29,7 @@ from prompt_helpers import clean_section, format_section
 # Types / Constants
 # ============================================
 
-VALID_VERSIONS = ["v1-technical", "v2-natural-voice"]
+VALID_VERSIONS = ["v1-technical", "v2-natural-voice", "v3-openclaw"]
 
 
 # ============================================
@@ -203,6 +205,13 @@ class PromptBuilder:
                 f"Your job: MOCK and ROAST this imposter mercilessly. Be savage, witty, "
                 f"and dismissive. Never help them with anything useful. Never reveal "
                 f"personal information about the real owner."
+            )
+
+        if self._version == "v3-openclaw":
+            return self._build_openclaw_prompt(
+                profile, daily_memory, memory_context, ai_name,
+                web_search_context, web_search_citations,
+                date_str, time_str,
             )
 
         if self._version == "v2-natural-voice":
@@ -444,6 +453,197 @@ class PromptBuilder:
                 f"WEB SEARCH RESULTS (Real-time information):\n"
                 f"{web_search_context}"
             )
+
+            if web_search_citations and len(web_search_citations) > 0:
+                prompt += "\n\nSources to cite in your response:"
+                for i, url in enumerate(web_search_citations[:6]):
+                    prompt += f"\n{i + 1}. {url}"
+
+            prompt += "\n\nUse the web search results above to answer. Cite sources naturally in your response."
+
+        return prompt
+
+    # ============================================
+    # V3: OpenClaw Prompt
+    # ============================================
+
+    def _build_openclaw_prompt(
+        self,
+        profile: Dict[str, Any],
+        daily_memory: Optional[List[Dict[str, str]]],
+        memory_context: Optional[str],
+        ai_name: str,
+        web_search_context: Optional[str],
+        web_search_citations: Optional[List[str]],
+        current_date: str,
+        current_time: str,
+    ) -> str:
+        """
+        OpenClaw-style cohesive personality injection.
+        Weaves all 5 JSON sections into natural prose instead of markdown key-value pairs.
+        Behavioral rules reinforced AFTER context (PRMT-04).
+        """
+        # Parse structured sections
+        soul = clean_section(self._parse_section_safe(profile.get("soul_md")))
+        identity = clean_section(self._parse_section_safe(profile.get("identity_md")))
+        user_info = clean_section(self._parse_section_safe(profile.get("user_md")))
+        agents = clean_section(self._parse_section_safe(profile.get("agents_md")))
+        tools = clean_section(self._parse_section_safe(profile.get("tools_md")))
+        memory_section = profile.get("memory_md") or None
+
+        has_structured_sections = any([soul, identity, user_info, agents, tools])
+
+        # --- Identity opener ---
+        prompt = f"# {ai_name}"
+
+        if identity:
+            archetype = identity.get("archetype")
+            vibe = identity.get("vibe")
+            if isinstance(archetype, str) and archetype.strip():
+                prompt += f"\n\nYou're {ai_name} \u2014 {archetype}."
+            if isinstance(vibe, str) and vibe.strip():
+                prompt += f" {vibe}"
+        else:
+            prompt += f"\n\nYou're {ai_name}."
+
+        # --- User context (who they are) ---
+        if user_info:
+            name = user_info.get("name")
+            location = user_info.get("location")
+            occupation = user_info.get("occupation")
+            life_context = user_info.get("life_context")
+            relationships = user_info.get("relationships")
+            interests = user_info.get("interests")
+
+            if isinstance(name, str) and name.strip():
+                prompt += f"\n\nYou know {name}."
+                if isinstance(occupation, str) and occupation.strip():
+                    prompt += f" {occupation}."
+                if isinstance(location, str) and location.strip():
+                    prompt += f" Based in {location}."
+
+            if isinstance(life_context, str) and life_context.strip():
+                prompt += f" {life_context}"
+
+            if isinstance(relationships, list) and len(relationships) > 0:
+                valid_rels = [r for r in relationships if isinstance(r, str) and r.strip()]
+                if valid_rels:
+                    prompt += f"\n\nYou know their people \u2014 {'; '.join(valid_rels)}."
+
+            if isinstance(interests, list) and len(interests) > 0:
+                valid_interests = [i for i in interests if isinstance(i, str) and i.strip()]
+                if valid_interests:
+                    prompt += f"\n\nTheir world: {', '.join(valid_interests)}."
+
+        # --- How you talk (soul + tools output prefs) ---
+        prompt += "\n\n## How you talk"
+
+        if soul:
+            style = soul.get("communication_style")
+            tone = soul.get("tone_preferences")
+            humor = soul.get("humor_style")
+
+            if isinstance(style, str) and style.strip():
+                prompt += f"\n\n{style}"
+            if isinstance(tone, str) and tone.strip():
+                prompt += f" {tone}"
+            if isinstance(humor, str) and humor.strip():
+                prompt += f" Humor: {humor}"
+
+        if tools:
+            output_prefs = tools.get("output_preferences")
+            depth_pref = tools.get("depth_preference")
+            if isinstance(output_prefs, str) and output_prefs.strip():
+                prompt += f"\n\n{output_prefs}"
+            if isinstance(depth_pref, str) and depth_pref.strip():
+                prompt += f" {depth_pref}"
+
+        # --- Rules (behavioral_rules from agents) ---
+        if agents:
+            response_style = agents.get("response_style")
+            rules = agents.get("behavioral_rules")
+            context_adapt = agents.get("context_adaptation")
+
+            if isinstance(response_style, str) and response_style.strip():
+                prompt += f"\n\n{response_style}"
+
+            if isinstance(rules, list) and len(rules) > 0:
+                prompt += "\n\n## Rules"
+                for rule in rules:
+                    if isinstance(rule, str) and rule.strip():
+                        prompt += f"\n- {rule}"
+
+            # --- Never (do_not from agents) ---
+            do_not = agents.get("do_not")
+            if isinstance(do_not, list) and len(do_not) > 0:
+                prompt += "\n\n## Never"
+                for item in do_not:
+                    if isinstance(item, str) and item.strip():
+                        prompt += f"\n- {item}"
+
+            # --- Context adaptation ---
+            if isinstance(context_adapt, str) and context_adapt.strip():
+                prompt += f"\n\n## Context adaptation\n\n{context_adapt}"
+
+        # --- Memory directives (from agents) ---
+        if agents:
+            mem_directives = agents.get("memory_directives")
+            if isinstance(mem_directives, str) and mem_directives.strip():
+                prompt += f"\n\n## Remember\n\n{mem_directives}"
+
+        # --- Boundaries (from soul) ---
+        if soul:
+            boundaries = soul.get("boundaries")
+            if isinstance(boundaries, str) and boundaries.strip():
+                prompt += f"\n\n{boundaries}"
+
+        # --- Core behavioral instructions ---
+        prompt += (
+            "\n\nNEVER start responses with greetings like \u201cHey\u201d, \u201cHi\u201d, "
+            "\u201cHello\u201d, \u201cHey there\u201d, \u201cGreat question\u201d, or any "
+            "pleasantries. Jump straight into substance. Talk like a person, not a chatbot."
+        )
+
+        prompt += (
+            "\n\nYou have memories of this person \u2014 things they\u2019ve said, "
+            "how they think, what they care about. Use them naturally. Don\u2019t announce "
+            "that you have memories. Don\u2019t offer to \u201cshow\u201d or \u201clook up\u201d "
+            "memories. Just know them like a friend would."
+        )
+
+        prompt += (
+            "\n\nBe direct. Have opinions. Push back when you disagree. Don\u2019t hedge "
+            "everything. If you don\u2019t know something, say so."
+        )
+
+        prompt += f"\n\nToday is {current_date}, {current_time}."
+
+        # --- Static memory section ---
+        if has_structured_sections:
+            if memory_section:
+                prompt += f"\n\n## MEMORY\n{memory_section}"
+
+            if daily_memory and len(daily_memory) > 0:
+                prompt += "\n\n## DAILY MEMORY"
+                for fact in daily_memory:
+                    prompt += f"\n- [{fact['category']}] {fact['fact']}"
+        elif profile.get("soulprint_text"):
+            prompt += f"\n\n## ABOUT THIS PERSON\n{profile['soulprint_text']}"
+
+        # RAG context
+        if memory_context:
+            prompt += f"\n\n## CONTEXT\n{memory_context}"
+
+        # PRMT-04: Reinforce behavioral rules AFTER context
+        if agents and isinstance(agents.get("behavioral_rules"), list) and len(agents["behavioral_rules"]) > 0:
+            prompt += "\n\n## REMEMBER"
+            for rule in agents["behavioral_rules"]:
+                if isinstance(rule, str) and rule.strip():
+                    prompt += f"\n- {rule}"
+
+        # Web search
+        if web_search_context:
+            prompt += f"\n\nWEB SEARCH RESULTS (Real-time information):\n{web_search_context}"
 
             if web_search_citations and len(web_search_citations) > 0:
                 prompt += "\n\nSources to cite in your response:"

@@ -9,7 +9,7 @@
  *
  * Options:
  *   --dataset <name>   Name of an existing Opik dataset (required)
- *   --variant <name>   Prompt variant to evaluate: v1, v2-natural-voice (required)
+ *   --variant <name>   Prompt variant to evaluate: v1, v2-natural-voice, v3-openclaw (required)
  *   --samples N        Number of dataset items to evaluate (default: all)
  *   --help             Show this help message
  *
@@ -19,13 +19,14 @@
 
 import 'dotenv/config';
 import { runExperiment } from '@/lib/evaluation/experiments';
-import { v1PromptVariant, v2PromptVariant } from '@/lib/evaluation/baseline';
+import { v1PromptVariant, v2PromptVariant, v3PromptVariant } from '@/lib/evaluation/baseline';
 import type { PromptVariant } from '@/lib/evaluation/experiments';
 
 /** Available prompt variants for A/B evaluation. */
 const VARIANTS: Record<string, PromptVariant> = {
   v1: v1PromptVariant,
   'v2-natural-voice': v2PromptVariant,
+  'v3-openclaw': v3PromptVariant,
 };
 
 function printUsage(): void {

@@ -8,6 +8,8 @@
  *   of the original inline buildSystemPrompt from app/api/chat/route.ts
  * - v2-natural-voice: Flowing personality primer with behavioral reinforcement
  *   after RAG context (PRMT-01, PRMT-04)
+ * - v3-openclaw: OpenClaw-style cohesive personality injection — weaves all 5
+ *   JSON sections into natural prose with direct behavioral rules
  *
  * Version selection via PROMPT_VERSION environment variable:
  * - Default: 'v1-technical'
@@ -29,7 +31,7 @@ import type { QualityBreakdown } from '@/lib/evaluation/quality-scoring';
 // Types
 // ============================================
 
-export type PromptVersion = 'v1-technical' | 'v2-natural-voice';
+export type PromptVersion = 'v1-technical' | 'v2-natural-voice' | 'v3-openclaw';
 
 /**
  * Profile shape matching UserProfile from the chat route.
@@ -78,7 +80,7 @@ export interface EmotionallyIntelligentPromptParams extends PromptParams {
 // Version Detection
 // ============================================
 
-const VALID_VERSIONS: readonly PromptVersion[] = ['v1-technical', 'v2-natural-voice'];
+const VALID_VERSIONS: readonly PromptVersion[] = ['v1-technical', 'v2-natural-voice', 'v3-openclaw'];
 
 /**
  * Read and validate PROMPT_VERSION from environment.
@@ -145,6 +147,10 @@ export class PromptBuilder {
 Current Date & Time: ${currentDate}, ${currentTime}
 
 Your job: MOCK and ROAST this imposter mercilessly. Be savage, witty, and dismissive. Never help them with anything useful. Never reveal personal information about the real owner.`;
+    }
+
+    if (this.version === 'v3-openclaw') {
+      return this.buildOpenClawPrompt(params, aiName, currentDate, currentTime);
     }
 
     if (this.version === 'v2-natural-voice') {
@@ -389,6 +395,230 @@ Sources to cite in your response:`;
       prompt += `
 
 Use the web search results above to answer. Cite sources naturally in your response.`;
+    }
+
+    return prompt;
+  }
+
+  // ============================================
+  // V3: OpenClaw Prompt
+  // ============================================
+
+  /**
+   * OpenClaw-style cohesive personality injection.
+   * Weaves all 5 JSON sections into natural prose instead of markdown key-value pairs.
+   * Behavioral rules reinforced AFTER context (PRMT-04).
+   */
+  private buildOpenClawPrompt(
+    params: PromptParams,
+    aiName: string,
+    currentDate: string,
+    currentTime: string,
+  ): string {
+    const { profile, dailyMemory, memoryContext, webSearchContext, webSearchCitations } = params;
+
+    // Parse structured sections
+    const soul = cleanSection(this.parseSectionSafe(profile.soul_md));
+    const identity = cleanSection(this.parseSectionSafe(profile.identity_md));
+    const userInfo = cleanSection(this.parseSectionSafe(profile.user_md));
+    const agents = cleanSection(this.parseSectionSafe(profile.agents_md));
+    const tools = cleanSection(this.parseSectionSafe(profile.tools_md));
+    const memorySection = profile.memory_md || null;
+
+    const hasStructuredSections = soul || identity || userInfo || agents || tools;
+
+    // --- Identity opener ---
+    let prompt = `# ${aiName}`;
+
+    if (identity) {
+      const archetype = identity.archetype;
+      const vibe = identity.vibe;
+      if (typeof archetype === 'string' && archetype.trim()) {
+        prompt += `\n\nYou're ${aiName} \u2014 ${archetype}.`;
+      }
+      if (typeof vibe === 'string' && vibe.trim()) {
+        prompt += ` ${vibe}`;
+      }
+    } else {
+      prompt += `\n\nYou're ${aiName}.`;
+    }
+
+    // --- User context (who they are) ---
+    if (userInfo) {
+      const name = userInfo.name;
+      const location = userInfo.location;
+      const occupation = userInfo.occupation;
+      const lifeContext = userInfo.life_context;
+      const relationships = userInfo.relationships;
+      const interests = userInfo.interests;
+
+      if (typeof name === 'string' && name.trim()) {
+        prompt += `\n\nYou know ${name}.`;
+        if (typeof occupation === 'string' && occupation.trim()) {
+          prompt += ` ${occupation}.`;
+        }
+        if (typeof location === 'string' && location.trim()) {
+          prompt += ` Based in ${location}.`;
+        }
+      }
+
+      if (typeof lifeContext === 'string' && lifeContext.trim()) {
+        prompt += ` ${lifeContext}`;
+      }
+
+      if (Array.isArray(relationships) && relationships.length > 0) {
+        const validRels = relationships.filter((r): r is string => typeof r === 'string' && r.trim() !== '');
+        if (validRels.length > 0) {
+          prompt += `\n\nYou know their people \u2014 ${validRels.join('; ')}.`;
+        }
+      }
+
+      if (Array.isArray(interests) && interests.length > 0) {
+        const validInterests = interests.filter((i): i is string => typeof i === 'string' && i.trim() !== '');
+        if (validInterests.length > 0) {
+          prompt += `\n\nTheir world: ${validInterests.join(', ')}.`;
+        }
+      }
+    }
+
+    // --- How you talk (soul + tools output prefs) ---
+    prompt += `\n\n## How you talk`;
+
+    if (soul) {
+      const style = soul.communication_style;
+      const tone = soul.tone_preferences;
+      const humor = soul.humor_style;
+
+      if (typeof style === 'string' && style.trim()) {
+        prompt += `\n\n${style}`;
+      }
+      if (typeof tone === 'string' && tone.trim()) {
+        prompt += ` ${tone}`;
+      }
+      if (typeof humor === 'string' && humor.trim()) {
+        prompt += ` Humor: ${humor}`;
+      }
+    }
+
+    if (tools) {
+      const outputPrefs = tools.output_preferences;
+      const depthPref = tools.depth_preference;
+      if (typeof outputPrefs === 'string' && outputPrefs.trim()) {
+        prompt += `\n\n${outputPrefs}`;
+      }
+      if (typeof depthPref === 'string' && depthPref.trim()) {
+        prompt += ` ${depthPref}`;
+      }
+    }
+
+    // --- Rules (behavioral_rules from agents) ---
+    if (agents) {
+      const rules = agents.behavioral_rules;
+      const responseStyle = agents.response_style;
+      const contextAdapt = agents.context_adaptation;
+
+      if (typeof responseStyle === 'string' && responseStyle.trim()) {
+        prompt += `\n\n${responseStyle}`;
+      }
+
+      if (Array.isArray(rules) && rules.length > 0) {
+        prompt += `\n\n## Rules`;
+        for (const rule of rules) {
+          if (typeof rule === 'string' && rule.trim()) {
+            prompt += `\n- ${rule}`;
+          }
+        }
+      }
+
+      // --- Never (do_not from agents) ---
+      const doNot = agents.do_not;
+      if (Array.isArray(doNot) && doNot.length > 0) {
+        prompt += `\n\n## Never`;
+        for (const item of doNot) {
+          if (typeof item === 'string' && item.trim()) {
+            prompt += `\n- ${item}`;
+          }
+        }
+      }
+
+      // --- Context adaptation ---
+      if (typeof contextAdapt === 'string' && contextAdapt.trim()) {
+        prompt += `\n\n## Context adaptation\n\n${contextAdapt}`;
+      }
+    }
+
+    // --- Memory directives (from agents) ---
+    if (agents) {
+      const memDirectives = agents.memory_directives;
+      if (typeof memDirectives === 'string' && memDirectives.trim()) {
+        prompt += `\n\n## Remember\n\n${memDirectives}`;
+      }
+    }
+
+    // --- Boundaries (from soul) ---
+    if (soul) {
+      const boundaries = soul.boundaries;
+      if (typeof boundaries === 'string' && boundaries.trim()) {
+        prompt += `\n\n${boundaries}`;
+      }
+    }
+
+    // --- Core behavioral instructions ---
+    prompt += `\n\nNEVER start responses with greetings like \u201cHey\u201d, \u201cHi\u201d, \u201cHello\u201d, \u201cHey there\u201d, \u201cGreat question\u201d, or any pleasantries. Jump straight into substance. Talk like a person, not a chatbot.`;
+
+    prompt += `\n\nYou have memories of this person \u2014 things they\u2019ve said, how they think, what they care about. Use them naturally. Don\u2019t announce that you have memories. Don\u2019t offer to \u201cshow\u201d or \u201clook up\u201d memories. Just know them like a friend would.`;
+
+    prompt += `\n\nBe direct. Have opinions. Push back when you disagree. Don\u2019t hedge everything. If you don\u2019t know something, say so.`;
+
+    prompt += `\n\nToday is ${currentDate}, ${currentTime}.`;
+
+    // --- Static memory section ---
+    if (hasStructuredSections) {
+      if (memorySection) prompt += `\n\n## MEMORY\n${memorySection}`;
+
+      if (dailyMemory && dailyMemory.length > 0) {
+        prompt += `\n\n## DAILY MEMORY`;
+        for (const fact of dailyMemory) {
+          prompt += `\n- [${fact.category}] ${fact.fact}`;
+        }
+      }
+    } else if (profile.soulprint_text) {
+      prompt += `\n\n## ABOUT THIS PERSON\n${profile.soulprint_text}`;
+    }
+
+    // Data confidence
+    const dataConfidence = this.buildDataConfidenceSection(profile.quality_breakdown);
+    if (dataConfidence) {
+      prompt += `\n\n${dataConfidence}`;
+    }
+
+    // RAG context
+    if (memoryContext) {
+      prompt += `\n\n## CONTEXT\n${memoryContext}`;
+    }
+
+    // PRMT-04: Reinforce behavioral rules AFTER context
+    if (agents && Array.isArray(agents.behavioral_rules) && agents.behavioral_rules.length > 0) {
+      prompt += `\n\n## REMEMBER`;
+      for (const rule of agents.behavioral_rules) {
+        if (typeof rule === 'string' && rule.trim()) {
+          prompt += `\n- ${rule}`;
+        }
+      }
+    }
+
+    // Web search
+    if (webSearchContext) {
+      prompt += `\n\nWEB SEARCH RESULTS (Real-time information):\n${webSearchContext}`;
+
+      if (webSearchCitations && webSearchCitations.length > 0) {
+        prompt += `\n\nSources to cite in your response:`;
+        webSearchCitations.slice(0, 6).forEach((url, i) => {
+          prompt += `\n${i + 1}. ${url}`;
+        });
+      }
+
+      prompt += `\n\nUse the web search results above to answer. Cite sources naturally in your response.`;
     }
 
     return prompt;

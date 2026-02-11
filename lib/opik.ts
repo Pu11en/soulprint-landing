@@ -31,6 +31,7 @@ export function traceChatRequest(params: {
   hasSoulprint: boolean;
   historyLength: number;
   deepSearch: boolean;
+  promptVersion?: string;
 }) {
   const client = getOpikClient();
   if (!client) return null;
@@ -46,6 +47,7 @@ export function traceChatRequest(params: {
       userId: params.userId,
       aiName: params.aiName,
       hasSoulprint: params.hasSoulprint,
+      promptVersion: params.promptVersion || 'v1-technical',
     },
   });
 

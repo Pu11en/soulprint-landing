@@ -152,6 +152,47 @@ export const v2PromptVariant: PromptVariant = {
 };
 
 /**
+ * Build a v3 system prompt from an evaluation dataset item.
+ *
+ * Uses the PromptBuilder('v3-openclaw') version — OpenClaw-style cohesive
+ * personality injection that weaves all 5 JSON sections into natural prose
+ * with direct behavioral rules instead of markdown key-value formatting.
+ *
+ * Exported for reuse by scripts/run-experiment.ts when running the v3 variant.
+ */
+export function buildV3SystemPrompt(item: ChatEvalItem): string {
+  const builder = new PromptBuilder('v3-openclaw');
+
+  const profile = {
+    soulprint_text: null,
+    import_status: 'complete',
+    ai_name: 'SoulPrint',
+    soul_md: item.soulprint_context.soul ? JSON.stringify(item.soulprint_context.soul) : null,
+    identity_md: item.soulprint_context.identity ? JSON.stringify(item.soulprint_context.identity) : null,
+    user_md: item.soulprint_context.user ? JSON.stringify(item.soulprint_context.user) : null,
+    agents_md: item.soulprint_context.agents ? JSON.stringify(item.soulprint_context.agents) : null,
+    tools_md: item.soulprint_context.tools ? JSON.stringify(item.soulprint_context.tools) : null,
+    memory_md: null,
+  };
+
+  return builder.buildSystemPrompt({
+    profile,
+    dailyMemory: null,
+    memoryContext: undefined,
+    aiName: 'SoulPrint',
+    isOwner: true,
+  });
+}
+
+/**
+ * V3 prompt variant definition for use with runExperiment.
+ */
+export const v3PromptVariant: PromptVariant = {
+  name: 'v3-openclaw',
+  buildSystemPrompt: buildV3SystemPrompt,
+};
+
+/**
  * Record baseline metrics for the current v1 prompt system.
  *
  * Runs an experiment using the v1 prompt builder against the specified dataset

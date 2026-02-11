@@ -387,6 +387,7 @@ export async function POST(request: NextRequest) {
       hasSoulprint,
       historyLength: history.length,
       deepSearch: deepSearch || false,
+      promptVersion: process.env.PROMPT_VERSION || 'v1-technical',
     });
 
     // Debug: log what data is available for this user
