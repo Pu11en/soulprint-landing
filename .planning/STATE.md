@@ -12,11 +12,11 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 Milestone: v3.0 Deep Memory
 Phase: 3 of 4 (Memory in Chat)
-Plan: 2 of 3 complete
-Status: In progress
-Last activity: 2026-02-11 - Completed 03-02-PLAN.md (Fix Memory Query with Titan Embed v2)
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-11 - Completed 03-01-PLAN.md (Semantic Search in RLM Query)
 
-Progress: [███████████████████████████░░░] 67%
+Progress: [███████████████████████████████] 75%
 
 ## Performance Metrics
 
@@ -49,6 +49,9 @@ Progress: [███████████████████████
 ### Decisions
 
 Recent decisions affecting current work:
+- v3.0 Phase 3 Plan 1: match_count=8, threshold=0.3 for semantic search — balances context window with relevance
+- v3.0 Phase 3 Plan 1: Fail-open fallback to timestamp sort — degrades gracefully if semantic search fails
+- v3.0 Phase 3 Plan 1: Include relevance scores in context — format as (relevance: X.XX) for LLM weighting
 - v3.0 Phase 3 Plan 2: Remove layered search (Macro/Thematic/Micro) — match_conversation_chunks_layered RPC doesn't exist, simplified to top-K
 - v3.0 Phase 3 Plan 2: Use getSupabaseAdmin() for RPC calls — service role key bypasses RLS for memory access
 - v3.0 Phase 3 Plan 2: Sequential embedding calls in embedBatch() — Titan v2 has no batch API (unlike Cohere v3)
@@ -80,10 +83,9 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-**Active (v3.0 Phase 3 Plan 3 will address):**
-- memory_md generated but never wired into chat responses — Next plan wires into both RLM and Bedrock paths
-
 **Resolved:**
+- ✓ (v3.0 Phase 3 Plan 1) memory_md flow verified end-to-end — Chat route → RLM → PromptBuilder includes memory_md
+- ✓ (v3.0 Phase 3 Plan 1) RLM uses semantic search — Top 8 relevant chunks via Titan Embed v2 + HNSW cosine similarity
 - ✓ (v3.0 Phase 3 Plan 2) Query embedding dimension mismatch — Now uses 768-dim Titan v2 matching storage
 - ✓ (v3.0 Phase 3 Plan 2) Broken layered search calling non-existent RPC — Simplified to match_conversation_chunks
 - ✓ (v3.0 Phase 1) Full pass killed by Render redeploys — Users can now retry with /retry-full-pass (Plan 3)
@@ -96,9 +98,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 03-02-PLAN.md (Fix Memory Query with Titan Embed v2)
-Resume file: .planning/phases/03-memory-in-chat/03-02-SUMMARY.md
-Next step: Execute 03-03-PLAN.md — wire memory into chat responses (both RLM and Bedrock fallback paths)
+Stopped at: Completed 03-01-PLAN.md (Semantic Search in RLM Query)
+Resume file: .planning/phases/03-memory-in-chat/03-01-SUMMARY.md
+Next step: Begin Phase 4 (Cost & Quality Measurement) — track per-user import costs and measure semantic search impact on chat quality
 
 ---
-*Last updated: 2026-02-11 -- Phase 3 Plan 2 complete. Next.js memory queries now use Titan Embed v2 (768-dim) matching stored embeddings. Semantic search functional via match_conversation_chunks RPC. Ready to wire memory into chat responses.*
+*Last updated: 2026-02-11 -- Phase 3 complete (2/2 plans). RLM /query endpoint uses semantic vector search with Titan Embed v2 embeddings. Next.js memory queries use same infrastructure. memory_md flow verified end-to-end. Ready for Phase 4: Cost & Quality Measurement.*
