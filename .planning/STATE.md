@@ -6,24 +6,22 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** v2.4 Import UX Polish (animated stage-based progress + smooth transitions)
+**Current focus:** v3.0 Deep Memory (reliable full pass + semantic search + pgvector)
 
 ## Current Position
 
-Milestone: v2.4 Import UX Polish
-Phase: 1 of 2 (Progress State + Stage Animations)
-Plan: 2 of 2
-Status: Phase complete
-Last activity: 2026-02-11 — Completed 01-02-PLAN.md (import page integration)
-
-Progress: [█████░░░░░] 50% (1/2 phases complete)
+Milestone: v3.0 Deep Memory
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-11 — Milestone v3.0 started
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 80 (across v1.0-v2.3 milestones)
+- Total plans completed: 82 (across v1.0-v2.4 milestones)
 - Average duration: ~17 min
-- Total execution time: ~21.5 hours across 10 milestones
+- Total execution time: ~22 hours across 11 milestones
 
 **By Milestone:**
 
@@ -39,11 +37,8 @@ Progress: [█████░░░░░] 50% (1/2 phases complete)
 | v2.1 Hardening | 3 | 4 | Shipped |
 | v2.2 Imports | 3 | 8 | Shipped |
 | v2.3 Uploads | 2 | 2 | Shipped |
-| v2.4 UX Polish | 2 | 2 | Active |
-
-**Recent Trend:**
-- Last 5 milestones: Focus on import reliability and quality
-- Trend: Consistent execution with polish-focused work
+| v2.4 UX Polish | 1 | 2 | Shipped (Phase 2 deferred) |
+| v3.0 Deep Memory | — | — | Active |
 
 *Metrics updated: 2026-02-11*
 
@@ -52,43 +47,34 @@ Progress: [█████░░░░░] 50% (1/2 phases complete)
 ### Decisions
 
 Recent decisions affecting current work:
-- v2.4 (01-02): Use lastKnownPercentRef for monotonic guard across polling and handleFile flows
-- v2.4 (01-02): Keep RingProgress file but remove drop-shadow (may be used elsewhere)
-- v2.4 (01-02): Wrap AnimatedProgressStages in motion.div for AnimatePresence compatibility
-- v2.4 (01-01): Pure function progress mapper with monotonic guard enforces stability client-side
-- v2.4 (01-01): 4-stage model (Upload 0-49%, Extract 50-59%, Analyze 60-79%, Build 80-100%) maps to actual pipeline phases
-- v2.4 (01-01): Framer Motion 300ms transitions for stage changes, pulsing active stage animation
-- v2.4 (01-01): No SVG drop-shadow filters — GPU-composited animations only (opacity + transform) for mobile performance
-- v2.4: Use Framer Motion 12.29.2 (already installed) for stage animations — no new dependencies
-- v2.4: Stage-based progress with 4 stages (Upload → Extract → Analyze → Build Profile) mapped to backend milestones
-- v2.4: Smooth fade transition via template.tsx pattern (App Router compatible, not AnimatePresence)
-- v2.4: Frontend-only refactoring — no backend changes, existing 3s polling stays
-- v2.4: Monotonic progress (never goes backwards) enforced client-side
-- Research: Perceived progress matters more than accuracy per UX research (NN/G, UXPin)
-- Import flow: Files >100MB skip JSZip, upload raw ZIP for server-side extraction
-- RLM: Full pass runs in background (chunks → facts → memory → v2 sections)
-- RLM: Streaming import sends SSE events for progress tracking
+- v3.0: Fix full pass reliability BEFORE adding embeddings (foundation first)
+- v3.0: Supabase pgvector for vector search (no new infra, ALTER TABLE + index)
+- v3.0: Budget $0.10/user for embeddings (Titan Embed v2 is ~$0.0001/100 chunks)
+- v3.0: Reduce fact extraction concurrency from 10 to 3-5 to avoid rate limits
+- v2.4: LLM classifier for smart search routing (conservative, heuristic fallback)
+- v2.4: Google Trends filtered by user interests, zero PromptBuilder changes
+- v2.4: Promise.allSettled parallelizes all chat route prep work
 
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
-- Full pass chunk saves now working (token_count column fix deployed)
+- daily_trends table created in Supabase (v2.4)
+- Two users (79898043, 39cce7a5) have pending/failed full passes — will be fixed by v3.0
 
 ### Blockers/Concerns
 
 **Active:**
 - Full pass killed by Render redeploys (every push to rlm-service/ triggers restart)
-- Fact extraction costs ~$8-10 per import (2140 Haiku API calls)
-- Two users (79898043, 39cce7a5) have pending full passes
-
-**None blocking v2.4 work** — This milestone is frontend-only refactoring.
+- Fact extraction costs ~$8-10 per import (2140 Haiku API calls) — need concurrency reduction
+- save_chunks_batch() silently swallows errors — chunks not saved
+- memory_md generated but never wired into chat responses
 
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 01-02-PLAN.md execution (Phase 1 complete)
+Stopped at: Starting v3.0 milestone definition
 Resume file: None
-Next step: `/gsd:plan-phase 2` to plan Phase 2 (Chat Transition Polish)
+Next step: Define requirements and create roadmap
 
 ---
-*Last updated: 2026-02-11 -- Completed Phase 1: Stage-based animated progress fully integrated into import page with monotonic enforcement and mobile-safe rendering. Ready for Phase 2 (smooth page transitions).*
+*Last updated: 2026-02-11 -- Started v3.0 Deep Memory milestone. v2.4 shipped Phase 1 (animated progress), Phase 2 deferred.*

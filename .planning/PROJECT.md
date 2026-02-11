@@ -59,15 +59,27 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 - ✓ Actionable error classification (10 categories) — v2.2
 - ✓ Full pass auto-triggered after quick pass (chunks, facts, memory, v2 sections) — v2.2
 
+- ✓ Animated stage-based progress with visual transitions (Upload → Extract → Analyze → Build Profile) — v2.4
+- ✓ Mobile-optimized progress states with Framer Motion GPU-composited animations — v2.4
+- ✓ LLM-based smart search routing (Haiku 4.5 classifier, heuristic fallback, Opik tracing) — v2.4
+- ✓ Google Trends integration filtered by user interests, injected into dailyMemory — v2.4
+- ✓ Parallel chat route prep (classifier + emotion + memory + DB in Promise.allSettled) — v2.4
+- ✓ SearchValueJudge for evaluating search routing decisions — v2.4
+
 ### Active
 
-#### v2.4 Import UX Polish
+#### v3.0 Deep Memory
 
-- [ ] Import shows animated stage-based progress (Upload → Extract → Analyze → Build Profile)
-- [ ] Each stage has visual transitions and never appears stalled
-- [ ] Mobile-optimized progress states work on all devices
-- [ ] Smooth import-to-chat transition (no jarring redirect or blank screens)
-- [ ] Chat is ready and welcoming when user arrives from import
+- [ ] Full pass pipeline reliably completes (no silent failures)
+- [ ] Conversation chunks actually saved to database with error propagation
+- [ ] Fact extraction handles rate limits and retries gracefully
+- [ ] MEMORY section generated reliably (no fallback placeholders saved)
+- [ ] memory_md wired into chat responses (passed to RLM + Bedrock fallback)
+- [ ] Conversation chunks used for RAG during chat (semantic search)
+- [ ] pgvector embeddings on conversation_chunks for semantic retrieval
+- [ ] Embedding cost under $0.10 per user import
+- [ ] Full pass retry mechanism (user or system can re-trigger failed full pass)
+- [ ] Chat quality measurably improves when full pass is complete vs quick_ready only
 
 ### Out of Scope
 
@@ -109,11 +121,14 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 - Database migrations pending: `20260206_add_tools_md.sql`, `20260207_full_pass_schema.sql`, `20260209_quality_breakdown.sql`
 - Some routes use console.log instead of Pino
 - lib/retry.ts has no dedicated unit tests
-- **Import parsing only takes `parts[0]`** — misses multi-part content (images, attachments)
-- **Import dumps ALL conversation nodes** — includes dead branches from edits instead of following DAG
-- **Import doesn't filter hidden messages** — tool outputs, browsing, reasoning noise in soulprint
-- **Import doesn't handle `{ conversations: [...] }` wrapper format** — only handles bare array
-- **Large exports OOM on Vercel** — 1GB RAM limit, 300s timeout, JSON.parse of entire file in memory
+- **Full pass save_chunks_batch() silently swallows HTTP errors** — chunks not saved but pipeline continues
+- **Full pass fact extraction hits rate limits** — 10 concurrent Haiku calls, circuit breaker gives up after 5 failures
+- **Full pass memory_generator returns placeholder on any error** — "Memory generation failed" saved to DB, never retried
+- **memory_md not passed to RLM service** — full pass MEMORY never used in chat responses
+- **conversation_chunks empty when full pass fails** — getMemoryContext() returns nothing, chat has no RAG
+- **Token estimation in chunker uses len()/4** — inaccurate, causes oversized chunks
+- **Full pass killed by Render redeploys** — every push triggers restart, long-running full pass aborted
+- **Fact extraction costs ~$8-10 per import** — 2140 Haiku API calls (needs concurrency reduction)
 
 ### Key Fragile Areas (mostly addressed)
 
@@ -158,15 +173,16 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 | P97.5 latency percentile | autocannon limitation vs P95 | ✓ Good — close approximation |
 | PR-triggered regression testing | Only on prompt file changes, avoids expensive evals | ✓ Good — cost-efficient CI |
 
-## Current Milestone: v2.4 Import UX Polish
+## Current Milestone: v3.0 Deep Memory
 
-**Goal:** Make the import experience production-ready with animated stage-based progress and a smooth transition into chat. Users should always know what's happening and never think it's broken.
+**Goal:** Make the full soulprint pipeline reliable and wire real memory into chat. Users should get noticeably better responses once full pass completes — the AI should actually know their history, not just their personality.
 
 **Target features:**
-- Animated stage-based progress: Upload → Extract → Analyze → Build Profile
-- Visual transitions between stages with movement/animation (never stalled)
-- Mobile-optimized progress states for all devices
-- Smooth import-to-chat handoff (no jarring redirect, chat ready when user arrives)
+- Full pass pipeline that reliably completes without silent failures
+- memory_md and conversation chunks actually used in chat responses
+- pgvector semantic search over conversation history (Supabase, Titan Embed v2)
+- Cost-efficient pipeline (under $0.10/user, down from ~$8-10)
+- Full pass retry mechanism for failed imports
 
 ---
-*Last updated: 2026-02-11 after v2.4 milestone started*
+*Last updated: 2026-02-11 after v3.0 milestone started*
