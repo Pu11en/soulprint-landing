@@ -322,8 +322,8 @@ Plans:
 **Plans:** 2 plans in 1 wave
 
 Plans:
-- [ ] 03-01-PLAN.md — Semantic vector search in RLM /query endpoint (Wave 1)
-- [ ] 03-02-PLAN.md — Fix Next.js memory query: Titan Embed v2 + correct RPC functions (Wave 1)
+- [x] 03-01-PLAN.md — Semantic vector search in RLM /query endpoint (Wave 1)
+- [x] 03-02-PLAN.md — Fix Next.js memory query: Titan Embed v2 + correct RPC functions (Wave 1)
 
 ### Phase 4: Cost & Quality Measurement
 **Goal:** Verify embeddings are cost-efficient and improve chat quality
@@ -348,7 +348,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|-----------|----------------|--------|-----------|
 | 1. Pipeline Reliability | v3.0 | 3/3 | ✓ Complete | 2026-02-11 |
 | 2. Vector Infrastructure | v3.0 | 1/1 | ✓ Complete | 2026-02-11 |
-| 3. Memory in Chat | v3.0 | 0/TBD | Not started | - |
+| 3. Memory in Chat | v3.0 | 2/2 | ✓ Complete | 2026-02-11 |
 | 4. Cost & Quality Measurement | v3.0 | 0/TBD | Not started | - |
 
 ---
