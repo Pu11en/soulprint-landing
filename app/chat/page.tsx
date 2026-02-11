@@ -52,6 +52,9 @@ export default function ChatPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [currentCitations, setCurrentCitations] = useState<CitationMetadata[]>([]);
+  const [fullPassStatus, setFullPassStatus] = useState<string>('pending');
+  const [fullPassError, setFullPassError] = useState<string | null>(null);
+  const [fullPassDismissed, setFullPassDismissed] = useState(false);
 
   // Conversation management state
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -242,6 +245,9 @@ export default function ChatPage() {
 
         // Has soulprint (quick_ready or complete) -- check full pass status
         const fps = data.fullPassStatus || 'pending';
+        setFullPassStatus(fps);
+        setFullPassError(data.fullPassError || null);
+
         if (fps === 'complete') {
           setMemoryStatus('ready');
           shouldPoll.current = false; // Stop polling
@@ -844,6 +850,36 @@ export default function ChatPage() {
     processQueue();
   }, [messages, processQueue]);
 
+  // FullPassBanner component for showing full pass status
+  function FullPassBanner({ status, error, onDismiss }: { status: string; error: string | null; onDismiss: () => void }) {
+    if (status === 'complete' || status === 'pending') return null;
+
+    if (status === 'processing') {
+      return (
+        <div className="mx-4 mt-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          <span>Building deep memory from your conversations...</span>
+          <button onClick={onDismiss} className="ml-auto text-blue-400 hover:text-blue-600 dark:hover:text-blue-300">&times;</button>
+        </div>
+      );
+    }
+
+    if (status === 'failed') {
+      return (
+        <div className="mx-4 mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Deep memory processing encountered an issue</span>
+            <button onClick={onDismiss} className="ml-auto text-amber-400 hover:text-amber-600 dark:hover:text-amber-300">&times;</button>
+          </div>
+          {error && <p className="mt-1 text-xs opacity-75">{error}</p>}
+          <p className="mt-1 text-xs opacity-60">Your AI still works with quick-pass data. Deep memory can be retried later.</p>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
   if (loadingHistory) {
     return (
       <motion.div
@@ -897,6 +933,9 @@ export default function ChatPage() {
             onMenuClick={() => setSidebarOpen(true)}
           />
         </div>
+
+        {/* Full Pass Status Banner */}
+        {!fullPassDismissed && <FullPassBanner status={fullPassStatus} error={fullPassError} onDismiss={() => setFullPassDismissed(true)} />}
       </motion.div>
 
       {saveError && (
