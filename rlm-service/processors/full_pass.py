@@ -61,7 +61,7 @@ async def save_chunks_batch(user_id: str, chunks: List[dict]):
         # Fields that exist in the conversation_chunks table
         VALID_COLUMNS = {
             "user_id", "conversation_id", "title", "content",
-            "token_count", "chunk_tier", "is_recent", "created_at",
+            "chunk_tier", "is_recent", "created_at",
             "message_count",
         }
 
