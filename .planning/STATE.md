@@ -12,18 +12,18 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 Milestone: v3.0 Deep Memory
 Phase: 1 of 4 (Pipeline Reliability)
-Plan: 2 of 3 complete
-Status: In progress
-Last activity: 2026-02-11 - Completed 01-01-PLAN.md (Error Propagation)
+Plan: 3 of 3 complete
+Status: Phase complete
+Last activity: 2026-02-11 - Completed 01-03-PLAN.md (Full Pass Retry Mechanism)
 
-Progress: [██████░░░░] 67%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 84 (across v1.0-v3.0 milestones)
-- Average duration: ~16 min
-- Total execution time: ~22.5 hours across 11 milestones
+- Total plans completed: 85 (across v1.0-v3.0 milestones)
+- Average duration: ~15 min
+- Total execution time: ~22.6 hours across 11 milestones
 
 **By Milestone:**
 
@@ -40,7 +40,7 @@ Progress: [██████░░░░] 67%
 | v2.2 Imports | 3 | 8 | Shipped |
 | v2.3 Uploads | 2 | 2 | Shipped |
 | v2.4 UX Polish | 2 | 2 | Shipped (Phase 2 deferred) |
-| v3.0 Deep Memory | 1 | 2 | Active (Phase 1: 2/3 complete) |
+| v3.0 Deep Memory | 1 | 3 | Active (Phase 1: complete) |
 
 *Metrics updated: 2026-02-11*
 
@@ -49,6 +49,9 @@ Progress: [██████░░░░] 67%
 ### Decisions
 
 Recent decisions affecting current work:
+- v3.0 Phase 1 Plan 3: Persist storage_path to user_profiles — enables retry without re-upload
+- v3.0 Phase 1 Plan 3: Guard retry with full_pass_status === 'failed' — prevents duplicate triggers
+- v3.0 Phase 1 Plan 3: Fire-and-forget asyncio.create_task for retry — matches /import-full pattern
 - v3.0 Phase 1 Plan 1: Error propagation (not redundant try/except) — let errors flow to trigger_full_pass
 - v3.0 Phase 1 Plan 1: Concurrency 5 (not 10) — prevents rate limits entirely vs aggressive handling
 - v3.0 Phase 1 Plan 1: Memory retry 2x on placeholder — balances quality vs latency
@@ -70,10 +73,11 @@ Recent decisions affecting current work:
 ### Blockers/Concerns
 
 **Active (v3.0 will address):**
-- Full pass killed by Render redeploys (every push to rlm-service/ triggers restart)
 - memory_md generated but never wired into chat responses — MEM-01 fixes
 
-**Resolved (v3.0 Phase 1 Plan 1):**
+**Resolved (v3.0 Phase 1):**
+- ✓ Full pass killed by Render redeploys — Users can now retry with /retry-full-pass (Plan 3)
+- ✓ No retry mechanism for failed full pass — Retry button in chat UI, uses stored storage_path (Plan 3)
 - ✓ save_chunks_batch() silently swallows errors — Now raises RuntimeError on HTTP failures
 - ✓ Fact extraction costs ~$8-10 per import — Reduced concurrency from 10 to 5, retry with backoff
 - ✓ Memory generation accepts placeholder content — Now validates and retries 2x before fallback
@@ -82,9 +86,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 01-01-PLAN.md (Error Propagation)
-Resume file: .planning/phases/01-pipeline-reliability/01-01-SUMMARY.md
-Next step: Continue with remaining Phase 1 plan (01-03)
+Stopped at: Completed 01-03-PLAN.md (Full Pass Retry Mechanism)
+Resume file: .planning/phases/01-pipeline-reliability/01-03-SUMMARY.md
+Next step: Begin Phase 2 (Deep Memory Search) or address pending todos
 
 ---
-*Last updated: 2026-02-11 -- Phase 1 Plan 1 complete. Error propagation, retry logic, and memory validation implemented. 2/3 plans done.*
+*Last updated: 2026-02-11 -- Phase 1 complete. Error propagation, full pass status UI, and retry mechanism implemented. All 3 plans done. Users can now see full pass status and retry failures without re-uploading.*
