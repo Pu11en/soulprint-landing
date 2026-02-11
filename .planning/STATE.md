@@ -11,19 +11,19 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 Milestone: v3.0 Deep Memory
-Phase: 3 of 4 (Memory in Chat)
+Phase: 4 of 4 (Cost & Quality Measurement)
 Plan: 2 of 2 complete
 Status: Phase complete
-Last activity: 2026-02-11 - Completed 03-01-PLAN.md (Semantic Search in RLM Query)
+Last activity: 2026-02-11 - Completed 04-02-PLAN.md (Memory Quality A/B Evaluation)
 
-Progress: [███████████████████████████████] 75%
+Progress: [████████████████████████████████████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 88 (across v1.0-v3.0 milestones)
+- Total plans completed: 90 (across v1.0-v3.0 milestones)
 - Average duration: ~15 min
-- Total execution time: ~23.3 hours across 11 milestones
+- Total execution time: ~23.6 hours across 11 milestones
 
 **By Milestone:**
 
@@ -40,7 +40,7 @@ Progress: [███████████████████████
 | v2.2 Imports | 3 | 8 | Shipped |
 | v2.3 Uploads | 2 | 2 | Shipped |
 | v2.4 UX Polish | 2 | 2 | Shipped (Phase 2 deferred) |
-| v3.0 Deep Memory | 3 | 6 | Active (Phases 1-3: complete) |
+| v3.0 Deep Memory | 4 | 8 | Complete |
 
 *Metrics updated: 2026-02-11*
 
@@ -49,6 +49,9 @@ Progress: [███████████████████████
 ### Decisions
 
 Recent decisions affecting current work:
+- v3.0 Phase 4 Plan 2: SHA256 reverse lookup for dataset user matching — hash all user_ids, match against dataset hashes (works for small user base)
+- v3.0 Phase 4 Plan 2: v2-natural-voice for experiment generation — matches production, ensures representative results
+- v3.0 Phase 4 Plan 2: 4 judges including MemoryDepthJudge — memory_depth is primary metric, 3 baseline judges detect prompt instability
 - v3.0 Phase 3 Plan 1: match_count=8, threshold=0.3 for semantic search — balances context window with relevance
 - v3.0 Phase 3 Plan 1: Fail-open fallback to timestamp sort — degrades gracefully if semantic search fails
 - v3.0 Phase 3 Plan 1: Include relevance scores in context — format as (relevance: X.XX) for LLM weighting
@@ -98,9 +101,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 03-01-PLAN.md (Semantic Search in RLM Query)
-Resume file: .planning/phases/03-memory-in-chat/03-01-SUMMARY.md
-Next step: Begin Phase 4 (Cost & Quality Measurement) — track per-user import costs and measure semantic search impact on chat quality
+Stopped at: Completed 04-02-PLAN.md (Memory Quality A/B Evaluation)
+Resume file: .planning/phases/04-cost-quality-measurement/04-02-SUMMARY.md
+Next step: v3.0 Deep Memory milestone COMPLETE — All 4 phases shipped. Run A/B experiment to measure memory quality impact.
 
 ---
-*Last updated: 2026-02-11 -- Phase 3 complete (2/2 plans). RLM /query endpoint uses semantic vector search with Titan Embed v2 embeddings. Next.js memory queries use same infrastructure. memory_md flow verified end-to-end. Ready for Phase 4: Cost & Quality Measurement.*
+*Last updated: 2026-02-11 -- Phase 4 complete (2/2 plans). v3.0 Deep Memory milestone SHIPPED. MemoryDepthJudge measures deep memory usage. A/B script compares quick_ready vs full_pass conditions. All evaluation infrastructure in place.*
