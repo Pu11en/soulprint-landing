@@ -252,46 +252,7 @@ export async function POST(request: NextRequest) {
     const hasSoulprint = !!userProfile?.soulprint_text || !!userProfile?.soul_md;
     reqLog.debug({ hasSoulprint, importStatus: userProfile?.import_status }, 'User profile loaded');
 
-    // Get daily memory (recent learned facts)
-    const { data: learnedFacts } = await adminSupabase
-      .from('learned_facts')
-      .select('fact, category')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    // Search conversation chunks for memory context
-    let memoryContext = '';
-    if (hasSoulprint) {
-      try {
-        const { contextText, chunks, method } = await getMemoryContext(user.id, message, 5);
-        if (chunks.length > 0) {
-          memoryContext = contextText;
-          reqLog.debug({ chunksFound: chunks.length, method }, 'Memory search completed');
-        }
-      } catch (error) {
-        reqLog.warn({ error: error instanceof Error ? error.message : String(error) }, 'Memory search failed');
-      }
-    }
-
-    // Auto-name the AI if not set
-    let aiName = userProfile?.ai_name;
-    if (!aiName && userProfile?.soulprint_text) {
-      reqLog.debug('Auto-generating AI name');
-      aiName = await generateAIName(userProfile.soulprint_text);
-
-      // Save the generated name
-      await adminSupabase
-        .from('user_profiles')
-        .update({ ai_name: aiName })
-        .eq('user_id', user.id);
-
-      reqLog.info({ aiName }, 'AI auto-named');
-    }
-    aiName = aiName || 'SoulPrint';
-
-    // Extract user interests from user_md for smart search + trends
+    // Extract user interests from user_md (sync — just JSON.parse, no await)
     let userInterests: string[] = [];
     try {
       if (userProfile?.user_md) {
@@ -304,25 +265,102 @@ export async function POST(request: NextRequest) {
       // user_md parse failure is non-critical
     }
 
-    // Build recent context for classifier (last 2 user messages)
+    // Build recent context for classifier (sync — just array ops)
     const recentContext = history
       .filter(m => m.role === 'user')
       .slice(-2)
       .map(m => m.content.slice(0, 200));
 
-    // Step 1: Smart Search - LLM classifier decides when search is needed
-    // Falls back to keyword heuristics if classifier unavailable
+    // ── Parallel fetch: all independent async work runs concurrently ──
+    // This saves ~400-600ms compared to sequential execution
+    const [
+      learnedFactsResult,
+      memoryResult,
+      aiNameResult,
+      searchResultSettled,
+      emotionResult,
+      relationshipResult,
+    ] = await Promise.allSettled([
+      // 1. Learned facts from DB
+      adminSupabase
+        .from('learned_facts')
+        .select('fact, category')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(20),
+
+      // 2. Memory context from conversation chunks
+      hasSoulprint
+        ? getMemoryContext(user.id, message, 5)
+        : Promise.resolve(null),
+
+      // 3. AI name generation (only if needed)
+      (!userProfile?.ai_name && userProfile?.soulprint_text)
+        ? generateAIName(userProfile.soulprint_text)
+        : Promise.resolve(userProfile?.ai_name || null),
+
+      // 4. Smart search (classifier + search if needed)
+      smartSearch(message, user.id, {
+        forceSearch: deepSearch,
+        preferDeep: deepSearch,
+        userInterests,
+        recentContext,
+      }),
+
+      // 5. Emotion detection
+      detectEmotion(message, history.slice(-5)),
+
+      // 6. Relationship arc (message count)
+      adminSupabase
+        .from('chat_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id),
+    ]);
+
+    // ── Unpack parallel results with safe defaults ──
+
+    // Learned facts
+    const learnedFacts = learnedFactsResult.status === 'fulfilled'
+      ? learnedFactsResult.value.data
+      : null;
+
+    // Memory context
+    let memoryContext = '';
+    if (memoryResult.status === 'fulfilled' && memoryResult.value) {
+      const mem = memoryResult.value;
+      if (mem.chunks?.length > 0) {
+        memoryContext = mem.contextText;
+        reqLog.debug({ chunksFound: mem.chunks.length, method: mem.method }, 'Memory search completed');
+      }
+    } else if (memoryResult.status === 'rejected') {
+      reqLog.warn({ error: String(memoryResult.reason) }, 'Memory search failed');
+    }
+
+    // AI name (save to DB if we just generated one)
+    let aiName: string | null = null;
+    if (aiNameResult.status === 'fulfilled') {
+      aiName = aiNameResult.value;
+      // If this was a fresh generation, persist it
+      if (!userProfile?.ai_name && aiName) {
+        Promise.resolve(
+          adminSupabase
+            .from('user_profiles')
+            .update({ ai_name: aiName })
+            .eq('user_id', user.id)
+        ).then(() => reqLog.info({ aiName }, 'AI auto-named'))
+         .catch(() => {});
+      }
+    }
+    aiName = aiName || 'SoulPrint';
+
+    // Smart search
     let webSearchContext = '';
     let webSearchCitations: string[] = [];
     let searchResult: SmartSearchResult | null = null;
 
-    try {
-      searchResult = await smartSearch(message, user.id, {
-        forceSearch: deepSearch,      // Manual toggle forces search
-        preferDeep: deepSearch,       // Use deep mode if manually triggered
-        userInterests,                // From user_md.interests
-        recentContext,                // Last 2 messages for classifier context
-      });
+    if (searchResultSettled.status === 'fulfilled') {
+      searchResult = searchResultSettled.value;
 
       if (searchResult.performed) {
         // Validate citations before passing to LLM
@@ -330,7 +368,6 @@ export async function POST(request: NextRequest) {
           timeout: 3000
         });
 
-        // Log validation metrics
         if (validation.invalid.length > 0) {
           reqLog.warn({
             invalid: validation.invalid.length,
@@ -338,7 +375,6 @@ export async function POST(request: NextRequest) {
           }, 'Some citations invalid, filtering');
         }
 
-        // Only use validated citations
         webSearchContext = searchResult.context;
         webSearchCitations = validation.valid;
 
@@ -350,40 +386,34 @@ export async function POST(request: NextRequest) {
           invalidCitations: validation.invalid.length
         }, 'Smart search performed with citation validation');
       } else if (searchResult.needed) {
-        // Search was needed but failed
         reqLog.warn({
           reason: searchResult.reason,
           error: searchResult.error
         }, 'Smart search needed but failed');
       } else {
-        // Search not needed - static knowledge is fine
         reqLog.debug({ reason: searchResult.reason }, 'Smart search skipped');
       }
-    } catch (error) {
-      reqLog.error({ error: error instanceof Error ? error.message : String(error) }, 'Smart search error');
-      // Continue without web search - graceful degradation
+    } else {
+      reqLog.error({ error: String(searchResultSettled.reason) }, 'Smart search error');
     }
 
-    // Emotion detection (EMOT-01) -- lightweight, fail-safe
+    // Emotion detection
     let emotionalState: EmotionalState = { primary: 'neutral', confidence: 0.5, cues: [] };
-    try {
-      emotionalState = await detectEmotion(message, history.slice(-5));
+    if (emotionResult.status === 'fulfilled') {
+      emotionalState = emotionResult.value;
       reqLog.debug({ emotion: emotionalState.primary, confidence: emotionalState.confidence }, 'Emotion detected');
-    } catch (error) {
-      reqLog.warn({ error: error instanceof Error ? error.message : String(error) }, 'Emotion detection failed, defaulting to neutral');
+    } else {
+      reqLog.warn({ error: String(emotionResult.reason) }, 'Emotion detection failed, defaulting to neutral');
     }
 
-    // Relationship arc (EMOT-03) -- message count from chat_messages
+    // Relationship arc
     let relationshipArc: { stage: 'early' | 'developing' | 'established'; messageCount: number } = { stage: 'early', messageCount: 0 };
-    try {
-      const { count: messageCount } = await adminSupabase
-        .from('chat_messages')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      relationshipArc = getRelationshipArc(messageCount || 0);
+    if (relationshipResult.status === 'fulfilled') {
+      const count = relationshipResult.value.count;
+      relationshipArc = getRelationshipArc(count || 0);
       reqLog.debug({ stage: relationshipArc.stage, messageCount: relationshipArc.messageCount }, 'Relationship arc determined');
-    } catch (error) {
-      reqLog.warn({ error: error instanceof Error ? error.message : String(error) }, 'Relationship arc query failed, defaulting to early');
+    } else {
+      reqLog.warn({ error: String(relationshipResult.reason) }, 'Relationship arc query failed, defaulting to early');
     }
 
     // Build sections object from parsed section MDs for RLM
