@@ -12,6 +12,7 @@
 - SHIPPED **v2.1 Hardening & Integration** -- Phases 1-3 (shipped 2026-02-09)
 - SHIPPED **v2.2 Bulletproof Imports** -- Phases 1-3, 8 plans (shipped 2026-02-10)
 - SHIPPED **v2.3 Universal Uploads** -- Phases 1-2, 2 plans (shipped 2026-02-10)
+- ACTIVE **v2.4 Import UX Polish** -- Phases 1-2 (in progress)
 
 ## Phases
 
@@ -179,7 +180,8 @@ Plans:
 
 </details>
 
-## v2.3 Universal Uploads (ACTIVE)
+<details>
+<summary>v2.3 Universal Uploads (Phases 1-2) -- SHIPPED 2026-02-10</summary>
 
 **Milestone Goal:** Replace raw XHR upload with TUS resumable protocol so any file size works on any device/browser. Fix the Supabase Storage transport limit (~50MB on REST endpoint) that blocks large ChatGPT exports.
 
@@ -221,15 +223,61 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Delete old XHR chunked-upload files and verify clean codebase (Wave 1)
 
+</details>
+
+## v2.4 Import UX Polish (ACTIVE)
+
+**Milestone Goal:** Make the import experience production-ready with animated stage-based progress and a smooth transition into chat. Users should always know what's happening and never think it's broken.
+
+**Overview:** This milestone transforms the existing polling-based import flow into a polished, stage-based progress experience with smooth transitions. Research shows that perceived progress matters more than accuracy — users trust steadily advancing bars over jumpy but accurate ones. The existing stack (Framer Motion, Tailwind CSS, React 19) provides everything needed; no new dependencies required. Two phases deliver stage-based animations and smooth page transitions using proven patterns.
+
+### Phase 1: Progress State + Stage Animations
+**Goal:** Import displays animated stage-based progress that never appears stalled and works smoothly on all devices
+
+**Depends on:** Nothing (first phase)
+
+**Requirements:** PROG-01, PROG-02, PROG-03, PROG-04
+
+**Success Criteria** (what must be TRUE):
+1. User sees animated stage indicators showing Upload → Extract → Analyze → Build Profile during import
+2. User sees visual transition animation (300ms fade + slide) when progress moves from one stage to the next
+3. User never sees static/stalled progress — active stages show subtle movement (pulsing, shimmer) to indicate ongoing work
+4. User experiences smooth stage transitions on mobile devices (iOS Safari, Chrome, Brave) without jank or layout shift
+5. User sees progress percentage and stage label update correctly throughout import process (monotonic, no backwards jumps)
+
+**Plans:** 2 plans in 2 waves
+
+Plans:
+- [ ] 01-01-PLAN.md — Progress mapper + animated stage component (Wave 1)
+- [ ] 01-02-PLAN.md — Integration into import page + mobile verification (Wave 2)
+
+### Phase 2: Chat Transition Polish
+**Goal:** Import-to-chat navigation is smooth and welcoming with no jarring redirect or blank screens
+
+**Depends on:** Phase 1 (needs reliable stage indicators for completion animation)
+
+**Requirements:** TRAN-01, TRAN-02
+
+**Success Criteria** (what must be TRUE):
+1. User sees smooth fade transition (300ms) from import page to chat page instead of jarring redirect
+2. User never sees blank screen or white flash during import-to-chat navigation
+3. User's chat interface is ready and welcoming when they arrive (no loading spinner, messages can be typed immediately)
+4. User's browser prefetches chat data during import completion animation to mask latency
+
+**Plans:** TBD
+
+Plans:
+- [ ] 02-01: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute sequentially: 1 -> 2. Each phase builds on the previous infrastructure.
+Phases execute sequentially: 1 → 2. Phase 2 builds on Phase 1's reliable stage indicators.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. TUS Upload Implementation | 1/1 | ✓ Complete | 2026-02-10 |
-| 2. Cleanup & Verification | 1/1 | ✓ Complete | 2026-02-10 |
+| 1. Progress State + Stage Animations | 0/2 | Not started | - |
+| 2. Chat Transition Polish | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-10 -- Phase 2 complete (Cleanup & Verification). Milestone v2.3 complete.*
+*Last updated: 2026-02-11 -- Phase 1 planned with 2 plans in 2 waves. Ready for execution.*
