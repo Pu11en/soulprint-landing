@@ -239,7 +239,7 @@ Plans:
 **Requirements:** PROG-01, PROG-02, PROG-03, PROG-04
 
 **Success Criteria** (what must be TRUE):
-1. User sees animated stage indicators showing Upload → Extract → Analyze → Build Profile during import
+1. User sees animated stage indicators showing Upload -> Extract -> Analyze -> Build Profile during import
 2. User sees visual transition animation (300ms fade + slide) when progress moves from one stage to the next
 3. User never sees static/stalled progress — active stages show subtle movement (pulsing, shimmer) to indicate ongoing work
 4. User experiences smooth stage transitions on mobile devices (iOS Safari, Chrome, Brave) without jank or layout shift
@@ -254,7 +254,7 @@ Plans:
 ### Phase 2: Chat Transition Polish
 **Goal:** Import-to-chat navigation is smooth and welcoming with no jarring redirect or blank screens
 
-**Depends on:** Phase 1 (needs reliable stage indicators for completion animation)
+**Depends on:** Phase 1 (needs reliable stage indicators for completion animation) -- COMPLETE
 
 **Requirements:** TRAN-01, TRAN-02
 
@@ -264,20 +264,20 @@ Plans:
 3. User's chat interface is ready and welcoming when they arrive (no loading spinner, messages can be typed immediately)
 4. User's browser prefetches chat data during import completion animation to mask latency
 
-**Plans:** TBD
+**Plans:** 1 plan in 1 wave
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md — Template.tsx fade wrapper + import exit orchestration + chat entry animation (Wave 1)
 
 ## Progress
 
 **Execution Order:**
-Phases execute sequentially: 1 → 2. Phase 2 builds on Phase 1's reliable stage indicators.
+Phases execute sequentially: 1 -> 2. Phase 2 builds on Phase 1's reliable stage indicators.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Progress State + Stage Animations | 2/2 | Complete | 2026-02-11 |
-| 2. Chat Transition Polish | 0/TBD | Not started | - |
+| 2. Chat Transition Polish | 0/1 | Not started | - |
 
 ---
-*Last updated: 2026-02-11 -- Phase 1 complete (2/2 plans, verified). Phase 2 awaiting planning.*
+*Last updated: 2026-02-11 -- Phase 2 planned (1 plan). Ready for execution.*
