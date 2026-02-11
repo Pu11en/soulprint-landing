@@ -6,15 +6,17 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** v2.4 Import UX Polish
+**Current focus:** v2.4 Import UX Polish (animated stage-based progress + smooth transitions)
 
 ## Current Position
 
 Milestone: v2.4 Import UX Polish
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-11 — Milestone v2.4 started
+Phase: 1 of 2 (Progress State + Stage Animations)
+Plan: 1 of TBD
+Status: In progress
+Last activity: 2026-02-11 — Completed 01-01-PLAN.md (progress mapper + animated stages)
+
+Progress: [█░░░░░░░░░] 10% (0/2 phases complete, 1 plan in progress)
 
 ## Performance Metrics
 
@@ -37,7 +39,11 @@ Last activity: 2026-02-11 — Milestone v2.4 started
 | v2.1 Hardening | 3 | 4 | Shipped |
 | v2.2 Imports | 3 | 8 | Shipped |
 | v2.3 Uploads | 2 | 2 | Shipped |
-| v2.4 UX Polish | — | — | Active |
+| v2.4 UX Polish | 2 | TBD | Active |
+
+**Recent Trend:**
+- Last 5 milestones: Focus on import reliability and quality
+- Trend: Consistent execution with polish-focused work
 
 *Metrics updated: 2026-02-11*
 
@@ -46,19 +52,24 @@ Last activity: 2026-02-11 — Milestone v2.4 started
 ### Decisions
 
 Recent decisions affecting current work:
-- v2.4: Animated stage-based progress (not smooth fake progress or activity feed)
-- v2.4: Smooth import-to-chat transition (no jarring redirect)
-- v2.4: Must accurately reflect real backend state (not just cosmetic)
+- v2.4 (01-01): Pure function progress mapper with monotonic guard enforces stability client-side
+- v2.4 (01-01): 4-stage model (Upload 0-49%, Extract 50-59%, Analyze 60-79%, Build 80-100%) maps to actual pipeline phases
+- v2.4 (01-01): Framer Motion 300ms transitions for stage changes, pulsing active stage animation
+- v2.4 (01-01): No SVG drop-shadow filters — GPU-composited animations only (opacity + transform) for mobile performance
+- v2.4: Use Framer Motion 12.29.2 (already installed) for stage animations — no new dependencies
+- v2.4: Stage-based progress with 4 stages (Upload → Extract → Analyze → Build Profile) mapped to backend milestones
+- v2.4: Smooth fade transition via template.tsx pattern (App Router compatible, not AnimatePresence)
+- v2.4: Frontend-only refactoring — no backend changes, existing 3s polling stays
+- v2.4: Monotonic progress (never goes backwards) enforced client-side
+- Research: Perceived progress matters more than accuracy per UX research (NN/G, UXPin)
 - Import flow: Files >100MB skip JSZip, upload raw ZIP for server-side extraction
 - RLM: Full pass runs in background (chunks → facts → memory → v2 sections)
 - RLM: Streaming import sends SSE events for progress tracking
-- Service worker stripped of caching (push notifications only)
 
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
 - Full pass chunk saves now working (token_count column fix deployed)
-- Full pass for user 79898043 currently running on Render
 
 ### Blockers/Concerns
 
@@ -67,12 +78,14 @@ Recent decisions affecting current work:
 - Fact extraction costs ~$8-10 per import (2140 Haiku API calls)
 - Two users (79898043, 39cce7a5) have pending full passes
 
+**None blocking v2.4 work** — This milestone is frontend-only refactoring.
+
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Defining v2.4 requirements
+Stopped at: Completed 01-01-PLAN.md execution
 Resume file: None
-Next step: Complete requirements → roadmap → plan phase
+Next step: Continue with remaining Phase 1 plans (import page integration, smooth transitions)
 
 ---
-*Last updated: 2026-02-11 -- v2.4 Import UX Polish milestone started*
+*Last updated: 2026-02-11 -- Completed 01-01: progress mapper + animated stages component. Ready for integration into import page.*
