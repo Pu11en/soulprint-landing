@@ -12,11 +12,11 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 Milestone: v3.0 Deep Memory
 Phase: 1 of 4 (Pipeline Reliability)
-Plan: Ready to plan Phase 1
-Status: Ready to plan
-Last activity: 2026-02-11 - Roadmap created for v3.0 Deep Memory milestone
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-02-11 - Completed 01-02-PLAN.md (Full Pass Status UI)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -49,6 +49,8 @@ Progress: [░░░░░░░░░░] 0%
 ### Decisions
 
 Recent decisions affecting current work:
+- v3.0 Phase 1: Amber warning banner for full pass failures (not red error) — non-fatal, user can still chat
+- v3.0 Phase 1: Dismissible status banner reuses existing 5s polling — no new API calls
 - v3.0: Fix full pass reliability BEFORE adding embeddings (foundation first)
 - v3.0: Supabase pgvector for vector search (no new infra, ALTER TABLE + index)
 - v3.0: Budget $0.10/user for embeddings (Titan Embed v2 is ~$0.0001/100 chunks)
@@ -75,9 +77,9 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Roadmap and STATE.md created for v3.0 Deep Memory, ready to plan Phase 1
-Resume file: None
-Next step: Run `/gsd:plan-phase 1` to create Phase 1 execution plan
+Stopped at: Completed 01-02-PLAN.md (Full Pass Status UI)
+Resume file: .planning/phases/01-pipeline-reliability/01-02-SUMMARY.md
+Next step: Continue with remaining Phase 1 plans (01-01, 01-03)
 
 ---
-*Last updated: 2026-02-11 -- v3.0 Deep Memory roadmap created. 4 phases, 13 requirements. Ready to plan Phase 1.*
+*Last updated: 2026-02-11 -- Phase 1 Plan 2 complete. Full pass status now visible in chat UI. 1/3 plans done.*
