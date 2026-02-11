@@ -289,10 +289,12 @@ Plans:
   3. MEMORY section contains real generated content (no placeholder/fallback text saved to DB)
   4. Full pass status tracked end-to-end with error details visible in chat UI
   5. User can re-trigger failed full pass from chat without re-uploading ZIP
-**Plans:** TBD
+**Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] TBD (will be created during planning)
+- [ ] 01-01-PLAN.md — RLM pipeline reliability: chunk save error propagation, fact extraction retry with backoff, memory validation (Wave 1)
+- [ ] 01-02-PLAN.md — Chat UI full pass status banner with error details (Wave 1)
+- [ ] 01-03-PLAN.md — Full pass retry mechanism: RLM endpoint, Next.js proxy, chat UI button (Wave 2)
 
 ### Phase 2: Vector Infrastructure
 **Goal:** Semantic search infrastructure ready for memory retrieval
@@ -343,7 +345,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Pipeline Reliability | v3.0 | 0/TBD | Not started | - |
+| 1. Pipeline Reliability | v3.0 | 0/3 | Not started | - |
 | 2. Vector Infrastructure | v3.0 | 0/TBD | Not started | - |
 | 3. Memory in Chat | v3.0 | 0/TBD | Not started | - |
 | 4. Cost & Quality Measurement | v3.0 | 0/TBD | Not started | - |
