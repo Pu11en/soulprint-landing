@@ -39,7 +39,7 @@ Progress: [█████░░░░░] 50% (1/2 phases complete)
 | v2.1 Hardening | 3 | 4 | Shipped |
 | v2.2 Imports | 3 | 8 | Shipped |
 | v2.3 Uploads | 2 | 2 | Shipped |
-| v2.4 UX Polish | 2 | TBD | Active |
+| v2.4 UX Polish | 2 | 2 | Active |
 
 **Recent Trend:**
 - Last 5 milestones: Focus on import reliability and quality
@@ -88,7 +88,7 @@ Recent decisions affecting current work:
 Last session: 2026-02-11
 Stopped at: Completed 01-02-PLAN.md execution (Phase 1 complete)
 Resume file: None
-Next step: Phase 2 - Smooth Transitions (template.tsx page transition pattern)
+Next step: `/gsd:plan-phase 2` to plan Phase 2 (Chat Transition Polish)
 
 ---
 *Last updated: 2026-02-11 -- Completed Phase 1: Stage-based animated progress fully integrated into import page with monotonic enforcement and mobile-safe rendering. Ready for Phase 2 (smooth page transitions).*

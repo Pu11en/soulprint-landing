@@ -248,8 +248,8 @@ Plans:
 **Plans:** 2 plans in 2 waves
 
 Plans:
-- [ ] 01-01-PLAN.md — Progress mapper + animated stage component (Wave 1)
-- [ ] 01-02-PLAN.md — Integration into import page + mobile verification (Wave 2)
+- [x] 01-01-PLAN.md — Progress mapper + animated stage component (Wave 1)
+- [x] 01-02-PLAN.md — Integration into import page + mobile verification (Wave 2)
 
 ### Phase 2: Chat Transition Polish
 **Goal:** Import-to-chat navigation is smooth and welcoming with no jarring redirect or blank screens
@@ -276,8 +276,8 @@ Phases execute sequentially: 1 → 2. Phase 2 builds on Phase 1's reliable stage
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Progress State + Stage Animations | 0/2 | Not started | - |
+| 1. Progress State + Stage Animations | 2/2 | Complete | 2026-02-11 |
 | 2. Chat Transition Polish | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-11 -- Phase 1 planned with 2 plans in 2 waves. Ready for execution.*
+*Last updated: 2026-02-11 -- Phase 1 complete (2/2 plans, verified). Phase 2 awaiting planning.*

@@ -9,10 +9,10 @@ Requirements for Import UX Polish milestone. Each maps to roadmap phases.
 
 ### Import Progress
 
-- [ ] **PROG-01**: User sees animated stage-based progress (Upload → Extract → Analyze → Build Profile) during import
-- [ ] **PROG-02**: Each stage has a visual transition animation when moving to the next stage
-- [ ] **PROG-03**: Progress never appears stalled — active stages show movement/animation
-- [ ] **PROG-04**: Stage indicators work smoothly on mobile (iOS Safari, Chrome, Brave)
+- [x] **PROG-01**: User sees animated stage-based progress (Upload → Extract → Analyze → Build Profile) during import
+- [x] **PROG-02**: Each stage has a visual transition animation when moving to the next stage
+- [x] **PROG-03**: Progress never appears stalled — active stages show movement/animation
+- [x] **PROG-04**: Stage indicators work smoothly on mobile (iOS Safari, Chrome, Brave)
 
 ### Chat Transition
 
@@ -42,18 +42,18 @@ Requirements for Import UX Polish milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PROG-01 | Pending | Pending |
-| PROG-02 | Pending | Pending |
-| PROG-03 | Pending | Pending |
-| PROG-04 | Pending | Pending |
-| TRAN-01 | Pending | Pending |
-| TRAN-02 | Pending | Pending |
+| PROG-01 | Phase 1 | Done |
+| PROG-02 | Phase 1 | Done |
+| PROG-03 | Phase 1 | Done |
+| PROG-04 | Phase 1 | Done |
+| TRAN-01 | Phase 2 | Pending |
+| TRAN-02 | Phase 2 | Pending |
 
 **Coverage:**
 - v2.4 requirements: 6 total
-- Mapped to phases: 0
-- Unmapped: 6
+- Mapped to phases: 6/6 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-11*
-*Last updated: 2026-02-11 after initial definition*
+*Last updated: 2026-02-11 after roadmap creation with 100% coverage*
