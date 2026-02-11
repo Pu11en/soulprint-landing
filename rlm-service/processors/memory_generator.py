@@ -3,6 +3,7 @@ MEMORY Generator
 Creates structured markdown MEMORY section from consolidated facts using Claude Haiku 4.5
 """
 import json
+from typing import Optional
 
 
 MEMORY_GENERATION_PROMPT = """You are creating a MEMORY section for a personal AI assistant. This section captures durable facts about the user -- things that should be remembered long-term to provide personalized, context-aware responses.
@@ -43,13 +44,14 @@ Extracted facts:
 """
 
 
-async def generate_memory_section(consolidated_facts: dict, anthropic_client, max_retries: int = 2) -> str:
+async def generate_memory_section(consolidated_facts: dict, anthropic_client, cost_tracker: Optional['CostTracker'] = None, max_retries: int = 2) -> str:
     """
     Generate a structured MEMORY section from consolidated facts.
 
     Args:
         consolidated_facts: Dict with preferences, projects, dates, beliefs, decisions
         anthropic_client: AsyncAnthropic client instance
+        cost_tracker: Optional CostTracker instance to record token usage
         max_retries: Number of retries on placeholder content (default 2)
 
     Returns:
@@ -73,6 +75,10 @@ async def generate_memory_section(consolidated_facts: dict, anthropic_client, ma
                     "content": MEMORY_GENERATION_PROMPT + "\n" + facts_json
                 }]
             )
+
+            # Record token usage
+            if cost_tracker:
+                cost_tracker.record_llm_call(response)
 
             # Extract markdown from response
             if not response.content or len(response.content) == 0:

@@ -6,7 +6,7 @@ import json
 import asyncio
 import random
 import anthropic
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 FACT_EXTRACTION_PROMPT = """Extract ONLY factual, durable information from the conversation segment provided inside <conversation> XML tags. Focus on:
@@ -49,13 +49,14 @@ def strip_markdown_fences(text: str) -> str:
     return text.strip()
 
 
-async def extract_facts_from_chunk(chunk_content: str, anthropic_client) -> dict:
+async def extract_facts_from_chunk(chunk_content: str, anthropic_client, cost_tracker: Optional['CostTracker'] = None) -> dict:
     """
     Extract facts from a single conversation chunk using Claude Haiku 4.5.
 
     Args:
         chunk_content: Text content of the conversation chunk
         anthropic_client: AsyncAnthropic client instance
+        cost_tracker: Optional CostTracker instance to record token usage
 
     Returns:
         Dict with keys: preferences, projects, dates, beliefs, decisions (arrays)
@@ -82,6 +83,10 @@ async def extract_facts_from_chunk(chunk_content: str, anthropic_client) -> dict
                 "content": user_content
             }]
         )
+
+        # Record token usage
+        if cost_tracker:
+            cost_tracker.record_llm_call(response)
 
         # Extract text from response
         if not response.content or len(response.content) == 0:
@@ -117,13 +122,13 @@ async def extract_facts_from_chunk(chunk_content: str, anthropic_client) -> dict
         return empty_facts
 
 
-async def _extract_with_retry(chunk_content: str, anthropic_client, max_retries: int = 3) -> dict:
+async def _extract_with_retry(chunk_content: str, anthropic_client, cost_tracker: Optional['CostTracker'] = None, max_retries: int = 3) -> dict:
     """Extract facts with exponential backoff retry on API errors."""
     empty_facts = {"preferences": [], "projects": [], "dates": [], "beliefs": [], "decisions": []}
     last_error = None
     for attempt in range(max_retries):
         try:
-            return await extract_facts_from_chunk(chunk_content, anthropic_client)
+            return await extract_facts_from_chunk(chunk_content, anthropic_client, cost_tracker)
         except Exception as e:
             last_error = e
             if attempt < max_retries - 1:
@@ -137,6 +142,7 @@ async def _extract_with_retry(chunk_content: str, anthropic_client, max_retries:
 async def extract_facts_parallel(
     chunks: List[dict],
     anthropic_client,
+    cost_tracker: Optional['CostTracker'] = None,
     concurrency: int = 5
 ) -> List[dict]:
     """
@@ -145,6 +151,7 @@ async def extract_facts_parallel(
     Args:
         chunks: List of chunk dicts (each has 'content' field)
         anthropic_client: AsyncAnthropic client instance
+        cost_tracker: Optional CostTracker instance to record token usage
         concurrency: Max number of parallel API calls (default 5)
 
     Returns:
@@ -158,7 +165,7 @@ async def extract_facts_parallel(
     async def extract_with_limit(chunk: dict) -> dict:
         """Extract facts with semaphore limit and retry"""
         async with semaphore:
-            return await _extract_with_retry(chunk["content"], anthropic_client)
+            return await _extract_with_retry(chunk["content"], anthropic_client, cost_tracker)
 
     # Create tasks for all chunks
     tasks = [extract_with_limit(chunk) for chunk in chunks]
@@ -330,6 +337,7 @@ async def hierarchical_reduce(
     consolidated_facts: dict,
     anthropic_client,
     max_tokens: int = 150000,
+    cost_tracker: Optional['CostTracker'] = None,
     _depth: int = 0,
     _max_depth: int = 3,
 ) -> dict:
@@ -343,6 +351,7 @@ async def hierarchical_reduce(
         consolidated_facts: Dict with all consolidated facts
         anthropic_client: AsyncAnthropic client instance
         max_tokens: Max token count before reduction (default 150K)
+        cost_tracker: Optional CostTracker instance to record token usage
         _depth: Current recursion depth (internal)
         _max_depth: Max recursion depth to prevent infinite loops (internal)
 
@@ -459,6 +468,10 @@ Return ONLY a valid JSON array (no explanation, no markdown fences). Keep the sa
                     }]
                 )
 
+                # Record token usage
+                if cost_tracker:
+                    cost_tracker.record_llm_call(response)
+
                 response_text = response.content[0].text
                 json_str = strip_markdown_fences(response_text)
 
@@ -504,7 +517,7 @@ Return ONLY a valid JSON array (no explanation, no markdown fences). Keep the sa
     if len(reduced_json) // 4 > max_tokens:
         if reduced_facts["total_count"] < original_count:
             print(f"[FactExtractor] Still over limit but made progress, recursing (depth={_depth + 1})")
-            return await hierarchical_reduce(reduced_facts, anthropic_client, max_tokens, _depth + 1, _max_depth)
+            return await hierarchical_reduce(reduced_facts, anthropic_client, max_tokens, cost_tracker, _depth + 1, _max_depth)
         else:
             print(f"[FactExtractor] Still over limit and NO progress made. Hard truncating.")
             # No progress — hard truncate to prevent infinite loop

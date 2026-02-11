@@ -7,7 +7,10 @@ Regenerates all 5 quick-pass sections (soul, identity, user, agents, tools) with
 - Same schema as quick pass, just richer content
 """
 import json
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from processors.cost_tracker import CostTracker
 
 
 def strip_markdown_fences(text: str) -> str:
@@ -229,7 +232,8 @@ def format_conversations_for_prompt(conversations: List[dict], max_chars: int = 
 async def regenerate_sections_v2(
     conversations: List[dict],
     memory_md: str,
-    anthropic_client
+    anthropic_client,
+    cost_tracker: Optional['CostTracker'] = None
 ) -> Optional[Dict[str, dict]]:
     """
     Regenerate all 5 sections using complete data + MEMORY context.
@@ -243,6 +247,7 @@ async def regenerate_sections_v2(
         conversations: All conversations from ChatGPT export
         memory_md: Generated MEMORY section (markdown)
         anthropic_client: Anthropic AsyncAnthropic client
+        cost_tracker: Optional CostTracker instance to record token usage
 
     Returns:
         Dict with all 5 sections (soul, identity, user, agents, tools) or None if failed
@@ -273,6 +278,10 @@ async def regenerate_sections_v2(
             temperature=0.3
         )
 
+        # Record token usage
+        if cost_tracker:
+            cost_tracker.record_llm_call(response)
+
         # Extract JSON from response (strip markdown fences if present)
         response_text = response.content[0].text
         json_str = strip_markdown_fences(response_text)
@@ -297,6 +306,10 @@ async def regenerate_sections_v2(
                 max_tokens=8192,
                 temperature=0.3
             )
+
+            # Record retry token usage
+            if cost_tracker:
+                cost_tracker.record_llm_call(retry_response)
 
             retry_text = retry_response.content[0].text
             retry_json = strip_markdown_fences(retry_text)

@@ -27,12 +27,13 @@ def get_bedrock_client():
     return _bedrock_client
 
 
-def embed_text(text: str, dimensions: int = 768) -> List[float]:
+def embed_text(text: str, dimensions: int = 768, cost_tracker: Optional['CostTracker'] = None) -> List[float]:
     """Generate a single embedding using Titan Embed v2.
 
     Args:
         text: Input text (will be truncated to 8000 chars for safety)
         dimensions: Output dimensions (768 default, Titan v2 supports 256-1024)
+        cost_tracker: Optional CostTracker instance to record token usage
 
     Returns:
         List of floats representing the embedding vector
@@ -52,10 +53,15 @@ def embed_text(text: str, dimensions: int = 768) -> List[float]:
     )
 
     result = json.loads(response['body'].read())
+
+    # Record token usage
+    if cost_tracker:
+        cost_tracker.record_embedding(len(truncated))
+
     return result['embedding']
 
 
-def embed_batch(texts: List[str], dimensions: int = 768) -> List[List[float]]:
+def embed_batch(texts: List[str], dimensions: int = 768, cost_tracker: Optional['CostTracker'] = None) -> List[List[float]]:
     """Generate embeddings for a batch of texts.
 
     Titan Embed v2 does NOT support native batching — each text
@@ -65,13 +71,14 @@ def embed_batch(texts: List[str], dimensions: int = 768) -> List[List[float]]:
     Args:
         texts: List of input texts
         dimensions: Output dimensions (768 default)
+        cost_tracker: Optional CostTracker instance to record token usage
 
     Returns:
         List of embedding vectors (same order as input)
     """
     embeddings = []
     for text in texts:
-        embedding = embed_text(text, dimensions)
+        embedding = embed_text(text, dimensions, cost_tracker)
         embeddings.append(embedding)
     return embeddings
 
@@ -98,7 +105,7 @@ async def update_chunk_embedding(chunk_id: str, embedding: List[float]):
             raise RuntimeError(f"Failed to update embedding for chunk {chunk_id}: {response.status_code}")
 
 
-async def generate_embeddings_for_chunks(user_id: str, batch_size: int = 50):
+async def generate_embeddings_for_chunks(user_id: str, batch_size: int = 50, cost_tracker: Optional['CostTracker'] = None):
     """Generate embeddings for all conversation_chunks that don't have one yet.
 
     Fetches chunks without embeddings, generates Titan Embed v2 embeddings,
@@ -107,6 +114,7 @@ async def generate_embeddings_for_chunks(user_id: str, batch_size: int = 50):
     Args:
         user_id: User ID whose chunks need embeddings
         batch_size: Number of chunks to process per batch (default 50)
+        cost_tracker: Optional CostTracker instance to record token usage
 
     Returns:
         Number of chunks embedded
@@ -145,7 +153,7 @@ async def generate_embeddings_for_chunks(user_id: str, batch_size: int = 50):
 
         # Generate embeddings for this batch
         texts = [chunk["content"] for chunk in chunks]
-        embeddings = embed_batch(texts)  # Sequential Titan v2 calls
+        embeddings = embed_batch(texts, cost_tracker=cost_tracker)  # Sequential Titan v2 calls
 
         # Update each chunk with its embedding
         for chunk, embedding in zip(chunks, embeddings):

@@ -143,6 +143,10 @@ async def run_full_pass_pipeline(
     # Initialize Anthropic client
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
+    # Initialize cost tracker
+    from processors.cost_tracker import CostTracker
+    tracker = CostTracker()
+
     # Step 1: Download conversations
     from main import download_conversations
     conversations = await download_conversations(storage_path, file_type=file_type)
@@ -182,7 +186,7 @@ async def run_full_pass_pipeline(
     # Step 3.5: Generate embeddings for saved chunks
     try:
         from processors.embedding_generator import generate_embeddings_for_chunks
-        embedded_count = await generate_embeddings_for_chunks(user_id)
+        embedded_count = await generate_embeddings_for_chunks(user_id, cost_tracker=tracker)
         print(f"[FullPass] Generated embeddings for {embedded_count} chunks")
     except Exception as e:
         # Non-fatal: embeddings can be regenerated later, don't fail the pipeline
@@ -196,7 +200,7 @@ async def run_full_pass_pipeline(
         hierarchical_reduce
     )
 
-    all_facts = await extract_facts_parallel(chunks, client)
+    all_facts = await extract_facts_parallel(chunks, client, cost_tracker=tracker)
     print(f"[FullPass] Extracted facts from {len(chunks)} chunks")
 
     # Step 5: Consolidate facts
@@ -204,11 +208,11 @@ async def run_full_pass_pipeline(
     print(f"[FullPass] Consolidated {consolidated['total_count']} unique facts")
 
     # Step 6: Reduce if too large (over 200K tokens)
-    reduced = await hierarchical_reduce(consolidated, client, max_tokens=200000)
+    reduced = await hierarchical_reduce(consolidated, client, max_tokens=200000, cost_tracker=tracker)
 
     # Step 7: Generate MEMORY section
     from processors.memory_generator import generate_memory_section
-    memory_md = await generate_memory_section(reduced, client)
+    memory_md = await generate_memory_section(reduced, client, cost_tracker=tracker)
     print(f"[FullPass] Generated MEMORY section ({len(memory_md)} chars)")
 
     # Step 8: Save MEMORY to database (early save so user benefits even if v2 regen fails)
@@ -224,7 +228,7 @@ async def run_full_pass_pipeline(
     from processors.v2_regenerator import regenerate_sections_v2, sections_to_soulprint_text
 
     print(f"[FullPass] Starting v2 section regeneration for user {user_id}")
-    v2_sections = await regenerate_sections_v2(conversations_light, memory_md, client)
+    v2_sections = await regenerate_sections_v2(conversations_light, memory_md, client, cost_tracker=tracker)
 
     if v2_sections:
         # Build soulprint_text from v2 sections + MEMORY
@@ -243,6 +247,12 @@ async def run_full_pass_pipeline(
     else:
         print(f"[FullPass] V2 regeneration failed -- keeping v1 sections for user {user_id}")
         # V1 sections stay, MEMORY already saved above
+
+    # Step 10: Save cost summary to database
+    cost_summary = tracker.get_summary()
+    print(f"[FullPass] Cost summary: ${cost_summary['total_cost_usd']:.4f} "
+          f"(LLM: ${cost_summary['llm_cost_usd']:.4f}, Embed: ${cost_summary['embedding_cost_usd']:.4f})")
+    await update_user_profile(user_id, {"import_cost_json": json.dumps(cost_summary)})
 
     print(f"[FullPass] Pipeline complete for user {user_id}")
 
