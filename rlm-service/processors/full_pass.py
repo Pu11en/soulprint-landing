@@ -58,8 +58,20 @@ async def save_chunks_batch(user_id: str, chunks: List[dict]):
         # Add user_id and calculate is_recent for each chunk
         six_months_ago = datetime.utcnow() - timedelta(days=180)
 
+        # Fields that exist in the conversation_chunks table
+        VALID_COLUMNS = {
+            "user_id", "conversation_id", "title", "content",
+            "token_count", "chunk_tier", "is_recent", "created_at",
+            "message_count",
+        }
+
         for chunk in chunks:
             chunk["user_id"] = user_id
+
+            # Remove fields not in the DB schema (e.g. chunk_index, total_chunks)
+            extra_keys = [k for k in chunk if k not in VALID_COLUMNS]
+            for k in extra_keys:
+                del chunk[k]
 
             # Set is_recent based on created_at
             created_at = chunk.get("created_at")
