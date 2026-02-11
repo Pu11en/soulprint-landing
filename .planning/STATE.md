@@ -6,17 +6,17 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** v3.0 Deep Memory - Phase 1: Pipeline Reliability
+**Current focus:** v3.0 Deep Memory - Phase 2: Vector Infrastructure
 
 ## Current Position
 
 Milestone: v3.0 Deep Memory
 Phase: 2 of 4 (Vector Infrastructure)
-Plan: 1 of 3 complete
-Status: In progress
+Plan: 1 of 1 complete
+Status: Phase complete
 Last activity: 2026-02-11 - Completed 02-01-PLAN.md (HNSW Index and Embeddings)
 
-Progress: [████████████░░] 33%
+Progress: [██████████████████████] 50%
 
 ## Performance Metrics
 
@@ -40,7 +40,7 @@ Progress: [████████████░░] 33%
 | v2.2 Imports | 3 | 8 | Shipped |
 | v2.3 Uploads | 2 | 2 | Shipped |
 | v2.4 UX Polish | 2 | 2 | Shipped (Phase 2 deferred) |
-| v3.0 Deep Memory | 2 | 4 | Active (Phase 1: complete, Phase 2: in progress) |
+| v3.0 Deep Memory | 2 | 4 | Active (Phases 1-2: complete) |
 
 *Metrics updated: 2026-02-11*
 
@@ -93,7 +93,7 @@ Recent decisions affecting current work:
 Last session: 2026-02-11
 Stopped at: Completed 02-01-PLAN.md (HNSW Index and Embeddings)
 Resume file: .planning/phases/02-vector-infrastructure/02-01-SUMMARY.md
-Next step: Continue Phase 2 (Plan 02: Search API) or address pending todos
+Next step: Begin Phase 3 (Memory in Chat) — wire memory_md and semantic search into chat responses
 
 ---
-*Last updated: 2026-02-11 -- Phase 2 Plan 1 complete. HNSW index active, Titan Embed v2 embeddings generated automatically during full pass. Vector infrastructure ready for search API development.*
+*Last updated: 2026-02-11 -- Phase 2 complete. HNSW index active in Supabase, Titan Embed v2 embeddings generated during full pass. Vector infrastructure ready for Phase 3: Memory in Chat.*

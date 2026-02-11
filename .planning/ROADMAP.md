@@ -308,7 +308,7 @@ Plans:
 **Plans:** 1 plan in 1 wave
 
 Plans:
-- [ ] 02-01-PLAN.md -- HNSW index migration, Titan Embed v2 generator, full pass integration (Wave 1)
+- [x] 02-01-PLAN.md — HNSW index migration, Titan Embed v2 generator, full pass integration (Wave 1)
 
 ### Phase 3: Memory in Chat
 **Goal:** Chat responses use deep memory from full pass
@@ -346,7 +346,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Pipeline Reliability | v3.0 | 3/3 | ✓ Complete | 2026-02-11 |
-| 2. Vector Infrastructure | v3.0 | 0/TBD | Not started | - |
+| 2. Vector Infrastructure | v3.0 | 1/1 | ✓ Complete | 2026-02-11 |
 | 3. Memory in Chat | v3.0 | 0/TBD | Not started | - |
 | 4. Cost & Quality Measurement | v3.0 | 0/TBD | Not started | - |
 

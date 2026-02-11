@@ -23,8 +23,8 @@ Requirements for v3.0 Deep Memory. Each maps to roadmap phases.
 
 ### Vector Search
 
-- [ ] **VSRC-01**: pgvector extension enabled, embedding column added to conversation_chunks with HNSW index
-- [ ] **VSRC-02**: Titan Embed v2 (768 dims) embeddings generated for all chunks during full pass
+- [x] **VSRC-01**: pgvector extension enabled, embedding column added to conversation_chunks with HNSW index
+- [x] **VSRC-02**: Titan Embed v2 (768 dims) embeddings generated for all chunks during full pass
 - [ ] **VSRC-03**: Semantic similarity search at query time replaces "fetch recent chunks" approach
 - [ ] **VSRC-04**: Embedding cost under $0.10 per user import (verified by cost tracking)
 
@@ -68,8 +68,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PIPE-03 | Phase 1: Pipeline Reliability | Done |
 | PIPE-04 | Phase 1: Pipeline Reliability | Done |
 | PIPE-05 | Phase 1: Pipeline Reliability | Done |
-| VSRC-01 | Phase 2: Vector Infrastructure | Pending |
-| VSRC-02 | Phase 2: Vector Infrastructure | Pending |
+| VSRC-01 | Phase 2: Vector Infrastructure | Done |
+| VSRC-02 | Phase 2: Vector Infrastructure | Done |
 | MEM-01 | Phase 3: Memory in Chat | Pending |
 | MEM-02 | Phase 3: Memory in Chat | Pending |
 | VSRC-03 | Phase 3: Memory in Chat | Pending |

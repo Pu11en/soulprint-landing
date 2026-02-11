@@ -30,7 +30,11 @@ ON public.conversation_chunks
 USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
 
--- Step 5: Update match_conversation_chunks RPC to accept vector(768)
+-- Step 5: Drop old functions (return type changed, CREATE OR REPLACE won't work)
+DROP FUNCTION IF EXISTS public.match_conversation_chunks(vector, uuid, integer, double precision);
+DROP FUNCTION IF EXISTS public.match_conversation_chunks_by_tier(vector, uuid, text, integer, double precision);
+
+-- Step 6: Recreate match_conversation_chunks RPC with vector(768)
 CREATE OR REPLACE FUNCTION public.match_conversation_chunks(
   query_embedding vector(768),
   match_user_id uuid,
@@ -71,7 +75,7 @@ BEGIN
 END;
 $$;
 
--- Step 6: Update match_conversation_chunks_by_tier RPC to accept vector(768)
+-- Step 7: Recreate match_conversation_chunks_by_tier RPC with vector(768)
 CREATE OR REPLACE FUNCTION public.match_conversation_chunks_by_tier(
   query_embedding vector(768),
   match_user_id uuid,
@@ -114,5 +118,5 @@ BEGIN
 END;
 $$;
 
--- Step 7: Update column comment
+-- Step 8: Update column comment
 COMMENT ON COLUMN public.conversation_chunks.embedding IS 'Titan Embed v2 (768 dimensions, cosine similarity, HNSW index)';
