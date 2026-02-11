@@ -67,6 +67,7 @@ class ProcessFullRequest(BaseModel):
 class ImportFullRequest(BaseModel):
     user_id: str
     storage_path: str
+    file_type: str = 'json'  # 'json' or 'zip'
     conversation_count: int = 0
     message_count: int = 0
 
@@ -135,8 +136,11 @@ async def update_user_profile(user_id: str, updates: dict):
         print(f"[ERROR] update_user_profile failed for {user_id}: {e}")
 
 
-async def download_conversations(storage_path: str) -> list:
-    """Download conversations.json from Supabase Storage"""
+async def download_conversations(storage_path: str, file_type: str = 'json') -> list:
+    """Download conversations.json from Supabase Storage.
+
+    Handles JSON (plain or gzipped) and ZIP files containing conversations.json.
+    """
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -152,12 +156,23 @@ async def download_conversations(storage_path: str) -> list:
             # Get content
             content = response.content
 
-            # Try to decompress if gzipped
-            try:
-                content = gzip.decompress(content)
-            except Exception:
-                # Not gzipped, use as-is
-                pass
+            # Handle ZIP files
+            if file_type == 'zip' or content[:2] == b'PK':
+                import zipfile
+                import io
+                print(f"[download_conversations] Extracting conversations.json from ZIP")
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    json_files = [n for n in zf.namelist() if n.endswith('conversations.json')]
+                    if not json_files:
+                        raise ValueError("No conversations.json found in ZIP")
+                    content = zf.read(json_files[0])
+            else:
+                # Try to decompress if gzipped
+                try:
+                    content = gzip.decompress(content)
+                except Exception:
+                    # Not gzipped, use as-is
+                    pass
 
             # Parse JSON
             conversations = json.loads(content)
@@ -439,6 +454,7 @@ async def import_full(request: ImportFullRequest):
     asyncio.create_task(process_import_streaming(
         user_id=request.user_id,
         storage_path=request.storage_path,
+        file_type=request.file_type,
     ))
 
     print(f"[import-full] Accepted import job for user {request.user_id}: {request.storage_path}")

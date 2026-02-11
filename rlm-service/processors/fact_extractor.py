@@ -238,10 +238,77 @@ def consolidate_facts(all_facts: List[dict]) -> dict:
     return consolidated
 
 
+def _try_repair_json(text: str) -> object:
+    """Attempt to repair truncated JSON from LLM responses.
+
+    Handles common truncation issues:
+    - Unterminated strings (add closing quote)
+    - Missing closing brackets/braces
+    """
+    # Try as-is first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Try adding closing quote if string was truncated
+    repaired = text.rstrip()
+    if repaired.endswith(','):
+        repaired = repaired[:-1]
+
+    # Count open/close brackets and braces
+    open_brackets = repaired.count('[') - repaired.count(']')
+    open_braces = repaired.count('{') - repaired.count('}')
+    in_string = False
+    escaped = False
+    for ch in repaired:
+        if escaped:
+            escaped = False
+            continue
+        if ch == '\\':
+            escaped = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+
+    # Close open string
+    if in_string:
+        repaired += '"'
+
+    # Remove trailing comma after closing string
+    repaired = repaired.rstrip()
+    if repaired.endswith(','):
+        repaired = repaired[:-1]
+
+    # Close open structures
+    repaired += ']' * max(0, open_brackets - (1 if in_string else 0))
+    repaired += '}' * max(0, open_braces)
+
+    try:
+        return json.loads(repaired)
+    except json.JSONDecodeError:
+        # Last resort: find the last complete item
+        # Look for last complete object/string before truncation
+        for i in range(len(text) - 1, 0, -1):
+            if text[i] in ('}', '"'):
+                candidate = text[:i+1]
+                # Balance brackets
+                ob = candidate.count('[') - candidate.count(']')
+                candidate += ']' * max(0, ob)
+                try:
+                    return json.loads(candidate)
+                except json.JSONDecodeError:
+                    continue
+
+    raise json.JSONDecodeError("Could not repair JSON", text, 0)
+
+
 async def hierarchical_reduce(
     consolidated_facts: dict,
     anthropic_client,
-    max_tokens: int = 150000
+    max_tokens: int = 150000,
+    _depth: int = 0,
+    _max_depth: int = 3,
 ) -> dict:
     """
     Recursively reduce facts if they exceed token limit.
@@ -253,6 +320,8 @@ async def hierarchical_reduce(
         consolidated_facts: Dict with all consolidated facts
         anthropic_client: AsyncAnthropic client instance
         max_tokens: Max token count before reduction (default 150K)
+        _depth: Current recursion depth (internal)
+        _max_depth: Max recursion depth to prevent infinite loops (internal)
 
     Returns:
         Reduced facts dict (same structure)
@@ -261,16 +330,32 @@ async def hierarchical_reduce(
     facts_json = json.dumps(consolidated_facts, indent=2)
     estimated_tokens = len(facts_json) // 4
 
-    print(f"[FactExtractor] Consolidated facts: ~{estimated_tokens} tokens")
+    print(f"[FactExtractor] Consolidated facts: ~{estimated_tokens} tokens (depth={_depth})")
 
     if estimated_tokens <= max_tokens:
         print(f"[FactExtractor] Under {max_tokens} token limit, no reduction needed")
         return consolidated_facts
 
-    print(f"[FactExtractor] Over {max_tokens} tokens, starting hierarchical reduction")
+    if _depth >= _max_depth:
+        print(f"[FactExtractor] WARNING: Max recursion depth ({_max_depth}) reached with ~{estimated_tokens} tokens. Truncating categories to fit.")
+        # Hard truncate: keep most important facts from each category proportionally
+        target_chars = max_tokens * 4
+        total_chars = len(facts_json)
+        ratio = target_chars / total_chars
+        for category in ["preferences", "projects", "dates", "beliefs", "decisions"]:
+            items = consolidated_facts.get(category, [])
+            keep = max(1, int(len(items) * ratio))
+            consolidated_facts[category] = items[:keep]
+        consolidated_facts["total_count"] = sum(
+            len(consolidated_facts.get(c, [])) for c in ["preferences", "projects", "dates", "beliefs", "decisions"]
+        )
+        print(f"[FactExtractor] Truncated to {consolidated_facts['total_count']} facts")
+        return consolidated_facts
 
-    # Split facts into batches of ~50K tokens each
-    batch_size_tokens = 50000
+    print(f"[FactExtractor] Over {max_tokens} tokens, starting hierarchical reduction (depth={_depth})")
+
+    # Use smaller batches (~20K tokens) so responses fit in max_tokens
+    batch_size_tokens = 20000
     batch_size_chars = batch_size_tokens * 4
 
     # Split each category
@@ -304,28 +389,46 @@ async def hierarchical_reduce(
         "decisions": []
     }
 
+    total_reduced = 0
+    total_kept_original = 0
+    consecutive_failures = 0
+    MAX_CONSECUTIVE_FAILURES = 5  # Circuit breaker: stop if 5 batches fail in a row
+
     for category in ["preferences", "projects", "dates", "beliefs", "decisions"]:
         items = consolidated_facts.get(category, [])
         if not items:
+            continue
+
+        # Circuit breaker: if too many consecutive failures, skip remaining categories
+        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            print(f"[FactExtractor] CIRCUIT BREAKER: {consecutive_failures} consecutive failures, skipping {category} (keeping originals)")
+            reduced_facts[category].extend(items)
+            total_kept_original += len(items)
             continue
 
         batches = split_into_batches(items, batch_size_chars)
         print(f"[FactExtractor] Reducing {category}: {len(items)} items in {len(batches)} batches")
 
         for batch_idx, batch in enumerate(batches):
-            try:
-                # Call Haiku to consolidate batch
-                reduction_prompt = f"""Consolidate and deduplicate these facts. Remove redundancies, merge related items, keep most recent when contradictions exist. Return the same JSON structure but more concise.
+            # Circuit breaker check inside batch loop too
+            if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                print(f"[FactExtractor] CIRCUIT BREAKER: skipping remaining batches of {category}")
+                reduced_facts[category].extend(batch)
+                total_kept_original += len(batch)
+                continue
 
-Category: {category}
+            try:
+                # Call Haiku to consolidate batch — ask for aggressive reduction
+                reduction_prompt = f"""Consolidate and deduplicate these {category} facts. Remove redundancies, merge related items, keep most recent when contradictions exist. AGGRESSIVELY reduce: aim for at most 50% of the original count.
+
 Facts:
 {json.dumps(batch, indent=2)}
 
-Return only the consolidated JSON array:"""
+Return ONLY a valid JSON array (no explanation, no markdown fences). Keep the same item structure but with fewer items:"""
 
                 response = await anthropic_client.messages.create(
                     model="claude-haiku-4-5-20251001",
-                    max_tokens=4096,
+                    max_tokens=16384,
                     temperature=0.3,
                     messages=[{
                         "role": "user",
@@ -334,39 +437,64 @@ Return only the consolidated JSON array:"""
                 )
 
                 response_text = response.content[0].text
-
-                # Parse reduced facts (strip markdown fences if present)
                 json_str = strip_markdown_fences(response_text)
-                reduced_batch = json.loads(json_str)
+
+                # Try parsing, with repair for truncated responses
+                try:
+                    reduced_batch = json.loads(json_str)
+                except json.JSONDecodeError:
+                    print(f"[FactExtractor] Attempting JSON repair for batch {batch_idx} of {category}")
+                    reduced_batch = _try_repair_json(json_str)
 
                 # Add to category
                 if isinstance(reduced_batch, list):
                     reduced_facts[category].extend(reduced_batch)
+                    total_reduced += len(batch) - len(reduced_batch)
+                    consecutive_failures = 0  # Reset on success
+                elif isinstance(reduced_batch, dict) and category in reduced_batch:
+                    reduced_facts[category].extend(reduced_batch[category])
+                    total_reduced += len(batch) - len(reduced_batch[category])
+                    consecutive_failures = 0  # Reset on success
                 else:
-                    # If LLM returned dict, try to extract the category
-                    if category in reduced_batch:
-                        reduced_facts[category].extend(reduced_batch[category])
+                    # Unexpected format, keep originals
+                    reduced_facts[category].extend(batch)
+                    total_kept_original += len(batch)
+                    consecutive_failures += 1
 
             except Exception as e:
                 print(f"[FactExtractor] Error reducing batch {batch_idx} of {category}: {e}")
                 # Keep original batch on error
                 reduced_facts[category].extend(batch)
+                total_kept_original += len(batch)
+                consecutive_failures += 1
 
     # Recalculate total
-    reduced_facts["total_count"] = (
-        len(reduced_facts["preferences"]) +
-        len(reduced_facts["projects"]) +
-        len(reduced_facts["dates"]) +
-        len(reduced_facts["beliefs"]) +
-        len(reduced_facts["decisions"])
+    reduced_facts["total_count"] = sum(
+        len(reduced_facts.get(c, [])) for c in ["preferences", "projects", "dates", "beliefs", "decisions"]
     )
 
-    print(f"[FactExtractor] After reduction: {reduced_facts['total_count']} facts")
+    original_count = consolidated_facts.get("total_count", 0)
+    print(f"[FactExtractor] After reduction: {reduced_facts['total_count']} facts (was {original_count}, reduced {total_reduced}, kept-as-is {total_kept_original})")
 
-    # Recurse if still over limit
+    # Only recurse if we actually made progress (reduced something)
     reduced_json = json.dumps(reduced_facts, indent=2)
     if len(reduced_json) // 4 > max_tokens:
-        print(f"[FactExtractor] Still over limit, recursing")
-        return await hierarchical_reduce(reduced_facts, anthropic_client, max_tokens)
+        if reduced_facts["total_count"] < original_count:
+            print(f"[FactExtractor] Still over limit but made progress, recursing (depth={_depth + 1})")
+            return await hierarchical_reduce(reduced_facts, anthropic_client, max_tokens, _depth + 1, _max_depth)
+        else:
+            print(f"[FactExtractor] Still over limit and NO progress made. Hard truncating.")
+            # No progress — hard truncate to prevent infinite loop
+            target_chars = max_tokens * 4
+            total_chars = len(reduced_json)
+            ratio = target_chars / total_chars
+            for category in ["preferences", "projects", "dates", "beliefs", "decisions"]:
+                items = reduced_facts.get(category, [])
+                keep = max(1, int(len(items) * ratio))
+                reduced_facts[category] = items[:keep]
+            reduced_facts["total_count"] = sum(
+                len(reduced_facts.get(c, [])) for c in ["preferences", "projects", "dates", "beliefs", "decisions"]
+            )
+            print(f"[FactExtractor] Hard truncated to {reduced_facts['total_count']} facts")
 
     return reduced_facts

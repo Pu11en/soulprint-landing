@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const rateLimited = await checkRateLimit(user.id, 'expensive');
     if (rateLimited) return rateLimited;
 
-    const { storagePath } = await request.json();
+    const { storagePath, fileType } = await request.json();
 
     if (!storagePath) {
       return NextResponse.json({ error: 'storagePath required' }, { status: 400 });
@@ -106,6 +106,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           user_id: user.id,
           storage_path: storagePath,
+          file_type: fileType || 'json',
         }),
         signal: controller.signal,
       });

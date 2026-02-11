@@ -123,20 +123,7 @@ function ImportPageContent() {
     setStage('Extracting conversations...');
 
     try {
-      // 1. Extract conversations.json from ZIP (all devices)
-      const zip = await JSZip.loadAsync(file);
-      const conversationsFile = zip.file('conversations.json');
-
-      if (!conversationsFile) {
-        throw new Error('No conversations.json found in the ZIP. Make sure this is a ChatGPT export.');
-      }
-
-      const jsonBlob = await conversationsFile.async('blob');
-      const sizeMB = (jsonBlob.size / 1024 / 1024).toFixed(1);
-      setProgress(10);
-      setStage(`Extracted ${sizeMB}MB — uploading...`);
-
-      // 2. Get auth
+      // 1. Get auth
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -144,11 +131,47 @@ function ImportPageContent() {
         return;
       }
 
+      // 2. Try client-side extraction, fall back to raw ZIP upload on failure
+      let uploadBlob: Blob = file;
+      let uploadFilename = file.name;
+      let uploadContentType = 'application/zip';
+      let fileType = 'zip';
+
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const conversationsFile = zip.file('conversations.json');
+
+        if (!conversationsFile) {
+          throw new Error('No conversations.json found in the ZIP. Make sure this is a ChatGPT export.');
+        }
+
+        const jsonBlob = await conversationsFile.async('blob');
+        uploadBlob = jsonBlob;
+        uploadFilename = 'conversations.json';
+        uploadContentType = 'application/json';
+        fileType = 'json';
+
+        const sizeMB = (jsonBlob.size / 1024 / 1024).toFixed(1);
+        setProgress(10);
+        setStage(`Extracted ${sizeMB}MB — uploading...`);
+      } catch (extractionError) {
+        // JSZip failed (likely OOM on mobile) — upload raw ZIP instead
+        const isNoConversations = extractionError instanceof Error &&
+          extractionError.message.includes('No conversations.json');
+        if (isNoConversations) throw extractionError;
+
+        console.warn('[Import] Client-side extraction failed, uploading raw ZIP:', extractionError);
+        const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+        setProgress(5);
+        setStage(`Uploading ${sizeMB}MB ZIP (server will extract)...`);
+      }
+
       // 3. Upload via TUS
       const result = await tusUpload({
-        file: jsonBlob,
+        file: uploadBlob,
         userId: user.id,
-        filename: 'conversations.json',
+        filename: uploadFilename,
+        contentType: uploadContentType,
         onProgress: (pct) => {
           setProgress(10 + Math.round(pct * 0.4)); // 10-50%
           setStage(`Uploading... ${pct}%`);
@@ -168,7 +191,7 @@ function ImportPageContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
         credentials: 'include',
-        body: JSON.stringify({ storagePath: result.storagePath }),
+        body: JSON.stringify({ storagePath: result.storagePath, fileType }),
       });
 
       if (triggerRes.status === 409) {

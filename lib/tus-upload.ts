@@ -15,6 +15,7 @@ export interface TusUploadOptions {
   userId: string;
   filename: string;
   onProgress: (percent: number) => void;
+  contentType?: string;
 }
 
 export interface TusUploadResult {
@@ -47,7 +48,7 @@ export async function tusUpload(options: TusUploadOptions): Promise<TusUploadRes
     const { data, error } = await supabase.storage
       .from('imports')
       .upload(objectName, file, {
-        contentType: 'application/json',
+        contentType: options.contentType || 'application/json',
         upsert: true,
         duplex: 'half',
       });

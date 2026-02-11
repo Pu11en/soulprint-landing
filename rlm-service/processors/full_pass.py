@@ -107,7 +107,8 @@ async def save_chunks_batch(user_id: str, chunks: List[dict]):
 async def run_full_pass_pipeline(
     user_id: str,
     storage_path: str,
-    conversation_count: int = 0
+    conversation_count: int = 0,
+    file_type: str = 'json',
 ) -> str:
     """
     Run the complete full pass pipeline.
@@ -138,7 +139,7 @@ async def run_full_pass_pipeline(
 
     # Step 1: Download conversations
     from main import download_conversations
-    conversations = await download_conversations(storage_path)
+    conversations = await download_conversations(storage_path, file_type=file_type)
     print(f"[FullPass] Downloaded {len(conversations)} conversations")
 
     # Step 2: Chunk conversations
