@@ -131,50 +131,51 @@ function ImportPageContent() {
         return;
       }
 
-      // 2. Try client-side extraction, fall back to raw ZIP upload on failure
+      // 2. Extract or upload raw ZIP
+      // Skip client-side extraction for files >100MB — JSZip loads the entire
+      // file into memory which causes iOS/mobile browsers to hard-crash (OOM
+      // kill) before any JS catch handler can run.
       let uploadBlob: Blob = file;
       let uploadFilename = file.name;
       let uploadContentType = 'application/zip';
       let fileType = 'zip';
 
-      try {
-        const zip = await JSZip.loadAsync(file);
-        const conversationsFile = zip.file('conversations.json');
+      const FILE_SIZE_LIMIT = 100 * 1024 * 1024; // 100MB
+      const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
 
-        if (!conversationsFile) {
-          throw new Error('No conversations.json found in the ZIP. Make sure this is a ChatGPT export.');
-        }
-
-        const jsonBlob = await conversationsFile.async('blob');
-        uploadBlob = jsonBlob;
-        uploadFilename = 'conversations.json';
-        uploadContentType = 'application/json';
-        fileType = 'json';
-
-        const sizeMB = (jsonBlob.size / 1024 / 1024).toFixed(1);
-        setProgress(10);
-        setStage(`Extracted ${sizeMB}MB — uploading...`);
-      } catch (extractionError) {
-        // JSZip failed (likely OOM on mobile) — upload raw ZIP instead
-        const isNoConversations = extractionError instanceof Error &&
-          extractionError.message.includes('No conversations.json');
-        if (isNoConversations) throw extractionError;
-
-        console.warn('[Import] Client-side extraction failed, uploading raw ZIP:', extractionError);
-
-        // Re-read the file to get a fresh Blob — after OOM the original File
-        // object may be in a bad state on some mobile browsers
+      if (file.size <= FILE_SIZE_LIMIT) {
         try {
-          const freshBlob = file.slice(0, file.size, 'application/zip');
-          uploadBlob = freshBlob;
-        } catch {
-          // slice failed too — use original file reference
-          uploadBlob = file;
-        }
+          const zip = await JSZip.loadAsync(file);
+          const conversationsFile = zip.file('conversations.json');
 
-        const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+          if (!conversationsFile) {
+            throw new Error('No conversations.json found in the ZIP. Make sure this is a ChatGPT export.');
+          }
+
+          const jsonBlob = await conversationsFile.async('blob');
+          uploadBlob = jsonBlob;
+          uploadFilename = 'conversations.json';
+          uploadContentType = 'application/json';
+          fileType = 'json';
+
+          const sizeMB = (jsonBlob.size / 1024 / 1024).toFixed(1);
+          setProgress(10);
+          setStage(`Extracted ${sizeMB}MB — uploading...`);
+        } catch (extractionError) {
+          // JSZip failed — upload raw ZIP instead
+          const isNoConversations = extractionError instanceof Error &&
+            extractionError.message.includes('No conversations.json');
+          if (isNoConversations) throw extractionError;
+
+          console.warn('[Import] Client-side extraction failed, uploading raw ZIP:', extractionError);
+          setProgress(5);
+          setStage(`Uploading ${fileSizeMB}MB ZIP (server will extract)...`);
+        }
+      } else {
+        // Large file — skip JSZip entirely, upload raw ZIP for server-side extraction
+        console.log(`[Import] File is ${fileSizeMB}MB (>${FILE_SIZE_LIMIT / 1024 / 1024}MB), skipping client extraction`);
         setProgress(5);
-        setStage(`Uploading ${sizeMB}MB ZIP (server will extract)...`);
+        setStage(`Uploading ${fileSizeMB}MB ZIP (server will extract)...`);
       }
 
       // 3. Upload to storage
