@@ -2,21 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-09)
+See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** The AI must feel like YOUR AI -- genuinely human, deeply personalized, systematically evaluated.
 
-**Current focus:** v2.3 Universal Uploads — COMPLETE (milestone shipped)
+**Current focus:** v2.4 Import UX Polish
 
 ## Current Position
 
-Milestone: v2.3 Universal Uploads — SHIPPED
-Phase: 2 of 2 (Cleanup & Verification) — COMPLETE
-Plan: All plans complete
-Status: Milestone complete, all phases verified
-Last activity: 2026-02-10 — Phase 2 verified, milestone v2.3 shipped
-
-Progress: [████████████████████████████] 100% (2/2 phases complete)
+Milestone: v2.4 Import UX Polish
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-11 — Milestone v2.4 started
 
 ## Performance Metrics
 
@@ -39,48 +37,42 @@ Progress: [███████████████████████
 | v2.1 Hardening | 3 | 4 | Shipped |
 | v2.2 Imports | 3 | 8 | Shipped |
 | v2.3 Uploads | 2 | 2 | Shipped |
+| v2.4 UX Polish | — | — | Active |
 
-*Metrics updated: 2026-02-10*
+*Metrics updated: 2026-02-11*
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-
 Recent decisions affecting current work:
-- v2.3: TUS resumable uploads needed to fix Supabase Storage REST endpoint ~50MB limit
-- v2.3: Use tus-js-client (not Uppy) for lighter bundle and simpler integration
-- v2.3: Client-side only change - no backend/RLM/database modifications
-- v2.3: Hardcoded 6MB chunks (Supabase requirement for TUS uploads)
-- v2.3: JWT token refresh via onBeforeRequest callback (prevents 401 on multi-hour uploads)
-- v2.3 Phase 1: removeFingerprintOnSuccess prevents TUS fingerprint collision on re-upload
-- v2.3 Phase 1: Auto-retry on 401/5xx with exponential backoff [0, 3s, 5s, 10s, 20s]
-- v2.3 Phase 1: Construct storage path from objectName (don't parse upload.url)
-- v2.3 Phase 2: Removed chunkedUploadResultSchema from lib/api/schemas.ts as orphaned schema
-- v2.3 Phase 2: Deleted entire app/api/import/chunked-upload/ directory
+- v2.4: Animated stage-based progress (not smooth fake progress or activity feed)
+- v2.4: Smooth import-to-chat transition (no jarring redirect)
+- v2.4: Must accurately reflect real backend state (not just cosmetic)
+- Import flow: Files >100MB skip JSZip, upload raw ZIP for server-side extraction
+- RLM: Full pass runs in background (chunks → facts → memory → v2 sections)
+- RLM: Streaming import sends SSE events for progress tracking
+- Service worker stripped of caching (push notifications only)
 
 ### Pending Todos
 
 - Run `scripts/rls-audit.sql` in Supabase SQL Editor (from v1.1 Phase 4)
-- Monitor production upload success rates for 48 hours post-deploy (Phase 2 human verification)
+- Full pass chunk saves now working (token_count column fix deployed)
+- Full pass for user 79898043 currently running on Render
 
 ### Blockers/Concerns
 
-**Resolved by v2.3:**
-- Large file uploads fail with "entity too large" — TUS bypasses REST endpoint limit
-- Brave desktop user incorrectly shown mobile-style error for 1146MB export — TUS handles any size uniformly
-- Old chunked upload path (>2GB threshold) goes through Vercel API — TUS goes direct to Supabase Storage
-
 **Active:**
-None
+- Full pass killed by Render redeploys (every push to rlm-service/ triggers restart)
+- Fact extraction costs ~$8-10 per import (2140 Haiku API calls)
+- Two users (79898043, 39cce7a5) have pending full passes
 
 ## Session Continuity
 
-Last session: 2026-02-10
-Stopped at: Milestone v2.3 shipped
+Last session: 2026-02-11
+Stopped at: Defining v2.4 requirements
 Resume file: None
-Next step: `/gsd:new-milestone` or `/gsd:new-project` for next milestone
+Next step: Complete requirements → roadmap → plan phase
 
 ---
-*Last updated: 2026-02-10 -- v2.3 Universal Uploads milestone complete*
+*Last updated: 2026-02-11 -- v2.4 Import UX Polish milestone started*

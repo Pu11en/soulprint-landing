@@ -61,11 +61,13 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 
 ### Active
 
-#### v2.3 Universal Uploads
+#### v2.4 Import UX Polish
 
-- [ ] Any size file uploads successfully on any device/browser via TUS resumable protocol
-- [ ] Upload progress shown accurately for all file sizes
-- [ ] Failed/interrupted uploads can resume without re-uploading from scratch
+- [ ] Import shows animated stage-based progress (Upload → Extract → Analyze → Build Profile)
+- [ ] Each stage has visual transitions and never appears stalled
+- [ ] Mobile-optimized progress states work on all devices
+- [ ] Smooth import-to-chat transition (no jarring redirect or blank screens)
+- [ ] Chat is ready and welcoming when user arrives from import
 
 ### Out of Scope
 
@@ -156,16 +158,15 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 | P97.5 latency percentile | autocannon limitation vs P95 | ✓ Good — close approximation |
 | PR-triggered regression testing | Only on prompt file changes, avoids expensive evals | ✓ Good — cost-efficient CI |
 
-## Current Milestone: v2.3 Universal Uploads
+## Current Milestone: v2.4 Import UX Polish
 
-**Goal:** Replace raw XHR upload with TUS resumable protocol so any file size works on any device/browser. Fix the Supabase Storage transport limit (~50MB on REST endpoint) that blocks large ChatGPT exports.
+**Goal:** Make the import experience production-ready with animated stage-based progress and a smooth transition into chat. Users should always know what's happening and never think it's broken.
 
 **Target features:**
-- TUS resumable uploads via tus-js-client (Supabase Pro supports up to 5GB via TUS)
-- Real progress tracking for uploads of any size
-- Resumable uploads — interrupted transfers pick up where they left off
-- Remove all client-side file size warnings/blocks
-- Works identically on mobile and desktop, all browsers (Chrome, Safari, Firefox, Brave)
+- Animated stage-based progress: Upload → Extract → Analyze → Build Profile
+- Visual transitions between stages with movement/animation (never stalled)
+- Mobile-optimized progress states for all devices
+- Smooth import-to-chat handoff (no jarring redirect, chat ready when user arrives)
 
 ---
-*Last updated: 2026-02-09 after v2.3 milestone started*
+*Last updated: 2026-02-11 after v2.4 milestone started*
