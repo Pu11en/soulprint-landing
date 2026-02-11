@@ -305,10 +305,10 @@ Plans:
   2. HNSW index created for fast similarity search on embeddings
   3. All conversation chunks have Titan Embed v2 (768-dim) embeddings generated during full pass
   4. Embeddings stored in database and queryable via cosine similarity
-**Plans:** TBD
+**Plans:** 1 plan in 1 wave
 
 Plans:
-- [ ] TBD (will be created during planning)
+- [ ] 02-01-PLAN.md -- HNSW index migration, Titan Embed v2 generator, full pass integration (Wave 1)
 
 ### Phase 3: Memory in Chat
 **Goal:** Chat responses use deep memory from full pass
