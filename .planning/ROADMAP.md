@@ -319,10 +319,11 @@ Plans:
   2. Conversation chunks retrieved via semantic search during chat (top 5-10 relevant chunks)
   3. Chat responses reference specific facts from user's history (observable in actual responses)
   4. Semantic search replaces "fetch recent chunks" approach (code uses pgvector, not timestamp sort)
-**Plans:** TBD
+**Plans:** 2 plans in 1 wave
 
 Plans:
-- [ ] TBD (will be created during planning)
+- [ ] 03-01-PLAN.md — Semantic vector search in RLM /query endpoint (Wave 1)
+- [ ] 03-02-PLAN.md — Fix Next.js memory query: Titan Embed v2 + correct RPC functions (Wave 1)
 
 ### Phase 4: Cost & Quality Measurement
 **Goal:** Verify embeddings are cost-efficient and improve chat quality
