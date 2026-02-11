@@ -6,332 +6,304 @@
 
 ```
 soulprint-landing/
-├── app/                          # Next.js app directory (v14+)
-│   ├── api/                      # 32+ API route handlers
-│   │   ├── import/               # Import orchestration
-│   │   ├── chat/                 # Chat messages & queries
-│   │   ├── memory/               # Memory query & chunking
-│   │   ├── rlm/                  # RLM health checks
-│   │   ├── health/               # Service health
-│   │   ├── admin/                # Admin endpoints
-│   │   ├── storage/              # Upload tokens & URLs
-│   │   └── ...
-│   ├── import/                   # Upload UI page
-│   ├── chat/                     # Chat interface page
-│   ├── memory/                   # Memory browser page
-│   ├── dashboard/                # User dashboard
-│   └── ...
+├── app/                    # Next.js App Router (pages + API routes)
+│   ├── api/                # 42 API route handlers
+│   │   ├── admin/          # Admin-only endpoints (health, metrics, migrate, reset-user, etc.)
+│   │   ├── auth/           # Auth flows (callback, signout)
+│   │   ├── chat/           # Chat endpoints (messages, streaming)
+│   │   ├── cron/           # Background jobs (daily-trends, quality-refinement)
+│   │   ├── import/         # Import pipeline (trigger, complete, retry-full-pass)
+│   │   ├── memory/         # Memory retrieval (query, facts, synthesis)
+│   │   ├── profile/        # User profile (ai-name, ai-avatar)
+│   │   ├── conversations/  # Conversation CRUD
+│   │   └── ...             # Other feature routes
+│   ├── actions/            # Next.js server actions (auth.ts, referral.ts)
+│   ├── chat/               # Chat page (main UI, client component)
+│   ├── import/             # Import page (upload flow, client component)
+│   ├── dashboard/          # User dashboard
+│   ├── [auth routes]/      # login/, signup/, auth/callback/
+│   ├── layout.tsx          # Root layout (fonts, theme, metadata)
+│   ├── page.tsx            # Homepage (marketing, auth check)
+│   ├── template.tsx        # Page transition wrapper
+│   └── globals.css         # Global styles
 │
-├── rlm-service/                  # Python FastAPI backend (separate deployment)
-│   ├── main.py                   # FastAPI app + endpoints
-│   ├── prompt_builder.py         # Versioned prompt construction
-│   ├── prompt_helpers.py         # Prompt utility functions
-│   ├── processors/               # Processing pipeline
-│   │   ├── __init__.py
-│   │   ├── streaming_import.py   # Download + parse (constant memory)
-│   │   ├── quick_pass.py         # Personality generation (Haiku 4.5)
-│   │   ├── full_pass.py          # Chunks + facts + memory
-│   │   ├── conversation_chunker.py
-│   │   ├── fact_extractor.py     # Parallel fact extraction
-│   │   ├── memory_generator.py   # MEMORY section synthesis
-│   │   ├── dag_parser.py         # ChatGPT tree traversal
-│   │   └── ...
-│   └── requirements.txt
+├── components/             # Reusable React components
+│   ├── chat/               # Chat-specific UI (message, input, sidebar, telegram-chat-v2)
+│   ├── import/             # Import UI (animated-progress-stages)
+│   ├── auth/               # Auth components (login, signup modals)
+│   ├── ui/                 # Shadcn UI components (button, dialog, tooltip, etc.)
+│   ├── sections/           # Page sections (hero, faq, feature-blog, memory-section)
+│   ├── theme/              # Theme provider (dark/light mode)
+│   └── chat-variants/      # Legacy chat component variants
 │
-├── lib/                          # Shared TypeScript utilities
-│   ├── api/                      # API client utilities
-│   │   ├── schemas.ts            # Zod validation schemas
-│   │   ├── error-handler.ts
-│   │   └── ...
-│   ├── supabase/                 # Supabase client
-│   ├── rlm/                      # RLM integration
-│   │   └── health.ts             # Circuit breaker
-│   ├── memory/                   # Memory query & chunking
-│   ├── soulprint/                # Personality generation
-│   ├── email/                    # Email sending
-│   ├── logger/                   # Structured logging
-│   ├── rate-limit.ts             # Redis rate limiting
-│   ├── csrf.ts                   # CSRF token handling
-│   ├── tus-upload.ts             # Resumable upload
-│   └── ...
+├── lib/                    # Shared business logic and utilities
+│   ├── api/                # API layer utilities
+│   │   ├── schemas.ts      # Zod validation schemas
+│   │   ├── error-handler.ts # Standardized error responses
+│   │   └── ttl-cache.ts    # In-memory TTL cache
+│   ├── memory/             # Memory retrieval system
+│   │   ├── query.ts        # Vector search, hierarchical layer filtering
+│   │   ├── facts.ts        # Fact extraction from chunks
+│   │   └── learning.ts     # Fact learning from conversations
+│   ├── search/             # Search integrations
+│   │   ├── smart-search.ts # Search classifier + orchestrator
+│   │   ├── perplexity.ts   # Perplexity API (primary)
+│   │   ├── tavily.ts       # Tavily API (backup)
+│   │   ├── google-trends.ts # Google Trends integration
+│   │   ├── citation-validator.ts # Citation validation
+│   │   └── search-classifier.ts # Query classification
+│   ├── import/             # Import pipeline (deprecated - RLM now handles)
+│   │   └── progress-mapper.ts # Map RLM progress to UI
+│   ├── soulprint/          # User personality profile
+│   │   ├── personality-analysis.ts # Deep profile extraction
+│   │   └── quick-pass.ts   # Fast client-side analysis (deprecated)
+│   ├── evaluation/         # LLM evaluation framework
+│   │   ├── datasets.ts     # Test data generation
+│   │   ├── judges.ts       # Quality judges (memory, relevance, etc.)
+│   │   └── statistical-validation.ts # Statistical testing
+│   ├── supabase/           # Database clients
+│   │   ├── client.ts       # Browser client
+│   │   ├── server.ts       # SSR client
+│   │   └── middleware.ts   # Token refresh middleware
+│   ├── email/              # Email service
+│   │   └── send.ts         # Resend integration
+│   ├── logger/             # Structured logging
+│   │   └── index.ts        # Pino logger factory
+│   ├── rlm/                # RLM service client
+│   │   └── health.ts       # RLM health checks
+│   ├── rate-limit.ts       # Upstash rate limiting (3 tiers)
+│   ├── csrf.ts             # CSRF token management
+│   ├── bedrock.ts          # AWS Bedrock client
+│   ├── tus-upload.ts       # TUS protocol resumable upload
+│   ├── retry.ts            # Retry with exponential backoff
+│   ├── opik.ts             # Opik observability integration
+│   └── utils.ts            # Tailwind merge utility
 │
-├── components/                   # React components
-│   ├── chat/                     # Chat UI components
-│   ├── auth/                     # Auth flow UI
-│   ├── ui/                       # Reusable UI (button, modal, etc.)
-│   └── ...
+├── rlm-service/            # Python FastAPI microservice (separate repo, included here)
+│   ├── main.py             # FastAPI app with /query and /import-full endpoints
+│   ├── processors/         # Data processing pipeline
+│   │   ├── conversation_chunker.py  # 5-tier hierarchical chunking
+│   │   ├── embedding_generator.py   # Titan Embed v2 (768-dim) via Bedrock
+│   │   ├── dag_parser.py            # Parse ChatGPT conversation tree
+│   │   ├── full_pass.py             # Complete import processing
+│   │   ├── quick_pass.py            # Fast soulprint generation (deprecated)
+│   │   ├── memory_generator.py      # Synthesize context for chat
+│   │   └── ...                      # Other processors
+│   ├── prompt_builder.py   # Prompt templating system
+│   └── requirements.txt    # Python dependencies
 │
-├── supabase/                     # Database migrations & config
-│   ├── migrations/               # SQL migration files
-│   │   ├── 20250127_user_profiles.sql
-│   │   ├── 20250127_conversation_chunks.sql
-│   │   ├── 20250127_chat_messages.sql
-│   │   ├── 20250127_memory_chunks.sql
-│   │   ├── 20250131_learned_facts.sql
-│   │   └── ...
-│   └── config.toml
+├── public/                 # Static assets
+│   ├── icons/              # Icon files
+│   ├── images/             # Image files
+│   └── splash/             # App splash screens
 │
-├── public/                       # Static assets
-│   ├── images/
-│   ├── icons/
-│   └── ...
+├── supabase/               # Database migrations
+│   ├── migrations/         # SQL migration files (auth, tables, RPC functions)
+│   └── config.toml         # Local Supabase config
 │
-├── tests/                        # Test files
-│   ├── e2e/                      # Playwright e2e tests
-│   ├── integration/              # Integration tests
-│   └── mocks/
+├── tests/                  # Test files
+│   ├── e2e/                # Playwright E2E tests
+│   ├── integration/        # Integration tests (API + import)
+│   └── mocks/              # Test fixtures and MSW mocks
 │
-├── __tests__/                    # Additional unit tests
-│   ├── unit/
-│   └── cross-lang/               # TypeScript/Python tests
+├── __tests__/              # Alternative test directory
+│   ├── unit/               # Unit tests
+│   └── cross-lang/         # Python/JS interop tests
 │
-├── .planning/                    # GSD framework docs
-│   ├── codebase/                 # THIS DIRECTORY
-│   ├── phases/                   # Phase plans
-│   ├── config.json
-│   └── ...
+├── scripts/                # Utility scripts
+│   ├── create-eval-dataset.ts  # Generate evaluation datasets
+│   └── compare-prompts*.ts     # Prompt comparison utilities
 │
-├── .env*                         # Environment files (NOT committed)
-├── package.json                  # Node dependencies
-├── next.config.ts                # Next.js config
-├── tsconfig.json                 # TypeScript config
-├── tailwind.config.ts            # Tailwind CSS config
-├── vitest.config.ts              # Vitest config
-└── README.md
+├── .planning/              # GSD framework directories
+│   ├── phases/             # Implementation phases
+│   ├── codebase/           # Codebase analysis (this file)
+│   └── config.json         # GSD configuration
+│
+├── middleware.ts           # Next.js middleware (CSRF, auth, correlation ID)
+├── next.config.js          # Next.js configuration
+├── tsconfig.json           # TypeScript configuration
+├── package.json            # Node.js dependencies
+├── eslint.config.mjs       # ESLint configuration
+├── tailwind.config.ts      # Tailwind CSS configuration
+└── README.md               # Project documentation
 ```
 
 ## Directory Purposes
 
-**`app/api/`:**
-- Purpose: HTTP route handlers for all backend operations
-- Contains: Next.js Route Handler files (route.ts)
-- Key files:
-  - `import/trigger/route.ts` - Initiates import job
-  - `import/complete/route.ts` - Marks import complete
-  - `chat/messages/route.ts` - Save/load chat messages
-  - `memory/query/route.ts` - Query conversation chunks
-  - `memory/status/route.ts` - Get import progress
-  - `rlm/health/route.ts` - RLM health check proxy
-  - `health/supabase/route.ts` - Supabase connectivity check
-  - `admin/*.ts` - Admin utilities (migrate, reset, metrics)
+**app/api/**
+- Purpose: All API endpoints organized by feature domain
+- Contains: 42 route.ts files for REST API
+- Key files: `chat/messages/route.ts`, `import/trigger/route.ts`, `memory/query/route.ts`
 
-**`rlm-service/`:**
-- Purpose: Independent Python backend for heavy processing
-- Contains: FastAPI app, async processors, prompt builders
-- Pattern: Fire-and-forget jobs via asyncio.create_task()
-- Deployment: Render.com (separate from Vercel)
-- Key files:
-  - `main.py` - FastAPI app with `/import-full`, `/query`, `/health` endpoints
-  - `processors/streaming_import.py` - Download + parse (constant memory)
-  - `processors/quick_pass.py` - 5-section personality (Haiku 4.5 via Bedrock)
-  - `processors/full_pass.py` - Chunks + facts + memory synthesis
-  - `prompt_builder.py` - Versioned system prompt construction
+**app/[pages]/**
+- Purpose: Authenticated and marketing pages
+- Contains: Page components (chat, import, dashboard, login, signup)
+- Key files: `chat/page.tsx`, `import/page.tsx`, `page.tsx` (marketing)
 
-**`lib/`:**
-- Purpose: Shared TypeScript utilities used by frontend and API routes
-- Pattern: Utility modules, not pages
-- Key subdirectories:
-  - `lib/api/schemas.ts` - Zod schemas for request validation
-  - `lib/supabase/` - Supabase client initialization
-  - `lib/rlm/health.ts` - Circuit breaker for RLM
-  - `lib/memory/query.ts` - Chunk search logic
-  - `lib/rate-limit.ts` - Redis rate limiting (Upstash)
-  - `lib/logger/` - Pino structured logging
+**components/chat/**
+- Purpose: Chat interface components
+- Contains: Message display, chat input, conversation sidebar, telegram-chat-v2 UI
+- Key files: `telegram-chat-v2.tsx` (main chat), `conversation-sidebar.tsx`, `message-content.tsx`
 
-**`components/`:**
-- Purpose: React UI components
-- Pattern: Organized by feature, not shared vs specific
-- Key subdirectories:
-  - `components/chat/` - Chat message display, input, settings
-  - `components/ui/` - Reusable UI (Button, Modal, etc.) - Shadcn/ui based
-  - `components/auth/` - Auth flows, login, signup
+**components/import/**
+- Purpose: Import flow UI
+- Contains: Upload progress display, stage animations
+- Key files: `animated-progress-stages.tsx` (progress bar with stages)
 
-**`supabase/migrations/`:**
-- Purpose: Database schema definitions
-- Pattern: Numbered migration files (YYYYMMDD_description.sql)
-- Key tables:
-  - `user_profiles` - Soulprint data, import status, AI settings
-  - `conversation_chunks` - Searchable conversation segments
-  - `chat_messages` - User/AI message history
-  - `conversations` - Metadata about chats
-  - `learned_facts` - Extracted facts from analysis
-  - `conversation_embeddings` - Vector embeddings for search
+**lib/memory/**
+- Purpose: Semantic memory retrieval for chat augmentation
+- Contains: Vector search, fact extraction, fact learning
+- Key files: `query.ts` (hierarchical search with 5 layers), `facts.ts`, `learning.ts`
 
-**`.planning/`:**
-- Purpose: GSD framework documentation
-- Contains: Phase plans, codebase analysis, orchestrator config
-- Pattern: `.planning/phases/NN-phase-name/` for execution plans
+**lib/search/**
+- Purpose: Real-time web search integration and classification
+- Contains: Perplexity/Tavily APIs, search classifier, citation validation
+- Key files: `smart-search.ts` (orchestrator), `search-classifier.ts` (decides if needed)
+
+**lib/supabase/**
+- Purpose: Database abstraction with client factory pattern
+- Contains: Three client types (browser, SSR, admin)
+- Key files: `client.ts`, `server.ts`, `middleware.ts`
+
+**lib/evaluation/**
+- Purpose: LLM response quality evaluation
+- Contains: Quality judges, datasets, statistical validation
+- Key files: `judges.ts` (memory, relevance, personalization judges), `datasets.ts`
+
+**rlm-service/**
+- Purpose: Asynchronous import processing and chat memory augmentation
+- Contains: FastAPI app, DAG parser, chunker, embedder, processors
+- Key files: `main.py` (endpoints), `processors/conversation_chunker.py`, `processors/embedding_generator.py`
+
+**supabase/migrations/**
+- Purpose: Database schema and RPC functions
+- Contains: SQL files for tables, indexes, pgvector functions
+- Key tables: `user_profiles`, `conversation_chunks`, `learned_facts`, `chat_messages`
 
 ## Key File Locations
 
 **Entry Points:**
 
-| Type | Path | Purpose |
-|------|------|---------|
-| Frontend Upload | `app/import/page.tsx` | User-facing import UI (drag-drop, progress) |
-| Chat Interface | `app/chat/page.tsx` | Main chat page with sidebar, message history |
-| API Trigger | `app/api/import/trigger/route.ts` | POST endpoint to start import job |
-| RLM Main | `rlm-service/main.py` | FastAPI app with `/import-full` and `/query` |
-| RLM Import | `rlm-service/processors/streaming_import.py` | Download + parse entry point |
-| Health Check | `app/api/health/supabase/route.ts` | Verify service connectivity |
+- `app/layout.tsx` - Root layout with fonts, theme, metadata
+- `app/page.tsx` - Homepage (marketing + auth redirect)
+- `middleware.ts` - CSRF, auth session, correlation ID injection
+- `rlm-service/main.py` - RLM service endpoints (/query, /import-full)
 
 **Configuration:**
 
-| File | Purpose |
-|------|---------|
-| `package.json` | Node dependencies, dev scripts |
-| `next.config.ts` | Next.js build config |
-| `tsconfig.json` | TypeScript config |
-| `tailwind.config.ts` | Tailwind CSS theme |
-| `vitest.config.ts` | Test runner config |
-| `rlm-service/requirements.txt` | Python dependencies |
+- `next.config.js` - Next.js config (experimental, experimental.jsxPackageSource)
+- `tsconfig.json` - TypeScript strict mode enabled
+- `tailwind.config.ts` - Tailwind with custom colors (orange, midnight)
+- `.env.local` / `.env.production.local` - Environment variables
+- `supabase/config.toml` - Local Supabase studio config
 
 **Core Logic:**
 
-| Module | Path | Purpose |
-|--------|------|---------|
-| Streaming Import | `rlm-service/processors/streaming_import.py` | Download + ijson parse (constant memory) |
-| Quick Pass | `rlm-service/processors/quick_pass.py` | Generate 5 personality sections via Haiku 4.5 |
-| Full Pass | `rlm-service/processors/full_pass.py` | Chunk conversations, extract facts, generate memory |
-| DAG Parser | `rlm-service/processors/dag_parser.py` | Traverse ChatGPT message tree to active path |
-| Fact Extractor | `rlm-service/processors/fact_extractor.py` | Parallel fact extraction from chunks |
-| Prompt Builder | `rlm-service/prompt_builder.py` | Construct system prompts from sections |
-| Circuit Breaker | `lib/rlm/health.ts` | RLM health tracking + failover |
+- `app/api/chat/messages/route.ts` - Save chat messages
+- `app/api/chat/route.ts` - Stream chat responses with memory context
+- `app/api/import/trigger/route.ts` - Initiate import (calls RLM /import-full)
+- `app/api/memory/query/route.ts` - Retrieve memory context (semantic search)
+- `lib/memory/query.ts` - Hierarchical vector search with 5-layer filtering
+- `lib/search/smart-search.ts` - Decide if web search needed, call Perplexity/Tavily
+- `rlm-service/processors/conversation_chunker.py` - Create 5-tier chunks
 
 **Testing:**
 
-| Category | Location | Pattern |
-|----------|----------|---------|
-| E2E Tests | `tests/e2e/` | Playwright browser tests |
-| Integration Tests | `tests/integration/api/import/` | API integration tests |
-| Unit Tests | `__tests__/unit/` | Vitest unit tests |
-| Mocks | `tests/mocks/` | Fixture data, mock responses |
+- `tests/e2e/` - Playwright tests for full user flows
+- `tests/integration/api/import/` - Import pipeline tests
+- `__tests__/unit/` - Unit tests for utilities
+- `lib/soulprint/__tests__/` - Soulprint generation tests
 
 ## Naming Conventions
 
 **Files:**
 
-| Pattern | Example | Usage |
-|---------|---------|-------|
-| `route.ts` | `app/api/import/trigger/route.ts` | Next.js API route handlers |
-| `page.tsx` | `app/import/page.tsx` | Next.js page components |
-| `*.processor.ts` | N/A (Python only) | Processor modules in RLM |
-| `*.test.ts` or `*.spec.ts` | `lib/api/schemas.test.ts` | Test files |
-| `*.sql` | `20250127_user_profiles.sql` | Supabase migrations |
+- API routes: `[feature]/[action]/route.ts` (e.g., `api/chat/messages/route.ts`)
+- Client components: `[Feature].tsx` or `[feature]-[variant].tsx` (e.g., `ChatMessage.tsx`, `telegram-chat-v2.tsx`)
+- Server utilities: lowercase with hyphens (e.g., `error-handler.ts`, `progress-mapper.ts`)
+- Tests: `[filename].test.ts` or `[filename].spec.ts`
+- Python processors: snake_case (e.g., `conversation_chunker.py`, `embedding_generator.py`)
 
 **Directories:**
 
-| Pattern | Example | Usage |
-|---------|---------|-------|
-| Feature-based | `app/api/import/`, `components/chat/` | Group related features |
-| Numbered phases | `.planning/phases/01-core-migration/` | GSD phase directories |
-| Utility modules | `lib/api/`, `lib/memory/`, `lib/rlm/` | Shared code by domain |
+- Feature domains: lowercase plural (e.g., `components/chat/`, `lib/memory/`, `app/api/import/`)
+- Nested routes: `[id]/` for dynamic segments (e.g., `api/conversations/[id]/`)
+- Utilities: flat in lib (e.g., `lib/rate-limit.ts`, `lib/csrf.ts`)
 
-**Functions/Variables:**
+**Components:**
 
-| Pattern | Example | Usage |
-|---------|---------|-------|
-| camelCase | `processImportStreaming`, `shouldAttemptRLM()` | TypeScript/Python functions |
-| PascalCase | `QueryRequest`, `PromptBuilder` | Classes, types |
-| SCREAMING_SNAKE | `FILE_SIZE_LIMIT`, `COOLDOWN_MS` | Constants |
-| With prefix | `[streaming_import]`, `[FullPass]` | Log scope prefix |
+- Page components: `'use client'` at top, export default
+- Feature-specific: `export function ComponentName() {}`
+- Styled with Tailwind + Shadcn UI components
+
+**Type definitions:**
+
+- Inline in files where used (no separate types/ directory except `types/` at root)
+- Zod schemas in `lib/api/schemas.ts` (source of truth for validation)
+- Database row types defined in functions that use them
 
 ## Where to Add New Code
 
-**New Feature (e.g., Preferences, Settings):**
+**New Feature (e.g., new memory endpoint):**
+- Endpoint: `app/api/memory/[action]/route.ts`
+- Service logic: `lib/memory/[action].ts` (new file or existing file)
+- Schema: Add to `lib/api/schemas.ts`
+- Tests: `tests/integration/api/memory/[action].test.ts`
 
-1. **Frontend UI:**
-   - Create page: `app/settings/page.tsx`
-   - Create components: `components/settings/PreferencesForm.tsx`
-   - Use Shadcn/ui components from `components/ui/`
+**New UI Component:**
+- Page: `app/[feature]/page.tsx` (if new page)
+- Component: `components/[feature]/component-name.tsx` (reusable) or inline in page
+- Styles: Tailwind classes in JSX, use Shadcn UI components
+- Tests: `tests/e2e/[feature].spec.ts` for user flows
 
-2. **API Endpoint:**
-   - Create route: `app/api/user/preferences/route.ts`
-   - Add Zod schema to: `lib/api/schemas.ts`
-   - Add rate limit check: `checkRateLimit(user.id, 'standard')`
+**New Python processor (RLM):**
+- Processor: `rlm-service/processors/[processor_name].py`
+- Register in: `rlm-service/main.py` (new route or existing processor chain)
+- Tests: `rlm-service/processors/test_[processor_name].py`
 
-3. **Database:**
-   - Create migration: `supabase/migrations/YYYYMMDD_description.sql`
-   - Include RLS policies
-   - Add indexes for queries
+**Utilities and Helpers:**
+- API utilities: `lib/api/[utility].ts`
+- Database: `lib/supabase/[helper].ts`
+- Search: `lib/search/[search_type].ts`
+- Logging: Use `createLogger` from `lib/logger/`
 
-4. **Tests:**
-   - Integration test: `tests/integration/api/user/preferences.test.ts`
-   - Component test: `components/settings/__tests__/PreferencesForm.test.tsx`
-
-**New Processor (e.g., Memory Enhancement):**
-
-1. **Python Processor:**
-   - Add to: `rlm-service/processors/new_processor.py`
-   - Implement as async function
-   - Return dict with results
-   - Include [scope] logging prefix
-
-2. **Orchestration in Full Pass:**
-   - Integrate into: `rlm-service/processors/full_pass.py`
-   - Call from run_full_pass_pipeline()
-   - Save results to database via Supabase REST API
-
-3. **Tests:**
-   - Unit test: `rlm-service/processors/test_new_processor.py`
-   - Integration test: `tests/integration/api/import/full-pass.test.ts`
-
-**New RLM Endpoint:**
-
-1. **Add to RLM:**
-   - Define Pydantic request model in `rlm-service/main.py`
-   - Implement async handler with @app.post() decorator
-   - Call background_tasks.add_task() or asyncio.create_task()
-
-2. **Next.js Proxy:**
-   - Create route: `app/api/rlm/new-endpoint/route.ts`
-   - Proxy POST to RLM service
-   - Apply auth + rate limiting
-
-3. **Frontend:**
-   - Call from UI via: `fetch('/api/rlm/new-endpoint', {method: 'POST', ...})`
-
-**New Database Table:**
-
-1. **Create Migration:**
-   - File: `supabase/migrations/YYYYMMDD_table_name.sql`
-   - Include CREATE TABLE, indexes, RLS policies
-   - Use `references auth.users(id) on delete cascade`
-
-2. **Type Definition:**
-   - Add to database type file if needed: `lib/database.types.ts`
-
-3. **Query Functions:**
-   - Add to relevant `lib/*/` module
-   - Use Supabase JS client for Next.js
-   - Use httpx + REST API for RLM
+**Environment Configuration:**
+- Add to `.env.local` or `.env.production.local`
+- Document in CLAUDE.md (project instructions)
+- Reference in code via `process.env.VAR_NAME`
 
 ## Special Directories
 
-**`.planning/`:**
-- Purpose: GSD framework orchestrator data
-- Generated: Partially (phase plans created by orchestrator, codebase docs by mapper)
-- Committed: Yes, version controlled
+**rlm-service/:**
+- Purpose: Python FastAPI microservice for import and chat
+- Generated: No (committed to git)
+- Committed: Yes (single-repo architecture with Next.js)
+- Deployment: Auto-deploys with main branch to Render
 
-**`rlm-service/.pytest_cache/`:**
-- Purpose: pytest cache directory
-- Generated: Yes (auto-created by pytest)
+**.next/:**
+- Purpose: Next.js build artifacts
+- Generated: Yes (by `npm run build`)
 - Committed: No (in .gitignore)
 
-**`node_modules/`, `__pycache__/`:**
-- Purpose: Dependencies
-- Generated: Yes (npm install, pip install)
-- Committed: No (in .gitignore)
+**node_modules/:**
+- Purpose: Installed dependencies
+- Generated: Yes (by npm install)
+- Committed: No
 
-**`.next/`, `build/`:**
-- Purpose: Build artifacts
-- Generated: Yes (next build, python builds)
-- Committed: No (in .gitignore)
+**supabase/.temp/**
+- Purpose: Local Supabase CLI temp files
+- Generated: Yes
+- Committed: No
 
-**`.env`, `.env.local`, `.env.*.local`:**
-- Purpose: Environment variables and secrets
-- Generated: Manual (development)
-- Committed: No (in .gitignore) - NEVER commit secrets
+**.planning/:**
+- Purpose: GSD framework planning documents
+- Generated: Yes (by /gsd commands)
+- Committed: Yes (tracked in git)
+
+**public/**
+- Purpose: Static assets served as-is
+- Generated: No (manually added)
+- Committed: Yes
 
 ---
 

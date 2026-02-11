@@ -4,304 +4,307 @@
 
 ## Tech Debt
 
-### Anthropic API Cost Explosion (Fact Extraction)
-- **Issue:** Fact extraction pipeline calls Haiku 4.5 with concurrency=10, making one API call per conversation chunk (2000 tokens per chunk). For a typical 100+ conversation export, this results in 2140+ parallel Haiku API calls during full pass.
-- **Files:** `rlm-service/processors/fact_extractor.py` (line 114-162, `extract_facts_parallel`), `rlm-service/processors/full_pass.py` (line 195, concurrency=10)
-- **Impact:**
-  - Estimated cost: $0.80+ per import (2140 calls × $0.0004 per input + outputs)
-  - At scale (100 users/month), costs ~$80/month just for fact extraction
-  - No rate limiting or cost controls
-  - Direct expense to operating margin
-- **Fix approach:**
-  - Batch chunks before API calls (e.g., 10 chunks per request instead of 1 per request)
-  - Implement hierarchical aggregation: extract facts from top 50 conversations only, use clustering for remainder
-  - Consider caching fact patterns to avoid re-extraction for similar conversations
+**Incomplete Web Push Notification System:**
+- Issue: Web Push disabled — `push_subscription` column referenced but doesn't exist in `user_profiles` schema
+- Files: `app/api/import/complete/route.ts:168-171`
+- Impact: Users don't receive completion notifications; workaround is email-only (Resend email system is mostly disabled now)
+- Fix approach: Either add `push_subscription` column to schema + re-enable push in import completion route, OR remove notification feature entirely if not planned
 
-### Full Pass Vulnerable to Render Redeploy Interruption
-- **Issue:** Full pass is a background task that runs 30+ minutes (downloading 300MB+, chunking, extracting 2000+ facts, generating memory, v2 regeneration). Render redeploys kill processes after ~30s grace period.
-- **Files:** `rlm-service/processors/streaming_import.py` (line 182-376, `trigger_full_pass` and `process_import_streaming`), `rlm-service/processors/full_pass.py` (line 119-245)
-- **Impact:**
-  - Full pass fails silently on any redeployment (happens weekly for small patches)
-  - Users stuck with quick-pass only (incomplete memory, no MEMORY section)
-  - No retry mechanism or checkpoint system
-  - No way to know which full passes succeeded vs were killed
-- **Fix approach:**
-  - Implement persistent job queue (Bull/Redis or Supabase job table) that survives redeploys
-  - Add checkpoints: save state after chunks, after facts, after memory so jobs can resume
-  - Implement timeout handling with graceful pause and resume on next instance
-  - Add observability: track full pass completion rate vs init rate
+**Raw Console Statements Mixed with Structured Logging:**
+- Issue: ~245 console.log/error/warn statements throughout app/lib directories alongside Pino structured logger
+- Files: `lib/rlm/health.ts`, `app/api/admin/health/route.ts`, `app/chat/page.tsx`, and many others
+- Impact: Production logs inconsistent — some structured (Pino JSON), some unstructured (console). Difficult to aggregate/search in production
+- Fix approach: Migrate all console statements to use `createLogger()` for consistent structured logging across all modules
 
-### Chunk Save Schema Mismatch
-- **Issue:** `save_chunks_batch` in `full_pass.py` (line 47-116) manually filters chunk fields to match `VALID_COLUMNS` but schema enforcement is weak. If DB schema changes, saves silently fail or skip fields.
-- **Files:** `rlm-service/processors/full_pass.py` (line 62-74, VALID_COLUMNS definition and filtering)
-- **Impact:**
-  - Chunks saved without `created_at` timestamps when field is renamed/moved
-  - `is_recent` flag calculated in Python but DB may have different logic
-  - Silent data loss: chunks save but missing critical fields needed for retrieval
-  - No error on schema mismatch — chunks appear saved but are incomplete
-- **Fix approach:**
-  - Generate schema from TypeScript/database source of truth (Zod or similar)
-  - Add validation after save: query back and verify field presence
-  - Implement database trigger to auto-calculate `is_recent` instead of Python
-  - Add retry logic with explicit schema validation
+**Non-Null Assertions on Environment Variables:**
+- Issue: 96 instances of `process.env.VAR!` throughout codebase (non-null assertion without validation)
+- Files: `app/api/chat/route.ts:42,49`, `lib/memory/query.ts:74-78`, `app/api/admin/health/route.ts:36,38`, and others
+- Impact: If env vars are missing at runtime (deployment misconfiguration), errors are cryptic. Tests that run without full env setup fail with confusing "Cannot read property of undefined" errors
+- Fix approach: Create env validation schema (Zod) at app startup; fail with clear message listing missing vars during build/startup
 
-### JSON Parsing Fragility in Fact Extractor
-- **Issue:** Fact extraction relies on `_try_repair_json` (line 241-303 in `fact_extractor.py`) which attempts to fix truncated JSON through heuristics. This is fragile and can silently produce invalid data structures.
-- **Files:** `rlm-service/processors/fact_extractor.py` (line 241-303, `_try_repair_json`)
-- **Impact:**
-  - If Haiku response is truncated, repair function may corrupt the JSON structure
-  - Consolidated facts may have missing or malformed entries
-  - Hierarchical reduce then fails on malformed data, triggering circuit breaker
-  - No validation that repaired JSON actually has the required schema
-- **Fix approach:**
-  - Use streaming JSON parsing instead of repair heuristics
-  - Validate parsed JSON against schema before returning
-  - On parse failure, return empty facts rather than repaired garbage
-  - Add unit tests with truncated response samples
+**Progress Bar Freezing on Large Uploads:**
+- Issue: FIXED by recent XHR implementation, but watch for regression. Root cause was Supabase SDK's atomic fetch() that provides no upload progress events
+- Files: `lib/tus-upload.ts` (recently fixed), `app/import/page.tsx:45-81` (polling), `lib/import/progress-mapper.ts` (progress calculation)
+- Impact: Users on slow connections or with large ChatGPT exports (>50MB) saw progress freeze at 14% for minutes, then fail or eventually succeed with no feedback
+- Fix approach: Monitor XHR implementation; if issues resurface, consider resumable uploads (TUS protocol with proper auth) or chunked multipart uploads to Supabase
+
+---
 
 ## Known Bugs
 
-### Full Pass Killed by Render Redeploys
-- **Symptoms:**
-  - User import succeeds (quick pass completes)
-  - Full pass starts but never completes
-  - `full_pass_status` stays "processing" indefinitely or goes to "failed"
-  - MEMORY section never generated, v2 sections never updated
-- **Files:** `rlm-service/main.py` (line 217-249, `run_full_pass`), `rlm-service/processors/streaming_import.py` (line 185-263, `trigger_full_pass`)
-- **Trigger:** Any Render deployment while full pass is running (happens ~weekly)
-- **Workaround:** Manual re-import (user re-uploads export)
+**Chat Page Over-State with 21+ useState Calls:**
+- Symptoms: Slow re-renders, potential race conditions in state updates, difficult to debug state transitions
+- Files: `app/chat/page.tsx:36-71` (state declarations)
+- Trigger: Any interaction causing multiple state changes (sending message, loading history, polling status, saving conversation)
+- Workaround: Page still functions; slowness is noticeable but not breaking. Can dismiss error notifications manually
+- Fix approach: Refactor using useReducer for tightly-coupled state (messages, UI modes) or move some to custom hooks
 
-### Hierarchical Reduce Circuit Breaker Too Aggressive
-- **Symptoms:**
-  - Facts start reducing normally
-  - After 5 consecutive batches fail, circuit breaker kicks in
-  - Remaining facts kept as-is without reduction
-  - Final output still oversized, memory_md truncated or empty
-- **Files:** `rlm-service/processors/fact_extractor.py` (line 394-407, circuit breaker logic)
-- **Trigger:** Models experiencing high latency or errors during batch reduction
-- **Workaround:** None — stuck with incomplete memory
+**Memory Leak Potential in Chat Page Effect Cleanup:**
+- Symptoms: Browser may use excess memory over long sessions; intervals and AbortControllers may not always be cleaned
+- Files: `app/chat/page.tsx:168-278` (polling effects), refs at line 69-72 keep conversations in memory
+- Trigger: Leaving chat page open for hours, switching between pages rapidly, browser refresh after long session
+- Workaround: Manual page refresh; closing/reopening chat clears memory
+- Fix approach: Audit all useEffect cleanup functions; ensure AbortController.abort() is always called; consider using dependency arrays more carefully
 
-### Incomplete Error Propagation in Import Flow
-- **Symptoms:**
-  - Quick pass fails silently (import_status stays "processing")
-  - User sees infinite loading spinner
-  - Error not recorded in database
-  - No alert to Drew
-- **Files:** `rlm-service/processors/streaming_import.py` (line 266-419, `process_import_streaming`), exception handling is best-effort but doesn't guarantee status update
-- **Trigger:** Streaming download fails mid-way or ijson parse error
-- **Workaround:** User manually retries import
+**Exported RLM Service Key Risk:**
+- Symptoms: If RLM is compromised, attacker gains full Supabase database access
+- Files: RLM service (external, in `soulprint-landing/rlm-service/` or `soulprint-rlm` repo) uses SUPABASE_SERVICE_ROLE_KEY for all database operations
+- Trigger: RLM code vulnerability, leaked env vars, public Render dashboard exposure
+- Workaround: Monitor Supabase audit logs for unauthorized access
+- Fix approach: Use Supabase signed URLs for Storage downloads; implement RLS-based service account authentication for DB writes instead of service key (Phase 3 security work)
+
+**Circuit Breaker Uses In-Memory State (Lost on Restart):**
+- Symptoms: If RLM becomes unhealthy and Next.js deployment restarts, circuit breaker state resets — requests flood back to failing RLM
+- Files: `lib/rlm/health.ts:14-17` (module-level state: `lastFailureTime`, `consecutiveFailures`, `state`)
+- Trigger: RLM outage + serverless function restart within 30-second cooldown window
+- Workaround: RLM recovers, requests eventually succeed after the restart syncs
+- Fix approach: Store circuit breaker state in Redis (shared across all serverless instances) instead of in-memory
+
+---
 
 ## Security Considerations
 
-### Supabase REST API Calls Without Rate Limiting
-- **Risk:** All background tasks (`download_conversations`, `update_user_profile`, `save_chunks_batch`) make direct HTTP calls to Supabase REST API without client-side rate limiting. If callback hell happens or tasks retry, API quota could be exhausted.
-- **Files:** `rlm-service/main.py` (line 118-136, `update_user_profile`), `rlm-service/processors/full_pass.py` (line 18-116)
-- **Current mitigation:** Supabase account has rate limits, but no application-level circuit breaker
-- **Recommendations:**
-  - Add exponential backoff with jitter to all Supabase REST calls
-  - Implement circuit breaker pattern for REST endpoints
-  - Monitor API quota usage and alert when >70%
+**CSRF Token Fetched from `/api/health/supabase` on Every POST:**
+- Risk: GET to health endpoint on every form submission; if health endpoint becomes slow/down, all mutations fail
+- Files: `lib/csrf.ts:23` (getCsrfToken calls `/api/health/supabase`)
+- Current mitigation: Token is cached after first fetch (line 8, 19); if cache available, no request made
+- Recommendations: Consider fetching CSRF token on page load instead of first mutation; cache has no TTL — consider 1-hour expiry; add fallback endpoint if health check endpoint becomes unavailable
 
-### Secrets in Render Logs
-- **Risk:** If any Anthropic/Supabase API calls fail with full request/response logged, secrets could leak to Render logs
-- **Files:** `rlm-service/main.py` (line 88-100, logging Supabase response.text), `rlm-service/processors/full_pass.py` (line 111, logging Supabase response.text)
-- **Current mitigation:** Errors logged with `response.text` but not full headers/auth
-- **Recommendations:**
-  - Redact auth headers in all error logs
-  - Never log full HTTP responses, only status codes and truncated messages
-  - Add structured logging with secret masking
+**Rate Limiting Fails Open (Redis Down = Allow All):**
+- Risk: If Upstash Redis is down, all rate limits are disabled; attacker can brute-force APIs
+- Files: `lib/rate-limit.ts:97-101` (try/catch returns null on error)
+- Current mitigation: Fail-open is intentional for availability; assumes Redis downtime is brief; other layers (auth, validation) still protect
+- Recommendations: Add monitoring for Redis failures; set flag in memory to warn/alert on repeated failures; consider stricter fallback limits (e.g., allow 10 req/min from same user instead of unlimited)
 
-### AWS Bedrock Credentials Not Validated on Startup
-- **Risk:** `quick_pass.py` (line 95-100) checks credentials at runtime but doesn't fail hard — raises ValueError which is caught and becomes import_error
-- **Files:** `rlm-service/processors/quick_pass.py` (line 95-100, credential check)
-- **Current mitigation:** Check happens, but error messaging is vague to user
-- **Recommendations:**
-  - Add health check endpoint that validates all credentials
-  - Fail container startup if credentials missing (don't silently defer to first import)
-  - Return 503 if credentials invalid until fixed
+**96 Environment Variables Validated Only at Runtime:**
+- Risk: Missing critical vars (OPENAI_API_KEY, SUPABASE_SERVICE_ROLE_KEY) go undetected until first API call using them
+- Files: Throughout `app/api/` and `lib/`
+- Current mitigation: Non-null assertions assume CI/CD catches this; production deployments have full env setup
+- Recommendations: Create Zod schema for all required env vars; validate synchronously at app startup (before any requests); fail fast with clear error message
+
+**Hardcoded Admin Email List:**
+- Risk: Admin health endpoint has hardcoded email whitelist in code
+- Files: `app/api/admin/health/route.ts:10-13`
+- Current mitigation: Only 2 emails (Drew's), not in .env
+- Recommendations: Move admin emails to Supabase `profiles` table with `role: 'admin'` field; update health endpoint to check role instead of hardcoded list
+
+---
 
 ## Performance Bottlenecks
 
-### Memory Usage During Download + Parse
-- **Problem:** Streaming import downloads to temp file, but if download is slow and large (300MB+), Render's limited RAM could cause OOM
-- **Files:** `rlm-service/processors/streaming_import.py` (line 63-88, `download_streaming`), `rlm-service/main.py` (line 139-214, `download_conversations`)
-- **Cause:**
-  - Large file streaming to disk uses queue buffering
-  - ijson parser loads entire file structure in memory after download
-  - No memory monitoring or graceful degradation
-- **Improvement path:**
-  - Implement streaming ijson parsing directly from network stream (no temp file)
-  - Add memory gauge: monitor RSS and warn if >80% of container limit
-  - Implement chunked ZIP extraction (extract one conversation at a time if ZIP)
-  - Consider splitting imports into smaller batches server-side if >100 conversations
+**Chat Page with 1140 Lines and Heavy Real-Time Polling:**
+- Problem: Single component handles messages, conversations, progress polling, settings, renaming, all with complex state
+- Files: `app/chat/page.tsx:1-1140` (full file)
+- Cause: No component extraction; polling happens on every mount; message history loaded synchronously
+- Improvement path: Extract TelegramChat component, ConversationSidebar logic, MemoryStatus into separate components; memoize with React.memo; lazy-load message history (infinite scroll); debounce polling triggers
 
-### Fact Extraction Parallelization Saturates Render Instance
-- **Problem:** `extract_facts_parallel` with concurrency=10 makes 10 simultaneous API calls. On a single Render instance, this blocks other requests (health checks, progress updates, query requests).
-- **Files:** `rlm-service/processors/fact_extractor.py` (line 114-162, concurrency=10)
-- **Cause:** Full pass runs in background but still blocks event loop during parallel gather
-- **Improvement path:**
-  - Reduce concurrency to 3-5 and spread extraction over longer period (allow interruptions)
-  - Implement queue-based extraction that runs async to incoming requests
-  - Add request priority: health checks > query > background tasks
+**RLM Health Check Makes Real API Call During Health Endpoint:**
+- Problem: `/api/admin/health` calls Perplexity API with actual message ("ping") just to validate API key
+- Files: `app/api/admin/health/route.ts:139-150` (Perplexity health check)
+- Cause: No ping-only endpoint on Perplexity; health check uses actual API quota
+- Improvement path: Cache Perplexity health status for 5 minutes; only re-check if cache expires or on manual request
 
-### Token Estimation Algorithm Is Inaccurate
-- **Problem:** Token estimation uses `len(text) // 4` (line 11-22 in `conversation_chunker.py`). Claude actually tokenizes at ~3.5 chars per token, leading to undersized chunks (1600 actual tokens when targeting 2000, wastes API calls).
-- **Files:** `rlm-service/processors/conversation_chunker.py` (line 11-22, `estimate_tokens`)
-- **Cause:** Hardcoded approximation without considering actual tokenizer
-- **Improvement path:**
-  - Use `tiktoken` library with Claude's tokenizer for accurate estimates
-  - Adjust target_tokens based on actual vs. estimated to self-correct
-  - Cache token counts per chunk to avoid recalculation
+**Timeout Function Uses setTimeOut in Promise.race (No AbortSignal):**
+- Problem: `lib/memory/query.ts:20-28` uses setTimeout + Promise.race for timeout, which doesn't cancel the original promise
+- Files: `lib/memory/query.ts:15-28`
+- Cause: Older pattern before AbortSignal was widely available
+- Improvement path: Use AbortSignal.timeout() and pass signal to underlying async operations (e.g., Bedrock client, Supabase queries)
+
+**Prompt Builder Constructs 732-Line System Prompt:**
+- Problem: `lib/soulprint/prompt-builder.ts` builds system prompts with full memory context, Bedrock operations, emotional intelligence logic, all as inline strings
+- Files: `lib/soulprint/prompt-builder.ts:1-732`
+- Cause: Versioned prompt system (v1-technical, v2-natural-voice, v3-openclaw) with all versions in one file; prompt generation happens on every chat request
+- Improvement path: Move prompts to external files; cache compiled prompts; lazy-load only the active version
+
+**Regex Matching in Smart Search**
+- Problem: `lib/search/smart-search.ts` uses multiple regex patterns for classification and extraction
+- Files: `lib/search/smart-search.ts:1-378` (378 lines)
+- Cause: Multiple regex operations on user input without pre-compilation or caching
+- Improvement path: Pre-compile regex patterns at module load; cache compiled patterns; consider using a trie or keyword matching for common queries
+
+---
 
 ## Fragile Areas
 
-### V2 Regeneration Assumes Light Conversation Format
-- **Files:** `rlm-service/processors/v2_regenerator.py` (line 84-154, `sample_conversations_for_v2`), `rlm-service/processors/full_pass.py` (line 164-172, `conversations_light`)
-- **Why fragile:**
-  - Full pass creates a "light" version of conversations (first 20 messages only) for v2 regen (line 169)
-  - If full_pass fails midway and v2_regenerator is called with unfiltered conversations, it may hit token limits
-  - No validation that input format matches expectations
-  - Mapping access assumes old ChatGPT export format (line 190-206 in v2_regenerator)
-- **Safe modification:**
-  - Add schema validation for input conversations before sampling
-  - Make v2_regenerator work with both light and full formats
-  - Add unit tests with sample ChatGPT exports in different formats
+**Import Flow Race Condition Windows:**
+- Files: `app/api/import/trigger/route.ts`, `app/api/import/process/route.ts`, `app/import/page.tsx`
+- Why fragile: Client uploads file → triggers import → starts polling. If polling arrives before RLM job starts, it may see old status. If user re-imports while first import still processing, duplicate jobs queue.
+- Safe modification: Add import_id to URL/state; client polls specific import_id; RLM respects "stuck-import override" flag (already implemented via BUG-03 phase)
+- Test coverage: Integration tests cover duplicate import detection; E2E test covers happy path; missing: network delay scenarios, rapid re-imports, polling race conditions
 
-### DAG Parser Only Extracts Active Path
-- **Files:** `rlm-service/processors/dag_parser.py`
-- **Why fragile:**
-  - ChatGPT conversations are DAGs (branches, regenerations). Parser extracts only "active" (most recent) path
-  - If user branches conversation and returns to old branch, that context is lost
-  - No warning that data is being dropped
-  - Chunker relies on this format without validation
-- **Safe modification:**
-  - Add comment in chunker warning about data loss
-  - Consider storing branch metadata for future recovery
-  - Add unit test with branched conversation to verify extraction
+**Multi-Tier Chunking Tier Selection Logic:**
+- Files: RLM service (external) handles tier selection; JavaScript side doesn't enforce tiers
+- Why fragile: RLM may embed all tiers but client search only uses one tier; if tier size limits change, embedding quality degrades silently
+- Safe modification: Store tier metadata with each chunk; validate chunk tier on retrieval; monitor embedding quality metrics
+- Test coverage: Unit tests for progress mapping exist; missing: tier quality degradation tests, chunk tier matching tests
 
-### Main Service Endpoints Have No Timeout Enforcement
-- **Files:** `rlm-service/main.py` (line 561-684, all endpoints)
-- **Why fragile:**
-  - `/process-full` and `/import-full` have no timeout (fire-and-forget background tasks)
-  - If task hangs, it consumes a process slot forever
-  - Render has limited process capacity, eventual denial of service
-- **Safe modification:**
-  - Add explicit timeout to all background tasks
-  - Implement task cancellation after timeout
-  - Return timeout errors to client instead of silent failure
+**Full Pass (v2-v3 Prompt Generation) Status Not User-Visible:**
+- Files: `app/chat/page.tsx:248-250` (fullPassStatus state), `app/api/memory/status/route.ts` (response includes fullPassStatus)
+- Why fragile: Full pass can fail silently if RLM timeout occurs; user sees "ready" but v2/v3 prompts not available; no user feedback that memory is incomplete
+- Safe modification: Show user "Memory still building..." with progress; explain that AI will improve as memory grows; don't block chat
+- Test coverage: Integration tests for memory status polling; missing: full pass timeout scenarios, degradation mode testing
+
+**Memory Query Timeout Using setTimeOut + Promise.race:**
+- Files: `lib/memory/query.ts:15-28` (withTimeout function)
+- Why fragile: Promise continues executing after timeout; if query is database-heavy, it continues consuming resources
+- Safe modification: Replace with AbortSignal.timeout(); pass signal to all underlying async operations
+- Test coverage: No explicit timeout tests; memory query tests pass happy path
+
+**Citation Formatter Assumes Search Results Are Valid:**
+- Files: `lib/search/citation-formatter.ts`
+- Why fragile: If smart search returns malformed results or missing fields, formatter may throw or return empty citations
+- Safe modification: Validate citation schema before formatting; fallback to generic "See search results" if validation fails
+- Test coverage: Citation validator exists (`lib/search/citation-validator.ts`); missing: malformed input tests, edge case handling
+
+---
 
 ## Scaling Limits
 
-### Current Capacity
-- **Single Render Instance:** Up to 5 concurrent imports (limited by RAM and API concurrency)
-- **API Call Rate:** 10 parallel calls per import × 2140 chunks = 21,400 concurrent Anthropic requests at peak (far beyond rate limits)
-- **Storage:** Chunks saved to Supabase (100KB each × 2000 chunks × 100 users = 20GB annually) — not a hard limit but costs grow
+**Database: Supabase Free Plan 500MB Limit:**
+- Current capacity: ~500MB total for all tables (profiles, chunks, conversations, learned_facts, etc.)
+- Limit: ~50MB per file size for Supabase uploads; total table space limited
+- Scaling path: Upgrade to Pro plan ($25/mo) → 100GB; implement table partitioning by user_id; archive old conversations
 
-### Limit: Full Pass Processing Time
-- **Current:** 30 minutes per import (download + chunk + extract + reduce + memory + v2)
-- **Breaking point:** Exports >200 conversations fail to process in 30 minutes (see `FULL_PASS_TIMEOUT_SECONDS` line 182 in streaming_import.py)
-- **Scaling path:**
-  - Implement queue-based processing (Bull, RQ, or Celery)
-  - Distribute extraction across multiple workers
-  - Cache embedding results to avoid re-extraction on retries
+**RLM: Render Free Tier 512MB RAM / 15-Min Cold Start:**
+- Current capacity: Single import of ~300MB conversations.json uses >2GB RAM (crashes on free tier)
+- Limit: Cold starts spike response times to 60+ seconds; sleep after 15 min inactivity
+- Scaling path: Upgrade to Render paid tier ($7-25/mo for 1-4GB RAM); implement keep-alive pings; stream JSON parsing instead of full load
 
-### Limit: Anthropic API Quota
-- **Current:** At 100 concurrent Haiku calls, quota hits within minutes
-- **Current mitigation:** Semaphore concurrency=10, but still 10 parallel calls per import
-- **Scaling path:**
-  - Switch to batch API for fact extraction (higher throughput, lower cost)
-  - Implement global rate limiter across all RLM instances
-  - Add circuit breaker to fail gracefully if API quota exhausted
+**Rate Limiting: 20 req/min for Expensive Operations:**
+- Current capacity: 20 chat requests/min per user (expensive tier); 60 standard/min (queries)
+- Limit: Power users (fast typers, deep search every message) hit limit; burst requests fail
+- Scaling path: Increase limits as business model supports; implement request queuing instead of hard rejection; tiered pricing (premium users = higher limits)
 
-### Limit: Render RAM
-- **Container RAM:** Typically 512MB-1GB depending on plan
-- **Current usage per import:** ~200MB (large JSON in memory during parsing)
-- **Breaking point:** Simultaneous large imports cause OOM
-- **Scaling path:**
-  - Migrate to serverless function (AWS Lambda, Google Cloud Run) with auto-scaling
-  - Implement streaming pipeline that never holds full conversation in memory
-  - Add memory monitoring and graceful degradation (refuse new imports if >70% usage)
+**Bedrock Claude Model: 60s Timeout, 100k Token Max:**
+- Current capacity: Chat route has maxDuration=60s for long-context prompts
+- Limit: Very long conversation histories timeout; streaming stops after 60s
+- Scaling path: Batch process long histories; summarize old messages into facts; increase maxDuration to 120s if business supports
+
+**CSRF Token Caching: Single Token for Entire Session:**
+- Current capacity: One cached token per browser tab
+- Limit: Token expiry not handled; stale token causes 403 on mutations
+- Scaling path: Add token refresh logic; detect 403 and refresh token; implement 1-hour TTL with refresh
+
+---
+
+## Scaling Concerns
+
+**Vercel Serverless Function Chaining: Vercel → RLM → Vercel:**
+- Current architecture: Client → Vercel (queue job) → RLM (process) → Vercel (receive webhook) → Supabase (update)
+- Issue: Each step adds 100-500ms latency; cascading failures if any step times out
+- Improvement: Direct RLM → Supabase writes; Vercel only handles auth/upload; eliminate unnecessary callbacks
+
+**Chunked Upload Storage: 3 Tiers × Many Conversations = Many Rows:**
+- Current capacity: 1,000 conversations × 3 tiers × 5-50 chunks per tier = 15,000-150,000 rows per user
+- Limit: Supabase query time degrades with row count; searching all chunks becomes slow
+- Improvement: Implement chunk vector database (Pinecone, Weaviate) for similarity search; Supabase becomes document store only
+
+**Polling-Based Status Updates: Client Polls Every 5 Seconds:**
+- Current capacity: 100 concurrent imports × 1 poll/5s = 20 polls/sec from clients
+- Limit: Each poll queries `user_profiles` for status; database load scales with concurrent users
+- Improvement: Use Server-Sent Events or WebSocket for push updates instead of client polling
+
+---
 
 ## Dependencies at Risk
 
-### RLM Library (rlm package)
-- **Risk:** Installed from GitHub at Docker build time (`git+https://github.com/alexzhang13/rlm.git` in Dockerfile line 11). No version pinning. If repo deleted or moved, builds fail.
-- **Impact:** New deployments fail, can't scale horizontally
-- **Migration plan:**
-  - Pin to specific commit hash instead of main branch
-  - Consider vendoring RLM code directly if it's not actively maintained
-  - Monitor upstream repo for deprecation notices
+**@edge-csrf/nextjs: Package Marked Deprecated:**
+- Risk: No longer maintained; newer Next.js versions may not support it; alternative middleware recommended
+- Impact: CSRF protection relies on deprecated package; future Next.js upgrades may break
+- Migration plan: Evaluate @dj/csrf or implement custom CSRF token generation; requires middleware refactor (Phase 4 already implemented, but package choice is brittle)
 
-### Anthropic Python SDK Breaking Changes
-- **Risk:** Currently installed with `anthropic[bedrock]>=0.18.0` — no upper bound. Major version upgrades (1.0+) often break API.
-- **Impact:** New deployments could fail if package breaks compatibility
-- **Migration plan:**
-  - Pin to specific minor version: `anthropic==0.18.0` (or latest 0.x)
-  - Test SDK upgrades in staging before production
-  - Monitor release notes for deprecations
+**Bedrock Runtime SDK: AWS SDK v3 (Large Bundle):**
+- Risk: AWS SDK v3 adds ~2MB to bundle; using only ConverseCommand but importing entire client library
+- Impact: Cold start time, bundle size inflation, slow serverless function startup
+- Migration plan: Consider AWS Lambda Layer for SDK; or use fetch() directly to Bedrock API instead of SDK (requires manual signing with Sigv4)
 
-## Missing Critical Features
+**Supabase JS Client: Works But Lacks RLS Type Safety:**
+- Risk: RLS policies exist in database but not enforced by TypeScript compiler; easy to bypass accidentally
+- Impact: Potential data leaks if developer forgets to add `.select()` with proper filters
+- Migration plan: Type-safe Supabase client wrapper; generate types from RLS policies
 
-### No Observability for Background Tasks
-- **Problem:** Full pass runs in background with no way to track progress or errors except checking database status
-- **Blocks:** Can't debug why imports fail, can't predict completion time, no metrics on success rate
-- **Solution:**
-  - Add structured logging to all background tasks with trace IDs
-  - Implement progress webhook that frontend can poll
-  - Add OpenTelemetry instrumentation for distributed tracing
-
-### No Resumption/Retry Logic for Failed Imports
-- **Problem:** If full pass fails midway (e.g., network timeout during chunk save), entire pipeline must restart
-- **Blocks:** Large imports (300MB+ files) fail frequently and waste API quota restarting from beginning
-- **Solution:**
-  - Implement checkpoint system: save state after each major step
-  - Add idempotent save operations (upsert chunks, don't re-extract facts)
-  - Implement exponential backoff for retries
-
-### No Cost Tracking or Budget Alerts
-- **Problem:** Fact extraction makes 2000+ API calls per import with no visibility into costs or way to set spending limits
-- **Blocks:** Can't optimize for cost, no early warning if quota about to exceed budget
-- **Solution:**
-  - Add cost calculation in fact extraction (track calls, estimate spend)
-  - Implement budget threshold alerts (Slack notification at $X spent)
-  - Add cost-optimization options: fewer chunks, faster (less accurate) models
+---
 
 ## Test Coverage Gaps
 
-### Untested Chunk Save with Schema Mismatch
-- **What's not tested:** What happens when DB schema changes or a field is missing from VALID_COLUMNS
-- **Files:** `rlm-service/processors/full_pass.py` (line 47-116, `save_chunks_batch`)
-- **Risk:** Silent data loss — chunks appear saved but missing fields
-- **Priority:** High — causes production data corruption
-- **Fix:** Add integration test that queries back chunks and verifies all fields present
+**Import Flow Edge Cases Not Covered:**
+- What's not tested: Duplicate import detection mid-upload, upload cancellation (AbortController), network timeout recovery, resumable upload, large file uploads (>500MB), malformed ZIP files
+- Files: `app/api/import/trigger/route.ts`, `lib/tus-upload.ts`, `app/import/page.tsx`
+- Risk: Production may encounter edge cases that cause silent failures or duplicate processing
+- Priority: High (import is core flow)
 
-### Untested Full Pass Interruption/Timeout
-- **What's not tested:** What happens if full pass times out at each stage (download, chunk, extract, memory, v2)
-- **Files:** `rlm-service/processors/streaming_import.py` (line 182-263), `rlm-service/processors/full_pass.py`
-- **Risk:** Unknown error states, incomplete data saved
-- **Priority:** High — Render redeploys happen weekly
-- **Fix:** Add chaos test that kills full pass at each stage and verifies graceful failure
+**Chat Page State Machine Not Formally Tested:**
+- What's not tested: Message queue during AI response, out-of-order responses, concurrent message saves, polling race conditions, conversation switching during active message send
+- Files: `app/chat/page.tsx:66-350` (message handling and state)
+- Risk: Race conditions cause lost messages or incorrect conversation context
+- Priority: High (chat is core UX)
 
-### Untested Memory Usage with Large Exports
-- **What's not tested:** Importing 300MB+ export on limited RAM container
-- **Files:** `rlm-service/processors/streaming_import.py` (line 266-419), `rlm-service/main.py` (line 139-214)
-- **Risk:** Silent OOM errors, user stuck with "processing" status
-- **Priority:** Medium — affects power users
-- **Fix:** Add load test with 300MB mock export to detect memory thresholds
+**Memory Query Timeout Behavior:**
+- What's not tested: Timeout during embedding, timeout during search, timeout + retry behavior, memory query cancellation via AbortController
+- Files: `lib/memory/query.ts`
+- Risk: Timeout silently returns null, causing degraded search experience without user feedback
+- Priority: Medium (degrades gracefully but silent)
 
-### Untested Fact Extraction JSON Repair
-- **What's not tested:** Actual truncated Haiku responses and whether `_try_repair_json` produces valid output
-- **Files:** `rlm-service/processors/fact_extractor.py` (line 241-303)
-- **Risk:** Silent data corruption if repair produces malformed JSON
-- **Priority:** Medium — depends on model output quality
-- **Fix:** Add unit tests with sample truncated responses and verify repaired JSON validates against schema
+**Emotional Intelligence Scoring:**
+- What's not tested: Temperature adaptation based on emotional state, relationship arc progression, uncertainty handling in different contexts
+- Files: `lib/soulprint/emotional-intelligence.ts`
+- Risk: Emotional state detection may be inaccurate; incorrect temperature causes tone mismatch
+- Priority: Medium (affects personalization quality)
 
-### Untested DAG Parser with Branched Conversations
-- **What's not tested:** ChatGPT exports with branched conversations (user selected a different assistant response)
-- **Files:** `rlm-service/processors/dag_parser.py`
-- **Risk:** Silent data loss if branches contain important context
-- **Priority:** Low — depends on user behavior
-- **Fix:** Add unit test with branched conversation and verify parser extracts correct path
+**RLM Failure Handling:**
+- What's not tested: RLM returns 500, RLM returns malformed response, RLM timeout after 15s, RLM partially completes soulprint generation
+- Files: `app/api/chat/route.ts:200+` (RLM calls), circuit breaker in `lib/rlm/health.ts`
+- Risk: Graceful degradation not tested; user may see errors instead of fallback to v1 prompts
+- Priority: High (critical dependency)
+
+---
+
+## Missing Critical Features
+
+**Push Notification Completion Alerts:**
+- Problem: Users don't know when import completes; must manually check chat page or wait for email
+- Blocks: Native app (PWA) notifications; real-time UX
+- Affected files: `app/api/import/complete/route.ts:168-171` (disabled), `lib/email/send.ts` (email mostly disabled)
+
+**Resumable Uploads for Large Files:**
+- Problem: Users with slow/flaky connections lose upload progress if connection drops; restart entire upload
+- Blocks: Users >100MB conversations; international users with poor connectivity
+- Affected files: `lib/tus-upload.ts` (uses atomic XHR, not resumable)
+
+**Chunk Tier Quality Monitoring:**
+- Problem: No metrics on whether 3-tier chunking improves search quality vs 1-tier; unclear if costs justify complexity
+- Blocks: Optimization decisions; may be unnecessary complexity
+- Affected files: RLM service, no client-side tracking
+
+**User-Facing Memory Quality Feedback:**
+- Problem: User doesn't know if "memory building" succeeded or failed; full pass silently fails with no user notification
+- Blocks: Users can't understand why AI doesn't remember things they mentioned
+- Affected files: `app/chat/page.tsx:248-250` (fullPassStatus exists but not displayed), `app/api/memory/status/route.ts`
+
+**Soulprint Regeneration Without Re-Upload:**
+- Problem: If soulprint generation fails or user wants to update personality profile, must re-import entire ChatGPT export
+- Blocks: Users can't fix personality descriptions; must start from scratch
+- Affected files: All of import flow (no partial regeneration support)
+
+---
+
+## Monitoring & Observability Gaps
+
+**No Metrics Dashboard for Import Success/Failure Rates:**
+- What's missing: Tracking import completion rate, average processing time, chunk quality scores, RLM performance
+- Impact: Can't detect trends (e.g., RLM getting slower, more timeouts); decision-making is reactive not proactive
+
+**Circuit Breaker State Not Persisted (In-Memory Only):**
+- What's missing: Shared circuit state across serverless instances; persisted across restarts
+- Impact: If Next.js redeploys during RLM outage, circuit resets; requests flood failing RLM again
+
+**No Distributed Tracing for Multi-Service Calls:**
+- What's missing: End-to-end request tracing from client through Vercel through RLM back to client
+- Impact: Hard to debug slow requests; can't see where bottleneck is (RLM? Network? Supabase?)
+
+**Opik Integration Incomplete:**
+- What's found: `app/api/chat/route.ts` has `traceChatRequest()` and `flushOpik()` calls
+- What's missing: Not all critical paths instrumented (memory search, citation validation, embedding); Opik dashboard not integrated into monitoring workflow
 
 ---
 

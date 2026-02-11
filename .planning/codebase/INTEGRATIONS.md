@@ -4,266 +4,260 @@
 
 ## APIs & External Services
 
-**AI & LLM Services:**
-- AWS Bedrock - Primary LLM inference for chat and analysis
-  - SDK: `@aws-sdk/client-bedrock-runtime`
-  - Models: Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude Opus, Claude Haiku 4.5
-  - Auth: AWS access key/secret via `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
-  - Used in: `lib/bedrock.ts`, `app/api/chat/route.ts`, soulprint generation
+**AI/LLM Models:**
+- AWS Bedrock (Claude 3.5 Haiku) - Primary chat model via `@aws-sdk/client-bedrock-runtime`
+  - Used in: `app/api/chat/route.ts`, `lib/memory/learning.ts`
+  - Auth: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
+  - Model ID: `us.anthropic.claude-3-5-haiku-20241022-v1:0` (configurable)
+  - Fallback: Vercel AI SDK supports OpenAI if Bedrock unavailable
 
-- Anthropic API (Direct) - Fallback and specialized RLM queries
-  - SDK: `anthropic` (official client)
-  - Model: Claude Sonnet 4 (claude-sonnet-4-20250514)
-  - Auth: `ANTHROPIC_API_KEY`
-  - Used in: RLM service (`rlm-service/main.py`) for recursive language models
-  - Endpoint: `https://api.anthropic.com/v1/messages`
+- Anthropic (Claude 3.x) - Fallback via `@ai-sdk/anthropic`
+  - SDK: Vercel AI SDK (`ai` package)
+  - Used when Bedrock degraded
 
-- RLM Service (Internal) - Recursive Language Model for memory-enhanced chat
-  - Type: Internal REST API
-  - Base URL: `RLM_SERVICE_URL` (default: `https://soulprint-landing.onrender.com`)
-  - Endpoints:
-    - `POST /query` - Query with conversation memory (main chat endpoint)
-    - `POST /import-full` - Stream import and generate soulprint (202 Accepted)
-    - `POST /process-full` - Full pass processing (deprecated, use v2)
-    - `GET /health` - Health check
-  - Response format: JSON with response, chunks_used, method ("rlm" or "fallback"), latency_ms
-  - Auth: No auth headers (internal, behind Render firewall)
-  - Called from: `app/api/chat/route.ts`
+- OpenAI - Multiple purposes
+  - Chat completion: via `@ai-sdk/openai` (Vercel AI SDK)
+  - Whisper transcription: Direct API `https://api.openai.com/v1/audio/transcriptions`
+    - Used in: `app/api/transcribe/route.ts`
+    - Auth: `OPENAI_API_KEY` header
+  - Embeddings: fallback to OpenAI if Bedrock unavailable
+
+**RLM Service (Internal):**
+- URL: `https://soulprint-landing.onrender.com` (configurable via `RLM_SERVICE_URL`)
+- Endpoints:
+  - `GET /health` - Health check (5s timeout)
+  - `POST /create-soulprint` - Generate soulprint from conversations
+  - `POST /query` - Query with memory context
+- Circuit breaker pattern: `lib/rlm/health.ts`
+  - CLOSED (normal) → OPEN (skip on 2 failures) → HALF_OPEN (test after 30s cooldown)
+  - Fail-open: Skip RLM if circuit OPEN, allow chat to fallback to Bedrock
+- Used in: `app/api/chat/route.ts`, `lib/memory/query.ts`
 
 **Web Search:**
-- Tavily AI - Real-time web search for current information
-  - SDK: `@tavily/core`
+- Tavily API - Fallback web search
+  - Package: `@tavily/core`
   - Auth: `TAVILY_API_KEY`
-  - Endpoint: `https://api.tavily.com/search`
-  - Used in: `lib/search/tavily.ts`, RLM service for tool-calling
-  - Response: Top 5 results with title, URL, content, optional quick answer
-  - Integrated in: Both RLM and direct Anthropic fallback with tool calling
+  - Used in: `lib/search/tavily.ts`, `app/api/cron/tasks/route.ts`
+  - Scope: 5 results, basic/advanced search depth, optional answer synthesis
 
-**Third-Party APIs:**
-- Google APIs - Gmail/Drive integration (optional)
-  - SDK: `googleapis`
-  - Auth: OAuth2 (user-authorized)
-  - Status: Available but minimal usage in current codebase
-
-- OpenAI - Optional transcription fallback
-  - SDK: `openai`
-  - Auth: `OPENAI_API_KEY`
-  - Used in: `app/api/transcribe/route.ts` (optional, may be deprecated)
-
-- Cloudinary - Image storage and transformation
-  - SDK: `cloudinary`
-  - Auth: Cloudinary credentials (not extracted to env vars in config)
-  - Status: Available but not actively used in core flow
+- Google Trends API
+  - Package: `google-trends-api`
+  - Used in: `lib/search/google-trends.ts`
+  - Caching: 24-hour in-memory cache
+  - Category mapping: tech, crypto, sports, health, business, politics, entertainment
+  - Fail-open: Stale cache preferred over no data
 
 ## Data Storage
 
 **Databases:**
-- PostgreSQL (via Supabase)
-  - Connection: `NEXT_PUBLIC_SUPABASE_URL`
-  - Client: `@supabase/supabase-js`, `@supabase/ssr`
-  - Tables:
-    - `user_profiles` - User account, soulprint_text, import_status, AI personality sections
-    - `conversation_chunks` - Searchable memory (3-tier chunking: 100/500/2000 chars)
-    - `conversations` - Chat history
-    - `branches` - Conversation branches
-    - Schema pre-set up (do not modify)
+- Supabase PostgreSQL - Primary database
+  - Provider: Managed PostgreSQL (supabase.co)
+  - Instance: `https://swvljsixpvvcirjmflze.supabase.co`
+  - Schema:
+    - `user_profiles` - User data, soulprint, import status, AI name/avatar
+    - `conversations` - Chat conversation metadata
+    - `messages` - Chat messages (user/assistant pairs)
+    - `conversation_chunks` - Memory chunks with embeddings (multi-tier: 100/500/2000 char)
+    - `learned_facts` - Extracted facts from chats (categories: preferences, relationships, milestones, beliefs, decisions, events)
+    - `waitlist` - Email signup tracking
+  - Client: `@supabase/supabase-js` + `@supabase/ssr`
+  - Auth:
+    - Client: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    - Server: `SUPABASE_SERVICE_ROLE_KEY` (for admin operations)
+  - RLS: Row-level security enforced; admin key used for service operations
 
 **File Storage:**
-- Supabase Storage - Primary file hosting
-  - Buckets: `user-exports` (original ChatGPT exports), `profile-data` (soulprints)
-  - Auth: Supabase service key (server-side) or user auth (client-side)
-  - Format: ZIP files (ChatGPT exports), JSON (conversations), gzipped JSON (compressed)
-  - Streaming download support for large files (300MB+)
-  - Implementation: `app/api/storage/upload-url/route.ts`
+- Supabase Storage (S3-compatible)
+  - Buckets:
+    - `imports` - Raw ChatGPT conversation JSON exports (gzipped)
+    - (Inferred from code: user-exports bucket mentioned in CLAUDE.md)
+  - Upload method: Signed URLs generated server-side via `app/api/storage/upload-url/route.ts`
+  - Access: Read via authenticated client, write via signed URLs
+  - Lifecycle: Manual management (no auto-delete policy detected)
 
-- AWS S3 (Optional, presigner available)
-  - SDK: `@aws-sdk/s3-request-presigner`
-  - Status: Available but not currently active in primary flow
+- Cloudinary CDN - Image hosting
+  - Service: Image generation and CDN delivery
+  - Auth: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+  - Used in: `app/api/profile/ai-avatar/route.ts`
+  - Purpose: AI avatar image storage and delivery
 
 **Caching:**
-- Upstash Redis - Rate limiting and session cache
-  - Connection: `UPSTASH_REDIS_URL`, `UPSTASH_REDIS_TOKEN`
-  - SDK: `@upstash/redis`, `@upstash/ratelimit`
-  - Purpose: Enforce rate limits (standard/expensive/upload tiers)
-  - Tier details in `lib/rate-limit.ts`:
-    - Standard: 60 req/min
-    - Expensive: 20 req/min
-    - Upload: 100 req/min
-  - Fail-open: If Redis down, requests allowed through
-  - Prefix: `rl:standard`, `rl:expensive`, `rl:upload`
+- Upstash Redis (Serverless)
+  - Provider: Upstash.io (Redis on Vercel's infrastructure)
+  - Auth: `UPSTASH_REDIS_URL`, `UPSTASH_REDIS_TOKEN`
+  - Purpose: Rate limit state tracking
+  - Key prefixes:
+    - `rl:standard` - 60 req/min sliding window
+    - `rl:expensive` - 20 req/min sliding window
+    - `rl:upload` - 100 req/min sliding window
+  - Fail-open: If Redis unavailable, requests allowed through (availability > security)
+
+- In-memory caching:
+  - Google Trends: 24-hour cache in `lib/search/google-trends.ts`
+  - CSRF token: Module-level cache in `lib/csrf.ts`
+  - RLM circuit breaker state: In-memory in `lib/rlm/health.ts`
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- Supabase Auth - Built-in PostgreSQL + OAuth
-  - Flows: Email/password, Google OAuth, GitHub OAuth (configured)
-  - Client: `@supabase/ssr` (server-side session management)
-  - Cookies: 30-day expiry for Safari compatibility
-  - PKCE flow: Handled by server middleware
-  - Implementation: `lib/supabase/server.ts`, `lib/supabase/client.ts`
+- Supabase Auth - Custom implementation
+  - Method: Magic links / OAuth (configured in Supabase project)
+  - Session: Cookie-based (30-day maxAge for Safari persistence)
+  - Cookie config: `sameSite: 'lax'`, `secure: true` in production
+  - Server-side auth via `lib/supabase/server.ts`
+  - Client-side auth via `lib/supabase/client.ts`
+  - PKCE flow support for security (handled by Supabase)
 
 **CSRF Protection:**
-- @edge-csrf/nextjs - Request forgery protection
-  - Status: Deprecated (no edge-safe alternative available)
-  - Token storage: Module-level cache in `lib/csrf.ts`
-  - Implementation: `getCsrfToken()` preferred over csrfFetch wrapper
-  - Applied to: Form submissions, API mutations
+- @edge-csrf/nextjs middleware
+  - Token generation: Per-request via middleware
+  - Token delivery: `X-CSRF-Token` response header
+  - Token retrieval: `lib/csrf.ts` (cached client-side)
+  - Validation: Middleware checks on state-changing requests (POST/PUT/DELETE/PATCH)
+  - Deprecation note: Maintained despite deprecation (no edge-runtime alternative available)
 
 ## Monitoring & Observability
 
-**Error Tracking & Alerts:**
-- Alert Webhook (Optional) - Failure notifications
-  - Env: `ALERT_WEBHOOK`
-  - Purpose: Slack/Discord webhook for RLM service failures
-  - Used in: `rlm-service/main.py` alert_failure() function
-  - Format: JSON message with error details and user ID
+**Error Tracking & Logging:**
+- Pino structured logger (`lib/logger.ts`)
+  - Format: JSON logs with correlation IDs
+  - Pretty-printing: `pino-pretty` in dev
+  - Request tracking: Correlation IDs via headers
+  - Used in: All API routes, chat processing, memory operations
 
-**Logging:**
-- Pino - Structured JSON logging
-  - SDK: `pino`, `pino-pretty`
-  - Implementation: `lib/logger/` directory
-  - Format: JSON with context (service, level, timestamp)
-  - Pretty printing in dev via `pino-pretty`
-  - Used in: API routes, RLM service
+- Opik (Comet) - LLM observability
+  - SDK: `opik` package
+  - Dashboard: https://www.comet.com/opik
+  - Auth: `OPIK_API_KEY`, `OPIK_PROJECT_NAME`, `OPIK_WORKSPACE_NAME`
+  - Traces recorded:
+    - Chat requests: `traceChatRequest()` in `lib/opik.ts`
+    - Soulprint generation: `traceQuickPass()`
+    - Memory learning: `traceLearnedFact()`
+    - Full end-to-end message flow with metadata
+  - Used in: `app/api/chat/route.ts`, soulprint generation endpoints
 
-**Tracing & Observability:**
-- Opik - LLM observability and tracing
-  - SDK: `opik`
-  - Purpose: Trace LLM calls for evaluation
-  - Implementation: `lib/opik.ts`, used in chat endpoint tracing
-  - Functions: `traceChatRequest()`, `flushOpik()`
+**Health Checks:**
+- RLM service health: `app/api/rlm/health/route.ts` - 5s timeout
+- Supabase health: `app/api/health/route.ts` - Simple connectivity check
+- Admin RLM status: `app/api/admin/rlm-status/route.ts` - Detailed circuit breaker state
 
 ## CI/CD & Deployment
 
-**Frontend Hosting:**
-- Vercel - Automatic deployment
-  - Trigger: Git push to `main` branch on GitHub
-  - Repo: `Pu11en/soulprint-landing`
-  - Builds Next.js application
-  - Environment variables via Vercel dashboard
+**Hosting:**
+- Vercel (Next.js native)
+  - Git integration: Auto-deploy on `git push` to main
+  - Environment: Managed via Vercel dashboard (not in repo)
+  - Max function duration: 60 seconds (streaming chat responses)
+  - Scaling: Auto-scales with traffic
 
-**Backend Hosting:**
-- Render - RLM Python service
-  - Trigger: Git push to separate `soulprint-rlm` repo
-  - Config: `rlm-service/render.yaml` (docker deployment)
-  - Build: Dockerfile with Python 3.12-slim
-  - Entry: `uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}`
-  - Important: Must push RLM changes to `soulprint-rlm` repo, not main repo
+**Git-based CI:**
+- GitHub (repository: `Pu11en/soulprint-landing`)
+  - No explicit CI config detected (Vercel handles builds)
+  - Deployment: Automatic on push to main branch
 
-**Repository Strategy:**
-- RLM source code duplicated across repos:
-  - Primary development: `soulprint-landing/rlm-service/`
-  - Deployment source: `soulprint-rlm/` (separate GitHub repo)
-  - Workflow: Copy changed files to soulprint-rlm, commit and push separately
+**Database Migrations:**
+- Manual (Supabase dashboard)
+- SQL migrations tracked if in `.sql` files (none detected in public code)
 
-**CI Pipeline:**
-- GitHub Actions (configured in both repos)
-- Tests: npm test (vitest), pytest for Python
-- Linting: ESLint for TypeScript
+## Webhooks & Callbacks
+
+**Incoming Webhooks:**
+- Supabase Auth callbacks: `app/auth/callback/route.ts`
+  - Triggered by OAuth providers on user signup/login
+  - Handles PKCE flow completion, session creation
+
+**Outgoing Webhooks:**
+- Web Push notifications: `app/api/import/complete/route.ts`
+  - Service: `web-push` package
+  - Trigger: Import processing complete
+  - Purpose: Notify user import ready without email
+  - Keys: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (not detected in vars, may be hardcoded)
+
+- Email notifications: Asynchronous via `lib/email.ts`
+  - Trigger: Import complete, task reminders, waitlist confirmation
+  - Provider: Gmail via OAuth2
+  - Auth: `GMAIL_USER`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`
+  - Retry logic: 3 attempts with exponential backoff (1s, 2s, 4s)
 
 ## Environment Configuration
 
 **Required Environment Variables:**
+```
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://swvljsixpvvcirjmflze.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<public-key>
+SUPABASE_SERVICE_ROLE_KEY=<admin-key>
 
-**Supabase:**
-- `NEXT_PUBLIC_SUPABASE_URL` (public, safe for browser)
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public, safe for browser)
-- `SUPABASE_SERVICE_ROLE_KEY` (secret, server-side only)
+# AWS Bedrock
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=<key>
+AWS_SECRET_ACCESS_KEY=<secret>
+BEDROCK_MODEL_ID=us.anthropic.claude-3-5-haiku-20241022-v1:0
 
-**AWS Bedrock:**
-- `AWS_REGION`
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
+# RLM Service
+RLM_SERVICE_URL=https://soulprint-landing.onrender.com
 
-**RLM Service:**
-- `RLM_SERVICE_URL` (default: https://soulprint-landing.onrender.com)
+# Rate Limiting (Upstash)
+UPSTASH_REDIS_URL=<redis-url>
+UPSTASH_REDIS_TOKEN=<token>
 
-**Anthropic API:**
-- `ANTHROPIC_API_KEY`
+# OpenAI (Whisper, embeddings)
+OPENAI_API_KEY=<key>
 
-**Upstash:**
-- `UPSTASH_REDIS_URL`
-- `UPSTASH_REDIS_TOKEN`
+# Web Search
+TAVILY_API_KEY=<key>
 
-**Tavily Search:**
-- `TAVILY_API_KEY`
+# Images (Cloudinary)
+CLOUDINARY_CLOUD_NAME=djg0pqts6
+CLOUDINARY_API_KEY=136843289897238
+CLOUDINARY_API_SECRET=<secret>
 
-**Email (Optional):**
-- `RESEND_API_KEY`
+# Email (Gmail OAuth2)
+GMAIL_USER=<email>
+GMAIL_CLIENT_ID=<id>
+GMAIL_CLIENT_SECRET=<secret>
+GMAIL_REFRESH_TOKEN=<token>
 
-**Observability (Optional):**
-- `ALERT_WEBHOOK`
-
-**Deployment:**
-- Vercel: Set via dashboard environment variables
-- Render: Set via render.yaml `envVars` section
+# Observability (Opik)
+OPIK_API_KEY=<key>
+OPIK_PROJECT_NAME=soulprint
+OPIK_WORKSPACE_NAME=default
+```
 
 **Secrets Location:**
-- `.env.local` - Local development (git-ignored)
-- `.env.production.local` - Production secrets (git-ignored)
-- Vercel Environment: Vercel dashboard
-- Render Environment: Render dashboard or render.yaml
+- `.env.local` (development, .gitignored)
+- `.env.production.local` (production, .gitignored)
+- Vercel Environment Variables (production - not in repo)
 
-## Webhooks & Callbacks
+**Optional Variables:**
+- `RESEND_API_KEY` - Email service (deprecated, kept for future use)
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` - Web Push (not detected)
 
-**Incoming:**
-- `POST /import-full` (RLM service) - Import job handler
-  - Accepts: user_id, storage_path, file_type, conversation_count
-  - Returns: 202 Accepted, processing async
-  - Called from: `app/api/import/route.ts`
+## Integration Patterns
 
-- `POST /query` (RLM service) - Chat query with memory
-  - Accepts: user_id, message, history, soulprint_text, sections, emotional_state
-  - Returns: response, chunks_used, method, latency_ms
-  - Called from: `app/api/chat/route.ts`
+**Fail-Open Architecture:**
+- RLM degradation: Chat falls back to Bedrock directly
+- Rate limiting down: Requests allowed through (Redis unavailable)
+- Google Trends down: In-memory cache used, returns stale data
 
-**Outgoing:**
-- Alert Webhook (Optional Slack/Discord)
-  - Triggered on RLM failures
-  - Format: JSON with error details
+**Circuit Breaker Pattern:**
+- RLM service: `lib/rlm/health.ts` (CLOSED → OPEN → HALF_OPEN)
+  - 2 consecutive failures trigger OPEN state
+  - 30s cooldown before HALF_OPEN test
+  - Single successful call returns to CLOSED
 
-**Web Push (Optional):**
-- `web-push` SDK available for push notifications
-- Status: Setup present but not actively integrated in current flow
+**Request Validation:**
+- Zod schemas in `lib/api/schemas.ts` for all POST/PUT/PATCH endpoints
+- Body size limit: 50MB for imports
+- Centralized error handling in `lib/api/error-handler.ts`
 
-## Rate Limiting & Quotas
-
-**Per-User Limits (Upstash Redis):**
-- Standard endpoints: 60 requests/minute
-- Expensive endpoints (AI calls): 20 requests/minute
-- Upload endpoints: 100 requests/minute
-- Fail-open strategy: If Redis unavailable, requests allowed
-
-**API Quotas:**
-- Bedrock: AWS account quota
-- Anthropic: API rate limits by plan
-- Tavily: Based on subscription tier
-- OpenAI: Based on subscription tier
-
-## Security Considerations
-
-**CORS:**
-- RLM service allows:
-  - `http://localhost:3000` (development)
-  - `https://*.vercel.app` (production preview)
-  - Credentials: Enabled
-
-**Content Security Policy (next.config.ts):**
-```
-default-src 'self'
-script-src 'self' 'unsafe-inline' 'unsafe-eval'  # Next.js requirement
-style-src 'self' 'unsafe-inline'  # Tailwind requirement
-img-src 'self' data: blob: https:
-font-src 'self' data:
-connect-src 'self' https://swvljsixpvvcirjmflze.supabase.co https://soulprint-landing.onrender.com https://*.upstash.io
-frame-ancestors 'none'
-```
-
-**API Key Management:**
-- Never stored in git (`.env` files git-ignored)
-- Separate dev/prod environments
-- Service keys: Server-side only
-- Public keys: Marked with `NEXT_PUBLIC_` prefix
+**Rate Limiting:**
+- 3-tier sliding window (Upstash Redis):
+  - Standard: 60 req/min (memory queries, profile reads)
+  - Expensive: 20 req/min (AI chat, avatar generation, import)
+  - Upload: 100 req/min (chunked file uploads)
+- Per-user limiting by `user_id`
+- Returns HTTP 429 with `Retry-After` header
 
 ---
 
