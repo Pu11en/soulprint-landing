@@ -1,166 +1,177 @@
 # Technology Stack
 
-**Analysis Date:** 2026-02-06
+**Analysis Date:** 2026-02-11
 
 ## Languages
 
 **Primary:**
-- TypeScript 5 - All source code, APIs, and components
-- JavaScript - Configuration files, ESLint config
+- TypeScript 5 - All Next.js frontend and API routes
+- Python 3.12 - RLM service backend at `rlm-service/`
 
 **Secondary:**
-- JSX/TSX - React components throughout `app/` and `components/`
+- JavaScript (Node.js runtime for Next.js)
 
 ## Runtime
 
-**Environment:**
-- Node.js (version managed via `.nvmrc` or Vercel default)
+**Frontend/API:**
+- Node.js (via Next.js 16.1.5)
+- Deployed to: Vercel (auto-deploy on git push to main)
 
-**Package Manager:**
-- npm (lockfile: present)
+**Backend (RLM Service):**
+- Python 3.12-slim (Docker container)
+- Deployed to: Render (auto-deploy from separate `soulprint-rlm` repo)
+- Entry point: `rlm-service/main.py` via Uvicorn
+- Container exposes port 10000
+
+**Package Managers:**
+- npm (Node.js dependencies)
+- pip (Python dependencies)
 
 ## Frameworks
 
-**Core:**
-- Next.js 16.1.5 - Full-stack React framework with API routes
-  - App Router architecture (`app/` directory)
-  - Server components and server actions for backend operations
-  - Streaming responses with `NextResponse`
-  - Maximum body size configured to 50MB for file uploads (`next.config.ts`)
-
-**Frontend/UI:**
-- React 19.2.3 - Component library
-- Radix UI (multiple components) - Unstyled, accessible component primitives
-  - `@radix-ui/react-accordion`, `@radix-ui/react-dialog`, `@radix-ui/react-select`, `@radix-ui/react-slider`, `@radix-ui/react-tooltip`, etc.
-- Tailwind CSS 3.4.19 - Utility-first CSS framework
+**Frontend/API:**
+- Next.js 16.1.5 - React SSR/SSG framework, API routes
+- React 19.2.3 - UI library
+- Tailwind CSS 3.4.19 - Utility-first styling
 - Framer Motion 12.29.2 - Animation library
-- Lucide React 0.563.0 - Icon library
-- Class Variance Authority 0.7.1 - Component variant management
+- Radix UI - Accessible component primitives
 
-**Backend/API:**
-- AWS Bedrock Runtime - LLM inference through Claude models (Sonnet, Haiku, Opus)
-- Supabase 2.93.1 - PostgreSQL database + Auth + Storage
-  - `@supabase/ssr` for SSR integration
-  - Row-level security for database access
-  - Object storage for file uploads
-
-**AI & Language Models:**
-- AWS Bedrock (via `@aws-sdk/client-bedrock-runtime`) - Claude 3.5 models
-  - Converse API for chat completions
-  - ConverseStream API for streaming responses
-  - Titan embedding model for vector embeddings
-- Vercel AI SDK 6.0.72 (`ai` package) - Unified LLM interface (legacy, being replaced by Bedrock)
-  - `@ai-sdk/anthropic` for Anthropic integration
-  - `@ai-sdk/openai` for OpenAI fallback/embeddings
-
-**Search & Real-Time Info:**
-- Tavily 0.7.1 (`@tavily/core`) - Web search integration with answer extraction
-- Perplexity API - Real-time information and deep research (custom integration)
-
-**Testing:**
-- Not detected in current setup (no Jest, Vitest, or test files present)
+**Backend (RLM Service):**
+- FastAPI 0.109.0+ - Python web framework for REST API
+- Uvicorn 0.27.0+ - ASGI server
 
 **Build/Dev:**
-- Autoprefixer 10.4.23 - CSS vendor prefix automation
-- PostCSS 8.5.6 - CSS transformation
-- Sharp 0.34.5 - Image optimization (Next.js requirement)
-- ESLint 9 - JavaScript linting with Next.js config
-  - `eslint-config-next` for React and Next.js rules
-  - Flat config format (`eslint.config.mjs`)
+- Next.js build system (TypeScript compilation, code splitting)
+- Vite (via vite-tsconfig-paths for test imports)
+- ESLint 9 - Linting
+- TypeScript 5 - Type checking
 
 ## Key Dependencies
 
-**Critical:**
-- `@supabase/supabase-js` 2.93.1 - Database and auth client
-- `@aws-sdk/client-bedrock-runtime` 3.980.0 - Claude LLM inference
-- `@aws-sdk/client-s3` 3.975.0 - S3/R2 object storage
-- `resend` 6.9.1 - Transactional email service
-- `jszip` 3.10.1 - ZIP file parsing for ChatGPT export imports
+**Critical - AI & LLM:**
+- `@ai-sdk/anthropic` 3.0.36 - Vercel AI SDK for Anthropic Claude models
+- `@ai-sdk/openai` 3.0.25 - Vercel AI SDK for OpenAI models
+- `@aws-sdk/client-bedrock-runtime` 3.980.0 - AWS Bedrock (Claude Sonnet, Haiku models)
+- `anthropic` 6.17.0 - Official Anthropic API client (for direct calls)
+- `rlm` - Recursive Language Models library (installed via Git from GitHub in Dockerfile)
+
+**Critical - Authentication & Session:**
+- `@supabase/ssr` 0.8.0 - Server-side auth for Next.js
+- `@supabase/supabase-js` 2.93.1 - Supabase client SDK
+- `@edge-csrf/nextjs` 2.5.2 - CSRF protection (deprecated but no edge-safe alternative)
 
 **Infrastructure:**
-- `nodemailer` 7.0.13 - Email sending fallback
+- `@upstash/redis` 1.36.2 - Upstash Redis client for caching/rate limiting
+- `@upstash/ratelimit` 2.0.8 - Rate limiting library built on Upstash Redis
+- `httpx` (Python) - Async HTTP client for RLM service
+- `ijson` (Python) - Memory-efficient JSON streaming for large file processing
+
+**Search & Integration:**
+- `@tavily/core` 0.7.1 - Tavily web search API
+- `googleapis` 170.1.0 - Google APIs (Google Drive/Gmail integration)
+- `cloudinary` 2.9.0 - Image storage and transformation
+
+**Storage & Upload:**
+- `jszip` 3.10.1 - Client-side ZIP file handling
 - `web-push` 3.6.7 - Web push notifications
-- `googleapis` 170.1.0 - Google APIs (YouTube, Drive, etc.)
-- `cloudinary` 2.9.0 - Cloud image storage and manipulation
-- `next-themes` 0.4.6 - Theme management (light/dark mode)
+- `@aws-sdk/s3-request-presigner` 3.975.0 - S3 presigned URLs (optional, not actively used)
+
+**Observability & Logging:**
+- `pino` 10.3.0 - Structured JSON logger
+- `pino-pretty` 13.1.3 - Pretty printing for pino (dev only)
+- `opik` 1.10.8 - Observability/tracing for LLM applications
+
+**Email & Communication:**
+- `resend` 6.9.1 - Resend email service (API maintained, but sendSoulprintReadyEmail removed)
+- `nodemailer` 7.0.13 - SMTP email client
 
 **Utilities:**
-- `clsx` 2.1.1 - Conditional className utility
-- `tailwind-merge` 3.4.0 - Tailwind class conflict resolution
-- `tailwindcss-animate` 1.0.7 - Animation preset plugins
-- `motion` 12.29.2 - Advanced animation library
-- `use-stick-to-bottom` 1.1.2 - Scroll-to-bottom hook for chat
+- `zod` 4.3.6 - Runtime schema validation
+- `clsx` 2.1.1 - Conditional classname utility
+- `tailwind-merge` 3.4.0 - Merge Tailwind classes intelligently
+- `next-themes` 0.4.6 - Dark mode management
 
-**AWS SDK:**
-- `@aws-sdk/s3-request-presigner` 3.975.0 - Generate presigned S3 URLs
-- `@aws-sdk/client-bedrock-runtime` - LLM and embedding models
+**Content & Rendering:**
+- `react-markdown` 10.1.0 - Markdown to React rendering
+- `react-syntax-highlighter` 16.1.0 - Code syntax highlighting
+- `rehype-sanitize` 6.0.0 - HTML sanitization
+- `remark-gfm` 4.0.1 - GitHub-flavored Markdown support
 
 ## Configuration
 
-**Environment:**
-- Environment variables in `.env.local` (present, never committed)
-- Configuration via `next.config.ts` with security headers and body size limits
+**Environment Variables:**
 
-**Required Environment Variables:**
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase public anon key
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role (server-side only)
-- `AWS_REGION` - AWS region for Bedrock/S3 (default: us-east-1)
-- `AWS_ACCESS_KEY_ID` - AWS credentials for Bedrock
-- `AWS_SECRET_ACCESS_KEY` - AWS credentials for Bedrock
-- `BEDROCK_MODEL_ID` - Claude model to use (e.g., `us.anthropic.claude-3-5-haiku-20241022-v1:0`)
+The stack requires these environment variables (never stored in codebase):
+
+**Supabase (Database & Auth):**
+- `NEXT_PUBLIC_SUPABASE_URL` - Public Supabase URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Public anonymous key (for client-side auth)
+- `SUPABASE_SERVICE_ROLE_KEY` - Admin key (server-side only, `.env.local`)
+
+**AWS Bedrock (LLM):**
+- `AWS_REGION` - AWS region (default: `us-east-1`)
+- `AWS_ACCESS_KEY_ID` - AWS credentials
+- `AWS_SECRET_ACCESS_KEY` - AWS credentials
+
+**RLM Service:**
+- `RLM_SERVICE_URL` - URL to RLM service (e.g., `https://soulprint-landing.onrender.com`)
+
+**Anthropic (Direct API calls from RLM):**
+- `ANTHROPIC_API_KEY` - Anthropic API key (used by RLM service and some RLM fallback queries)
+
+**Upstash (Redis & Rate Limiting):**
+- `UPSTASH_REDIS_URL` - Upstash Redis connection URL
+- `UPSTASH_REDIS_TOKEN` - Upstash Redis auth token
+
+**External APIs:**
+- `TAVILY_API_KEY` - Tavily web search API key
+- `OPENAI_API_KEY` - OpenAI API key (optional, for transcription)
 - `RESEND_API_KEY` - Resend email service API key
-- `TAVILY_API_KEY` - Tavily search API key
-- `PERPLEXITY_API_KEY` - Perplexity real-time search API key
-- `DEEPGRAM_API_KEY` - Deepgram speech-to-text API key
-- `RLM_SERVICE_URL` - Remote Learning Model service URL (e.g., https://soulprint-landing.onrender.com)
-- `R2_ENDPOINT` - Cloudflare R2 endpoint URL
-- `R2_ACCESS_KEY_ID` - R2 credentials
-- `R2_SECRET_ACCESS_KEY` - R2 credentials
-- `R2_BUCKET_NAME` - R2 bucket name
 
-**Build:**
-- `next.config.ts` - Next.js configuration with:
-  - 50MB server action body limit for file uploads
-  - Security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy)
-- `tsconfig.json` - TypeScript strict mode, path aliases (`@/*`)
-- `eslint.config.mjs` - ESLint flat config with Next.js rules
+**Monitoring & Observability:**
+- `ALERT_WEBHOOK` - Optional Slack/Discord webhook for RLM failure alerts (RLM service)
+
+**Build & Deployment:**
+- `NEXT_PUBLIC_*` - Prefix exposes to browser (only non-sensitive config)
+- `NODE_ENV` - `development`, `production`, or `test`
+
+**TypeScript Configuration (`tsconfig.json`):**
+- Strict mode enabled
+- Path alias: `@/*` maps to project root
+- ES2017 target
+- Module resolution: `bundler` (Next.js 13+)
+- Plugins: `next` for automatic type generation
+
+**Next.js Configuration (`next.config.ts`):**
+- Body size limit: 50MB (for large ChatGPT exports)
+- Security headers: DENY frame-options, CSP, XSS protection
+- CSP allows: Supabase, RLM service, Upstash
+- Experimental: Server Actions with custom body size
 
 ## Platform Requirements
 
 **Development:**
-- Node.js (version unspecified, likely latest LTS)
-- npm package manager
+- Node.js 18+ (for Next.js 16)
+- npm or yarn
+- Python 3.12+ (if running RLM service locally)
+- Git (for GitHub integration)
 
 **Production:**
-- Deployment: Vercel (via git push, auto-deploys)
-- Database: Supabase (PostgreSQL hosted)
-- Object Storage: Supabase Storage, AWS S3, Cloudflare R2
-- AI Service: AWS Bedrock
-- Search: Tavily API, Perplexity API
-- Auth: Supabase Auth
-- Email: Resend API
-- Speech: Deepgram API
+- Vercel hosting (Next.js frontend/API)
+- Render hosting (RLM Python service)
+- Supabase (PostgreSQL database)
+- Upstash Redis (rate limiting, session cache)
+- AWS Bedrock access (LLM inference)
+- Optional: Google Cloud, Tavily, Resend, Anthropic API
 
-## Architecture Notes
+**Database:**
+- PostgreSQL via Supabase
+- Tables: `user_profiles`, `conversation_chunks`, `conversations`, `branches`, etc.
 
-**Streaming:**
-- Server components support streaming with `bedrockChatStream()` generator in `lib/bedrock.ts`
-- Chat streaming implemented via Bedrock ConverseStream API
-
-**File Upload:**
-- Multi-part chunked upload via `app/api/import/chunked-upload/route.ts`
-- Chunks assembled server-side and uploaded to Supabase Storage
-- Support for files up to 50MB
-
-**Embeddings:**
-- Bedrock Titan v2 embedding model (`amazon.titan-embed-text-v2:0`)
-- 768-dimensional embeddings generated via `bedrockEmbed()` in `lib/bedrock.ts`
-
-**Circuit Breaker Pattern:**
-- RLM service has circuit breaker in `lib/rlm/health.ts` to fail fast when service is down
-- Health check every 30 seconds in OPEN state
+**Storage:**
+- Supabase Storage buckets: `user-exports`, `profile-data`, etc.
+- Cloudinary (optional, image transformation)
 
 ---
 
-*Stack analysis: 2026-02-06*
+*Stack analysis: 2026-02-11*

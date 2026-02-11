@@ -1,192 +1,174 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-02-06
+**Analysis Date:** 2026-02-11
 
 ## Naming Patterns
 
 **Files:**
-- Kebab-case for most files: `telegram-chat-v2.tsx`, `theme-toggle.tsx`, `branch-manager.ts`
-- PascalCase for React components: `Navbar.tsx`, `BreakpointDesktop.tsx`
-- Lowercase for lib utilities: `utils.ts`, `email.ts`, `bedrock.ts`
+- Python: `snake_case.py` (e.g., `prompt_builder.py`, `fact_extractor.py`, `dag_parser.py`)
+- TypeScript: `kebab-case.ts` or `camelCase.ts` (e.g., `prompt-helpers.test.ts`, `ttl-cache.ts`)
+- Test files: `{name}.test.ts` or `{name}.spec.ts` (TypeScript), `test_{name}.py` (Python)
 
 **Functions:**
-- camelCase for all functions: `getSupabaseAdmin()`, `embedQuery()`, `sendEmail()`, `getMemoryContext()`
-- Prefix with verb for actions: `search*`, `create*`, `get*`, `format*`, `validate*`
-- Async functions named without "async" prefix: `async function getMemoryContext()` not `getAsyncMemoryContext()`
+- Python: `snake_case` (e.g., `extract_facts_from_chunk`, `consolidate_facts`, `download_conversations`)
+- TypeScript: `camelCase` (e.g., `parseRequestBody`, `handleAPIError`, `checkRateLimit`)
+- Async functions: Prefixed with `async` (e.g., `async function query_with_rlm()`)
 
 **Variables:**
-- camelCase for local variables: `queryEmbedding`, `userId`, `fileData`, `maxChunks`
-- UPPERCASE_SNAKE_CASE for constants: `MAX_FILE_SIZE_MB`, `MEMORY_SEARCH_TIMEOUT_MS`, `BATCH_SIZE`, `CLAUDE_MODELS`
-- Prefix meaningful names for clarity: `adminSupabase`, `queryEmbedding`, `internalUserId`, `usedChunksIDs`
+- Python: `snake_case` (e.g., `consolidated_facts`, `conversation_chunks`, `temp_file_path`)
+- TypeScript: `camelCase` for mutable variables (e.g., `request`, `response`, `userMessage`)
+- Constants: `SCREAMING_SNAKE_CASE` (e.g., `MAX_CONSECUTIVE_FAILURES`, `FACT_EXTRACTION_PROMPT`)
+- Private/internal: Prefix with underscore (e.g., `_try_repair_json`, `_depth`, `_max_depth`)
 
-**Types & Interfaces:**
-- PascalCase for interfaces: `MemoryChunk`, `LearnedFactResult`, `ChatMessage`, `BedrockChatOptions`
-- Suffix with Row for database types: `ChunkRpcRow`, `ChunkTableRow`, `LearnedFactRow`
-- Suffix with Props for component props: `NavbarProps`
-- Use `as const` for type-safe object literals: `validRoles = ['user', 'assistant'] as const`
+**Types & Schemas:**
+- TypeScript: `PascalCase` for interfaces and types (e.g., `QueryRequest`, `APIErrorResponse`, `UploadSession`)
+- Python: `PascalCase` for dataclasses if used (not heavily used in RLM service — mostly dicts with type hints)
+- Schema exports: Match as `{name}Schema` (e.g., `chatRequestSchema`, `importCompleteSchema`)
 
 ## Code Style
 
 **Formatting:**
-- ESLint (v9) with Next.js config (`eslint.config.mjs`)
-- No Prettier configured - uses ESLint defaults
-- Tab indentation in tsconfig.json examples, 2-space indentation in code
+- TypeScript: Inferred from ESLint config—uses Next.js core-web-vitals + TypeScript rules
+- Python: No formal linter detected (PEP 8 conventions implied by codebase patterns)
+- Line length: TypeScript ~100-120 characters, Python ~120+ (streaming_import.py has longer lines)
 
 **Linting:**
-- Run: `npm run lint` (mapped to `eslint`)
-- Uses `eslint-config-next/core-web-vitals` and `eslint-config-next/typescript`
-- Ignores: `.next/`, `out/`, `build/`, `next-env.d.ts`
+- TypeScript: ESLint with `eslint-config-next/core-web-vitals` and `eslint-config-next/typescript`
+- Config: `eslint.config.mjs` (Flat config format, not .eslintrc)
+- Python: No pre-commit hooks or linting config detected (adheres to general Python standards)
 
-**Quotes:**
-- Single quotes for strings: `'use client'`, `'@/lib/supabase/server'`
-- Template literals for dynamic strings: `` `[Memory] ${operationName} timed out` ``
+**Commenting:**
+- Python: Module docstrings at file top (e.g., `"""Streaming Import Processor..."""`) describing purpose, design decisions, and constraints
+- TypeScript: JSDoc comments for complex functions (e.g., `/** Parse and validate a request body... */`)
+- Inline comments: Use sparingly, only for non-obvious logic
+- Special markers: `[WARN]`, `[ERROR]`, `[ToolCall]` prefixes in print/console logs for categorization
+
+**Spacing & Indentation:**
+- Python: 4 spaces per indent level
+- TypeScript: 2 spaces per indent level (Next.js/Vercel standard)
 
 ## Import Organization
 
-**Order:**
-1. React/Next.js imports: `import { useState } from 'react'`, `import { NextResponse } from 'next/server'`
-2. Third-party library imports: `import JSZip from 'jszip'`, `import { createClient } from '@supabase/supabase-js'`
-3. AWS SDK imports grouped together: `import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime'`
-4. Internal library imports: `import { createClient } from '@/lib/supabase/server'`
-5. Component/utility imports: `import { cn } from '@/lib/utils'`, `import { TelegramChatV2 } from '@/components/chat/telegram-chat-v2'`
-6. Type imports: `import type { ClassValue } from 'clsx'`
+**Python Order:**
+1. Standard library imports (`asyncio`, `json`, `os`, `tempfile`)
+2. Third-party imports (`fastapi`, `httpx`, `ijson`, `anthropic`)
+3. Relative imports from local modules (`from .dag_parser import`, `from prompt_helpers import`)
+
+**TypeScript Order:**
+1. Next.js and framework imports (`from 'next/server'`, `from '@/lib/...'`)
+2. Third-party imports (`from 'zod'`, `from 'vitest'`)
+3. Relative imports (rare, prefer `@/` path aliases)
 
 **Path Aliases:**
-- `@/*` maps to project root (configured in tsconfig.json)
-- Use for all internal imports: `@/lib`, `@/components`, `@/app`
+- TypeScript: Uses `@/` to point to project root (configured in `tsconfig.json`)
+- Examples: `@/lib/logger`, `@/lib/api/schemas`, `@/lib/soulprint/prompt-helpers`
 
 ## Error Handling
 
-**Patterns:**
-- Try-catch blocks wrapping async operations in API routes
-- Explicit error logging with context prefixes: `console.error('[Memory] Query failed:', error)`
-- Return NextResponse with appropriate status codes (401, 400, 500)
-- Graceful degradation on timeout: return empty array/object instead of throwing
-- Specific error messages in responses: `{ error: 'Unauthorized' }`, `{ error: error.message }`
+**Strategy:**
+- **Fail gracefully in pipelines**: RLM processors return `empty_facts` or `None` on error rather than raising exceptions. Pipeline never fails due to processor error (e.g., `fact_extractor.py` lines 60-111)
+- **Circuit breaker pattern**: `fact_extractor.py` implements circuit breaker (5 consecutive failures) to stop batch reduction if too many errors occur (lines 394-407)
+- **Best-effort updates**: RLM service updates progress with "best-effort" policy — logs warning but continues if update fails (`streaming_import.py` lines 34-60)
 
-**Error Types:**
-- Use Error constructor for custom errors: `throw new Error('Failed to download file from storage')`
-- Log error details to console before returning to client
-- Preserve error context for debugging
+**Error Logging Patterns:**
+- Python: `print(f"[ModuleName] Message: {detail}")` with brackets for category (e.g., `[FactExtractor] Consolidated...`)
+- TypeScript: Use `createLogger()` for structured logging with context field (e.g., `log.error({ context, error }, 'API error occurred')`)
+- Production vs Development: TypeScript handlers check `process.env.NODE_ENV` to include/exclude stack traces
 
-**Example Pattern:**
-```typescript
-try {
-  const result = await someAsyncOperation();
-  return NextResponse.json({ result });
-} catch (error) {
-  console.error('[ModuleName] Context:', error);
-  return NextResponse.json({ error: 'User-friendly message' }, { status: 500 });
-}
-```
+**Exception Handling:**
+- Python: Catch broad `Exception` and log + return safe default (see `fact_extractor.py` lines 109-111: catch all, log, return empty facts)
+- TypeScript: Use `handleAPIError(error, context)` helper for consistent API error responses (returns 500 with structured JSON body)
 
-## Logging
+## Validation
 
-**Framework:** Console (console.log, console.error, console.warn)
+**Approach:**
+- TypeScript: Centralized Zod schemas in `lib/api/schemas.ts` with `parseRequestBody()` helper
+  - Returns validated data OR HTTP 400 Response
+  - Converts Zod error details to human-readable messages (security: prevents schema disclosure)
+- Python: Ad-hoc validation in processors (no centralized schema library)
+  - Example: `conversation_chunker.py` checks for `"messages"` key to distinguish simple vs. ChatGPT export format
+  - JSON repair logic in `fact_extractor.py` (lines 241-303) for truncated LLM responses
 
-**Patterns:**
-- Prefix log messages with module context in brackets: `[Memory]`, `[Email]`, `[ProcessServer]`, `[Chat]`, `[RLM]`
-- Log at decision points and error conditions
-- Use console.warn for timeout/fallback scenarios
-- Use console.error for failures
-- Use console.log for success confirmations: `console.log('[Email] Sent successfully on attempt 2')`
+## State Management & Caching
 
-**Examples:**
-```typescript
-console.log(`[RLM] Found ${chunks.length} chunks across layers (Macro:${macroChunks.length}, Thematic:${thematicChunks.length}, Micro:${microChunks.length})`);
-console.warn(`[Memory] ${operationName} timed out after ${timeoutMs}ms`);
-console.error('[Chat] Name generation failed:', error);
-console.log('[Memory] Learned facts retrieval failed:', error.message);
-```
+**Pattern:** Explicit state objects passed through function chains, no global state mutations
+- Example: `fact_extractor.py` consolidate/reduce functions operate on immutable dicts returned at each step
+- TypeScript: `TTLCache` class with instance-level state (timers, cleanup intervals)
 
-## Comments
-
-**When to Comment:**
-- Algorithm explanation: complex business logic, multi-tier chunking strategy
-- Public function purposes: JSDoc for exported functions
-- Non-obvious code paths: fallback logic, special cases
-- Integration details: why external service is called, expected format
-
-**JSDoc/TSDoc:**
-- Used minimally - only for exported public functions
-- Single-line format for simple functions
-- Multi-line format with @param/@returns for complex functions
-
-**Example:**
-```typescript
-/**
- * Embed a query using Cohere Embed v3 (with timeout protection)
- */
-export async function embedQuery(text: string): Promise<number[]> {
-  // Implementation
-}
-
-/**
- * Get Hierarchical (RLM) Context
- * Searches multiple layers to build a deep context window
- * Has overall timeout protection - returns empty context rather than hanging
- */
-export async function getMemoryContext(
-  userId: string,
-  query: string,
-  maxChunks: number = 5
-): Promise<{ chunks: MemoryChunk[]; contextText: string; method: string; learnedFacts: LearnedFactResult[] }> {
-  // Implementation
-}
-```
+**Async Concurrency Control:**
+- Python: `asyncio.Semaphore()` for rate limiting parallel calls (e.g., `fact_extractor.py` lines 133-144)
+- TypeScript: Implicit via HTTP client limits (httpx has max concurrency settings not shown in code)
 
 ## Function Design
 
-**Size:** Functions typically 20-100 lines, with specific purpose
-- Async functions in API routes: 60-100 lines acceptable for full request handling
-- Helper functions: 20-40 lines
-- Retrieval/search functions: 30-80 lines
+**Size:** Functions are concise (10-80 lines typical), with clear single responsibility
+- RLM processors are 100-200 lines when they orchestrate pipelines
+- Test functions/fixtures are helper methods (small utility functions)
 
 **Parameters:**
-- Use object destructuring for multiple parameters: `{ to, subject, html, text }`
-- Provide default values for optional params: `topK: number = 5`, `layerIndex?: number`
-- Group related config into objects: `BedrockChatOptions` interface
+- Python: Use type hints on all function parameters (e.g., `chunks: List[dict]`, `anthropic_client`)
+- TypeScript: Full type annotations required
+- Optional params: Use `Optional[Type]` (Python) or `?:` (TypeScript)
 
 **Return Values:**
-- Always return objects with meaningful properties from API handlers: `{ success: boolean; error?: string; messageId?: string }`
-- Tuple returns for multi-value results: `Promise<MemoryChunk[]>`
-- Type-safe returns with explicit interface definitions
+- Explicit return types documented (Python docstrings, TypeScript type annotations)
+- Success: Return data directly (e.g., dict, List[dict], Response)
+- Failure: Return `None` or empty structure (fail-safe), not exceptions
+
+**Documentation:**
+- Python: Docstrings with Args, Returns, Raises sections (see `conversation_chunker.py` lines 25-34, `fact_extractor.py` lines 50-61)
+- TypeScript: JSDoc comments for public APIs (see `ttl-cache.ts` class methods)
 
 ## Module Design
 
 **Exports:**
-- Named exports for utilities and helpers: `export async function embedQuery()`, `export function cn()`
-- Default export only for pages and components: `export default function ChatPage()`
-- Type exports: `export type ClaudeModel = keyof typeof CLAUDE_MODELS`
-- Interface exports: `export interface MemoryChunk`
+- Python: Functions exported by being defined at module level; no `__all__` lists observed
+- TypeScript: Named exports preferred (e.g., `export function handleAPIError()`, `export const TTLCache`)
+  - Exception: Class exports use `export class` directly
 
 **Barrel Files:**
-- Used in `/lib/mem0/index.ts`: re-exports for cleaner imports
-```typescript
-export type { ParsedMessage, Mem0Message, ChatGPTConversation } from './chatgpt-parser';
-export type { Memory, SearchResult, AddMemoryResult, Mem0Config } from './client';
-```
+- Not used extensively in this codebase
+- Processors use explicit imports (e.g., `from .dag_parser import extract_active_path`)
 
-**File Organization:**
-- One main export per file (can have supporting types/helpers)
-- Related functions grouped by feature: query, embed, search functions together in `memory/query.ts`
-- Helper functions at top of file, main exports at bottom
+**Module Responsibility:**
+- Single purpose per file (e.g., `fact_extractor.py` = fact extraction only, `streaming_import.py` = streaming download + progress)
+- Related utilities grouped (e.g., all prompt-related code in `prompt_helpers.py` + `prompt_builder.py`)
 
-## Type Safety
+## Async/Await Patterns
+
+**Python:**
+- `async def` for I/O-bound functions (httpx calls, Supabase updates)
+- `await` for every async call (no fire-and-forget except with `asyncio.create_task()`)
+- `asyncio.gather(*tasks, return_exceptions=True)` for parallel execution with error handling
 
 **TypeScript:**
-- Strict mode enabled: `"strict": true` in tsconfig.json
-- Explicit type annotations on function parameters and returns
-- Interface definitions for data structures: `interface ChunkRpcRow`, `interface UserProfile`
-- Type narrowing and guards: `if (error.code === '42883') // Undefined function`, `(block): block is ContentBlock.TextMember => 'text' in block`
-- Const assertions for type safety: `as const`, `as unknown`
+- `async` function declarations in route handlers
+- Consistent `await` usage
+- Promise chains avoided in favor of async/await
 
-**Validation:**
-- Runtime validation of database responses: check for null/undefined before use
-- Type guards for API responses: validate response shape before returning
-- Safe array access: `(data || [])` fallback pattern
-- Safe property access: `row.title || 'Untitled'`
+## Testing Conventions
+
+- See TESTING.md for framework details
+- Test functions/methods use `test()` or `it()` depending on framework
+- Descriptive test names that read as sentences (e.g., `test_branching_conversation_returns_active_branch`)
+- AAA pattern: Arrange, Act, Assert (setup, call, verify)
+
+## Special Patterns
+
+**Streaming & Memory Management:**
+- RLM service emphasizes streaming to avoid OOM on large exports
+- Download directly to disk (httpx streaming): `async with client.stream("GET", url)...` writes chunks to temp file
+- Parse with ijson (streaming JSON parser) instead of loading entire file into memory
+- Cleanup in `finally` blocks ensures temp files deleted even on error
+
+**JSON Repair:**
+- RLM processors implement JSON repair for truncated LLM responses (`_try_repair_json()` in `fact_extractor.py`)
+- Attempts multiple repair strategies: close unterminated strings, balance brackets, find last complete object
+
+**Hierarchical Reduction:**
+- When facts exceed token limit, recursively reduce via Haiku 4.5 (see `hierarchical_reduce()` in `fact_extractor.py`)
+- Hard truncation fallback after 3 recursion levels to prevent infinite loops
 
 ---
 
-*Convention analysis: 2026-02-06*
+*Convention analysis: 2026-02-11*

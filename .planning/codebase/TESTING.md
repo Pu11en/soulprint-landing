@@ -1,315 +1,456 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-02-06
+**Analysis Date:** 2026-02-11
 
 ## Test Framework
 
-**Current Status:**
-- No automated test framework configured
-- No Jest, Vitest, or other test runner installed
-- No test files found in codebase (*.test.ts, *.spec.ts)
+**Runner - TypeScript:**
+- Framework: Vitest (configured in `vitest.config.mts`)
+- Environment: jsdom (browser-like testing)
+- Assertion library: Vitest built-in expect (matches Chai/Jest syntax)
 
-**Available for Setup:**
-- ESLint for linting (configured)
-- TypeScript for type checking (enabled with strict mode)
-- Next.js built-in dev server for manual testing
+**Runner - Python:**
+- Framework: pytest (used in `test_dag_parser.py`)
+- No config file detected; standard pytest conventions
 
-**Recommended Setup (if implementing):**
-- Vitest for unit testing (fast, ESM-native, TypeScript-first)
-- Testing Library for component testing
-- Jest as alternative if preferred
+**Run Commands:**
+```bash
+# TypeScript
+npm test                # Watch mode (default)
+npm run test:run        # Single run (CI mode)
+npm run test:e2e        # Playwright end-to-end tests
 
-## Test Coverage Status
-
-**Gaps:**
-- API route handlers (`/app/api/**`) have no unit tests
-- Memory/search functions (`/lib/memory/query.ts`, `/lib/search/**`) untested
-- Email sending logic (`lib/email.ts`) untested
-- Supabase integration functions untested
-- AWS Bedrock integrations untested
-- React components untested
-
-**Manual Testing Approach:**
-This codebase relies on:
-1. TypeScript strict mode for compile-time safety
-2. ESLint for code quality
-3. Manual browser testing via Next.js dev server
-4. Integration testing through live API endpoints
-
-## Type-Driven Development (Current Approach)
-
-**TypeScript as Validation:**
-- All data structures have explicit interfaces: `MemoryChunk`, `ChatMessage`, `UserProfile`
-- Function parameters typed with strict mode enabled
-- Return types explicitly declared: `Promise<MemoryChunk[]>`, `Promise<{ chunks: MemoryChunk[]; contextText: string; method: string; learnedFacts: LearnedFactResult[] }>`
-
-**Example Type Safety in Place:**
-```typescript
-interface MemoryChunk {
-  id: string;
-  title: string;
-  content: string;
-  created_at: string;
-  similarity: number;
-  layer_index: number;
-}
-
-interface ChunkRpcRow {
-  id: string;
-  title: string | null;
-  content: string;
-  created_at: string;
-  similarity: number;
-  layer_index: number | null;
-}
-
-export async function searchMemoryLayered(
-  userId: string,
-  query: string,
-  topK: number = 5,
-  minSimilarity: number = 0.3,
-  layerIndex?: number,
-  queryEmbed?: number[]
-): Promise<MemoryChunk[]> {
-  // Implementation with strict type checking
-}
+# Python (manual)
+pytest rlm-service/processors/test_dag_parser.py  # Run specific test file
 ```
 
-## Manual Testing Patterns
+## Test File Organization
 
-**API Route Testing:**
-- Use API client (curl, Postman, fetch) to test endpoints
-- Check response status codes and JSON structure
-- Verify authentication with auth header validation
-- Log request/response for debugging
+**Location:**
+- TypeScript: Co-located with source code
+  - `lib/api/error-handler.test.ts` next to `lib/api/error-handler.ts`
+  - `lib/api/ttl-cache.test.ts` next to `lib/api/ttl-cache.ts`
+  - `__tests__/` directory for integration/cross-language tests
+- Python: Co-located in same package directory
+  - `rlm-service/processors/test_dag_parser.py` next to `processors/dag_parser.py`
 
-**Example Routes Requiring Manual Testing:**
-- `POST /api/chat/messages` - Save and load chat history
-- `GET /api/memory/query` - Vector search with timeout
-- `POST /api/import/process-server` - Large file processing
-- `POST /api/soulprint/generate` - RLM integration
+**Naming:**
+- TypeScript: `{name}.test.ts` (primary convention)
+- Python: `test_{name}.py`
 
-**Common Error Scenarios to Test:**
-- Missing authentication (should return 401)
-- Invalid request body (should return 400)
-- Service timeout (should return empty/fallback)
-- Database connection failure (should return 500)
+**Structure:**
+```
+TypeScript:
+lib/api/
+├── error-handler.ts
+├── error-handler.test.ts
+├── schemas.ts
+└── ttl-cache.test.ts
 
-## Error Handling Testing
+Python:
+rlm-service/processors/
+├── dag_parser.py
+├── test_dag_parser.py
+├── fact_extractor.py
+└── conversation_chunker.py
+```
 
-**Current Patterns to Verify:**
-1. **Timeout Protection:** Functions wrapped with `withTimeout()` should return null on timeout
-   - `embedQuery()` - 15 second timeout
-   - `searchMemoryLayered()` - 10 second timeout
-   - `getMemoryContext()` - 30 second timeout
-   - Expected behavior: return empty array, not throw
+## Test Structure
 
-2. **Graceful Degradation:**
-   - Vector search fails → fallback to keyword search
-   - Example in `/lib/memory/query.ts` lines 387-391
-   - Test: verify fallback works when vector search unavailable
-
-3. **Retry Logic:**
-   - Email sending retries 3 times with exponential backoff
-   - File uploads use chunked upload with retry
-   - Test: simulate failure, verify retry occurs
-
-4. **Fallback Values:**
-   - Missing AI name → defaults to "Echo"
-   - Missing chunk title → defaults to "Untitled"
-   - Missing layer index → defaults to 1
-   - Test: verify defaults applied when null
-
-**Testing Error Paths:**
+**TypeScript Pattern:**
 ```typescript
-// Pattern from lib/memory/query.ts:
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  operationName: string
-): Promise<T | null> {
-  const timeoutPromise = new Promise<null>((resolve) => {
-    setTimeout(() => {
-      console.warn(`[Memory] ${operationName} timed out after ${timeoutMs}ms`);
-      resolve(null);
-    }, timeoutMs);
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { handleAPIError } from '@/lib/api/error-handler';
+
+describe('handleAPIError', () => {
+  let loggerErrorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    // Setup: mock logger
+    loggerErrorSpy = vi.spyOn(logger.logger, 'error').mockImplementation(() => logger.logger);
   });
-  return Promise.race([promise, timeoutPromise]);
-}
 
-// Test by intentionally slow-running operations and verifying null return
+  afterEach(() => {
+    // Cleanup: restore spies and clear mocks
+    loggerErrorSpy.mockRestore();
+    vi.clearAllMocks();
+  });
+
+  it('should return 504 with TIMEOUT code for TimeoutError', async () => {
+    const timeoutError = new Error('Operation timed out');
+    timeoutError.name = 'TimeoutError';
+
+    const response = handleAPIError(timeoutError, 'API:Test');
+
+    expect(response.status).toBe(504);
+    const body = (await response.json()) as APIErrorResponse;
+    expect(body.code).toBe('TIMEOUT');
+  });
+});
 ```
 
-## Component Testing Approach
+**Python Pattern:**
+```python
+import pytest
+from .dag_parser import extract_active_path, is_visible_message, extract_content
 
-**Current Components:**
-- React components in `/components/**/*.tsx`
-- Client components marked with `'use client'`
-- Page components in `/app/**/*.tsx`
+class TestExtractActivePath:
+    """Tests for backward DAG traversal."""
 
-**Component Testing Strategy (No Framework):**
-1. Manual browser testing via `npm run dev`
-2. Check component renders without errors
-3. Verify state management with browser devtools
-4. Test user interactions (clicks, form inputs)
-5. Verify API calls using browser Network tab
+    def test_branching_conversation_returns_active_branch(self):
+        """Conversation with edits/regenerations: only active branch returned."""
+        conversation = {
+            "id": "conv-branch",
+            "mapping": {
+                "node-root": _make_node("node-root", None, ["node-user"], role=None),
+                ...
+            },
+        }
 
-**Example Component to Test Manually:**
-- `/app/chat/page.tsx` - Complex state management, message queue
-- Load chat, send message, verify API call, check history loads
-- Navigate away and back, verify memory persistence
-- Check responsive behavior at different breakpoints
+        result = extract_active_path(conversation)
 
-## Integration Testing Areas
+        assert len(result) == 3
+        assert result[0]["content"] == "Hello"
+        assert "Old response" not in [m["content"] for m in result]
+```
 
-**API Integration Tests (Manual/No Framework):**
+**Key Patterns:**
+- **Setup phase**: `beforeEach()` (TypeScript) or methods in class (Python)
+- **Teardown phase**: `afterEach()` (TypeScript) or `finally:` blocks (Python)
+- **Assertion phase**: `expect()` chains (TypeScript), `assert` statements (Python)
+- **Descriptive test names**: Read as behavior specification (e.g., `test_branching_conversation_returns_active_branch`)
 
-1. **Chat Flow:**
-   - User logs in → queries `/api/chat/messages`
-   - User sends message → POST to `/api/chat`
-   - Verify RLM integration works
-   - Check memory context is retrieved
+## Mocking
 
-2. **Memory System:**
-   - Query embeddings via Bedrock
-   - Search chunks with vector similarity
-   - Verify layer filtering works
-   - Check keyword fallback on vector search failure
+**Framework - TypeScript:**
+- Tool: Vitest `vi` module (built-in mock/spy utilities)
+- MSW (Mock Service Worker): For HTTP mocking — see `tests/mocks/server.ts`
 
-3. **Import Flow:**
-   - User uploads ZIP file
-   - Server processes and chunks
-   - RLM generates soulprint
-   - Email sent on completion
-   - User can now chat
+**Framework - Python:**
+- Pytest fixtures and helpers
+- Manual mock objects (see `test_dag_parser.py` with `_make_node()` helper for fixtures)
 
-4. **Voice Processing:**
-   - User uploads voice file
-   - Verify enrollment/verification endpoints
-   - Check transcription and storage
+**Common Patterns:**
 
-## Mocking Strategy (If Tests Implemented)
+**TypeScript Mocking:**
+```typescript
+// Mock function
+vi.mock('@/lib/logger', () => ({
+  logger: mockLoggerInstance,
+  createLogger: vi.fn(() => mockLoggerInstance),
+}))
+
+// Spy on existing function
+loggerErrorSpy = vi.spyOn(logger.logger, 'error').mockImplementation(() => logger.logger);
+
+// Stub environment variable
+vi.stubEnv('NODE_ENV', 'development');
+
+// Restore after test
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
+})
+```
+
+**Python Mocking:**
+```python
+# Fixture helper
+def _make_node(node_id, parent, children, role="user", content_parts=None):
+    """Helper to build a mapping node with message."""
+    return {
+        "id": node_id,
+        "message": {...},
+        "parent": parent,
+        "children": children,
+    }
+
+# Used in test
+conversation = {
+    "mapping": {
+        "node-root": _make_node("node-root", None, ["node-user"], role=None),
+        ...
+    }
+}
+```
 
 **What to Mock:**
-- AWS Bedrock API calls (expensive, external dependency)
-- Supabase database queries (would need test database)
-- Email sending (Resend/Gmail APIs)
-- External search APIs (Perplexity, Tavily)
-- File storage operations
+- External dependencies: Logger, rate limiter, HTTP clients (httpx in Python)
+- Time-dependent behavior: Use `vi.useFakeTimers()` for time manipulation
+- Error conditions: Create error instances with specific properties (e.g., `error.name = 'TimeoutError'`)
 
 **What NOT to Mock:**
-- Core business logic (chunking, searching, memory)
-- Type validation
-- Timeout utilities
-- Fallback/retry logic
+- Core business logic (the function being tested)
+- Domain models or data structures
+- Internal helper functions (test through public API)
+- Synchronous pure functions
 
-**Mocking Examples (for future test setup):**
+## Fixtures and Factories
+
+**TypeScript Patterns:**
+
 ```typescript
-// Mock Bedrock client
-vi.mock('@aws-sdk/client-bedrock-runtime', () => ({
-  BedrockRuntimeClient: vi.fn(),
-  InvokeModelCommand: vi.fn(),
-}));
+// Fake timers for TTLCache tests
+describe('TTLCache', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
 
-// Mock Supabase
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: 'test' }, error: null }),
-        }),
-      }),
-    }),
-  })),
-}));
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-// Mock email
-vi.mock('@/lib/email/send', () => ({
-  sendEmail: vi.fn().mockResolvedValue({ success: true }),
-}));
+  it('should store and retrieve value within TTL', () => {
+    const cache = new TTLCache<string>(30 * 60 * 1000);
+    cache.set('key1', 'value1');
+    expect(cache.get('key1')).toBe('value1');
+    cache.destroy();
+  });
+});
 ```
 
-## Run Commands
+**Python Patterns:**
+```python
+# Helper fixture for building conversation nodes
+def _make_node(node_id, parent, children, role="user", content_parts=None, create_time=0, metadata=None):
+    """Helper to build a mapping node with message."""
+    msg = None
+    if role is not None:
+        msg = {
+            "author": {"role": role},
+            "content": {"parts": content_parts or [""]},
+            "create_time": create_time,
+            "metadata": metadata or {},
+        }
+    return {
+        "id": node_id,
+        "message": msg,
+        "parent": parent,
+        "children": children,
+    }
 
-**Current Setup:**
+# Test data location
+# Fixtures defined inline in test classes (no separate fixtures directory)
+# Realistic test data structures (ChatGPT export formats) defined in docstrings/comments
+```
+
+## Coverage
+
+**Requirements:** Not enforced (no coverage threshold detected in config)
+- Coverage tool: Likely available but not mandatory for CI
+- Tests exist for: Error handling, caching, validation, parsing
+
+**View Coverage:**
 ```bash
-npm run dev              # Start dev server with live reload
-npm run build           # Build for production
-npm run lint            # Run ESLint
-npm start               # Start production server
+npm run test:run -- --coverage    # (if vitest coverage plugin installed)
 ```
 
-**Testing Commands (None Configured):**
-- No `npm test` script exists
-- No coverage reports generated
-- No CI/CD test stage configured
+**Focus areas with tests:**
+- `lib/api/error-handler.test.ts` - Exception handling, environment-specific messages
+- `lib/api/ttl-cache.test.ts` - Cache lifecycle, expiration, cleanup
+- `__tests__/unit/prompt-helpers.test.ts` - Data transformation with complex rules
+- `rlm-service/processors/test_dag_parser.py` - DAG traversal, message filtering
 
-**Manual Testing Process:**
-1. `npm run dev` - Start development server
-2. Open http://localhost:3000 in browser
-3. Navigate to feature/page
-4. Test user interactions
-5. Check browser console for errors
-6. Open DevTools Network tab to verify API calls
-7. Check application state in React DevTools
+## Test Types
 
-## Health Checks & Verification
+**Unit Tests:**
+- Scope: Single function or class method
+- Approach: Isolate via mocking external dependencies
+- Examples: `handleAPIError()`, `TTLCache.set/get`, `extract_active_path()`, `format_section()`
+- Setup: Fast, deterministic, no I/O
+- TypeScript location: Co-located .test.ts files
+- Python location: `test_dag_parser.py` (10+ test cases for DAG operations)
 
-**Built-in Endpoints:**
-- `GET /api/health/supabase` - Supabase connection
-- `GET /api/admin/health` - General system health
-- `GET /api/rlm/health` - RLM service status
-- `GET /api/chat/health` - Chat API status
+**Integration Tests:**
+- Not heavily present in visible test files
+- Cross-language tests exist: `__tests__/cross-lang/prompt-sync.test.ts` verifies Python and TypeScript prompt builders produce identical output
+- Database integration: Mocked in unit tests, not true integration tests shown
 
-**Use These for Manual Testing:**
-```bash
-curl http://localhost:3000/api/health/supabase
-curl http://localhost:3000/api/rlm/health
+**E2E Tests:**
+- Framework: Playwright (from `package.json` script `test:e2e`)
+- Location: `tests/e2e/` (inferred from vitest config exclusion)
+- Not examined in detail but configured for end-to-end workflows
+
+**Async Testing:**
+
+```typescript
+// Fake timers for async operations (cache expiration)
+it('should return undefined for expired entry', () => {
+  const cache = new TTLCache<string>(30 * 60 * 1000);
+  cache.set('key1', 'value1');
+
+  // Advance time past TTL
+  vi.advanceTimersByTime(31 * 60 * 1000);
+
+  expect(cache.get('key1')).toBeUndefined();
+  cache.destroy();
+});
+
+// Direct async/await
+it('should return 504 with TIMEOUT code for TimeoutError', async () => {
+  const response = handleAPIError(timeoutError, 'API:Test');
+  const body = (await response.json()) as APIErrorResponse;
+  expect(body.code).toBe('TIMEOUT');
+});
 ```
 
-## Key Areas Requiring Careful Testing
+**Error Testing:**
 
-**1. Memory Search (`/lib/memory/query.ts`):**
-- Test vector embedding with different query lengths
-- Test layered search with specific layer indices
-- Test timeout behavior (set timeout to 100ms, verify returns empty)
-- Test fallback from vector to keyword search
-- Test learned facts retrieval
+```typescript
+it('should handle unknown error types (string)', async () => {
+  const response = handleAPIError('string error', 'API:Test');
 
-**2. Import Processing (`/app/api/import/process-server/route.ts`):**
-- Test with various ZIP file sizes (<100MB, >100MB, >500MB)
-- Verify conversations.json parsing
-- Check multi-tier chunking (100, 500, 2000 char tiers)
-- Test RLM integration for soulprint generation
-- Verify email notification sent
+  expect(response.status).toBe(500);
+  const body = (await response.json()) as APIErrorResponse;
+  expect(body.code).toBe('UNKNOWN_ERROR');
+});
 
-**3. Chat API (`/app/api/chat/route.ts`):**
-- Test with and without memory context
-- Verify AI name generation (should use soulprint)
-- Test memory learning on each message
-- Verify source citations in responses
-- Test with different model temperatures
+// Python pattern: verify error handling in non-raising code
+def test_empty_mapping_returns_empty(self):
+    """Empty conversation mapping returns empty message list."""
+    conversation = {
+        "id": "conv-empty",
+        "mapping": {},
+        "current_node": None,
+    }
 
-**4. Timeout Protection:**
-- All async operations in memory search have explicit timeouts
-- Test by artificially slowing operations
-- Verify graceful degradation (empty results, not crash)
+    result = extract_active_path(conversation)
 
-## Development Best Practices
+    assert result == []
+```
 
-**Before Committing:**
-1. Run `npm run lint` - no ESLint errors
-2. Test in browser manually - feature works as expected
-3. Check console - no JavaScript errors
-4. Verify API responses - correct status codes and data
-5. Test error scenarios - auth failure, timeout, invalid input
+## Setup & Environment
 
-**Type Checking:**
-- TypeScript strict mode catches many issues at compile time
-- Run `npm run build` to verify no type errors
-- Use explicit return types on functions
+**TypeScript Setup (`tests/setup.ts`):**
+```typescript
+import '@testing-library/jest-dom/vitest'
+import { beforeAll, afterEach, afterAll, vi } from 'vitest'
+import { server } from './mocks/server'
+
+// Mock logger to prevent Pino from writing during tests
+const mockLoggerInstance = {
+  info: vi.fn(),
+  error: vi.fn(),
+  warn: vi.fn(),
+  debug: vi.fn(),
+  child: vi.fn(() => mockLoggerInstance),
+}
+
+vi.mock('@/lib/logger', () => ({
+  logger: mockLoggerInstance,
+  createLogger: vi.fn(() => mockLoggerInstance),
+}))
+
+// Mock rate limiting to prevent Redis calls
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn().mockResolvedValue(null),
+}))
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+afterEach(() => {
+  server.resetHandlers()
+  vi.clearAllMocks()
+})
+afterAll(() => server.close())
+```
+
+**Environment Variables in Tests (`vitest.config.mts`):**
+```typescript
+test: {
+  environment: 'jsdom',
+  setupFiles: ['./tests/setup.ts'],
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
+    SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+    RLM_SERVICE_URL: 'https://soulprint-landing.onrender.com',
+    AWS_ACCESS_KEY_ID: 'test-key',
+    AWS_SECRET_ACCESS_KEY: 'test-secret',
+    BEDROCK_MODEL_ID: 'test-model',
+  },
+},
+```
+
+## Common Testing Patterns
+
+**Complex Object Testing:**
+```typescript
+// TTLCache with generic type
+interface UploadSession {
+  chunks: Buffer[];
+  totalChunks: number;
+  receivedChunks: number;
+}
+
+it('should handle complex object values', () => {
+  const cache = new TTLCache<UploadSession>(30 * 60 * 1000);
+  const session: UploadSession = {
+    chunks: [Buffer.from('chunk1'), Buffer.from('chunk2')],
+    totalChunks: 5,
+    receivedChunks: 2,
+  };
+
+  cache.set('upload-123', session);
+  const retrieved = cache.get('upload-123');
+
+  expect(retrieved?.totalChunks).toBe(5);
+  expect(retrieved?.chunks).toHaveLength(2);
+});
+```
+
+**Boundary Testing:**
+```typescript
+// Time boundary (exactly at TTL edge)
+it('should return value at 29 minute boundary (just before expiration)', () => {
+  const cache = new TTLCache<string>(30 * 60 * 1000);
+  cache.set('key1', 'value1');
+
+  vi.advanceTimersByTime(29 * 60 * 1000);
+  expect(cache.get('key1')).toBe('value1');
+});
+
+it('should return undefined at 30 minute boundary (exact expiration)', () => {
+  const cache = new TTLCache<string>(30 * 60 * 1000);
+  cache.set('key1', 'value1');
+
+  vi.advanceTimersByTime(30 * 60 * 1000);
+  expect(cache.get('key1')).toBeUndefined();
+});
+```
+
+**Python Behavior Specification:**
+```python
+def test_multiple_string_parts(self):
+    """Multiple string parts concatenated with newline."""
+    node = _make_node("node-1", None, [], role="user",
+                     content_parts=["Part 1", "Part 2"])
+    content = extract_content(node["message"])
+    assert content == "Part 1\nPart 2"
+```
+
+## Test Verification Strategy
+
+**AAA Pattern (Arrange, Act, Assert):**
+1. **Arrange**: Set up test data and mocks
+2. **Act**: Call the function being tested
+3. **Assert**: Verify the result matches expectations
+
+**Example (TypeScript):**
+```typescript
+it('should update user_profiles with progress_percent', async () => {
+  // Arrange: mock httpx response
+  const mockClient = vi.mock('httpx');
+
+  // Act: call update_progress
+  await update_progress(user_id, 50, 'chunking');
+
+  // Assert: verify PATCH request sent with correct payload
+  expect(mockClient.patch).toHaveBeenCalledWith(
+    expect.stringContaining('user_profiles'),
+    expect.objectContaining({ progress_percent: 50 })
+  );
+});
+```
 
 ---
 
-*Testing analysis: 2026-02-06*
+*Testing analysis: 2026-02-11*

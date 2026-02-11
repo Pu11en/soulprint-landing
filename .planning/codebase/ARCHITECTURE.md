@@ -1,206 +1,289 @@
 # Architecture
 
-**Analysis Date:** 2026-02-06
+**Analysis Date:** 2026-02-11
 
 ## Pattern Overview
 
-**Overall:** Monolithic Next.js app with server-side API routes, client components, and external service integration (RLM, AWS Bedrock, Supabase)
+**Overall:** Distributed Pipeline + Microservice Pattern
+
+SoulPrint follows a two-tier async architecture: the **Next.js frontend/API layer** orchestrates import jobs and chat queries, while the **RLM Python service** (deployed separately on Render) handles heavy processing in background tasks. The system uses streaming download, constant-memory JSON parsing, and fire-and-forget task queuing to handle large ChatGPT exports (300MB+) without OOM failures.
 
 **Key Characteristics:**
-- Next.js App Router with file-based routing
-- Server-side import processing with multi-tier chunking
-- RLM circuit breaker for fault tolerance
-- AWS Bedrock for LLM operations (Claude Sonnet/Haiku)
-- Supabase PostgreSQL for persistence and vector search
-- Memory-aware file upload with chunked transfer for large files
+- **Asynchronous processing** - Long-running imports triggered via fire-and-forget background tasks, never block user requests
+- **Constant-memory streaming** - Download to temp file + ijson file-based parsing, not in-memory accumulation
+- **Multi-stage pipeline** - Quick Pass (quick soulprint, 15-30s) enables immediate chat; Full Pass (chunks, facts, memory) runs async afterwards
+- **Circuit breaker pattern** - RLM health check with graceful degradation to fallback API
+- **Distributed state** - Supabase as single source of truth (user_profiles, conversation_chunks, chat_messages)
 
 ## Layers
 
-**Presentation Layer:**
-- Purpose: Client-side UI components and pages
-- Location: `app/` (pages), `components/`
-- Contains: Page components (`.tsx`), client-side state management, forms, animations
-- Depends on: Supabase client, API routes, local storage/IndexedDB
-- Used by: Browser/users
-
-**API Layer:**
-- Purpose: HTTP endpoints for all server operations (import, chat, profile, memory)
+**API Orchestration Layer (Next.js):**
+- Purpose: HTTP entry point, authentication gate, state validation, rate limiting
 - Location: `app/api/`
-- Contains: 54+ route handlers, auth middleware, streaming responses
-- Depends on: Supabase admin client, AWS Bedrock, RLM service, external APIs
-- Used by: Frontend components, cron jobs, external services
+- Contains: 32 route handlers spread across `/import`, `/chat`, `/memory`, `/rlm`, `/health`
+- Depends on: Supabase auth, Redis for rate limiting, RLM service
+- Used by: Browser frontend, mobile apps, internal tools
 
-**Service/Business Logic Layer:**
-- Purpose: Reusable logic for memory search, LLM calls, soulprint generation, embedding
-- Location: `lib/`
-- Contains: RLM health management, memory querying, chat utilities, email sending
-- Depends on: Supabase, AWS SDK, external service clients
-- Used by: API routes
+**RLM Service Layer (Python/FastAPI):**
+- Purpose: Heavy lifting - download exports, parse conversations, generate soulprints, query with memory
+- Location: `rlm-service/` (separate Render deployment)
+- Contains: Main FastAPI app (`main.py`), processors (`processors/`), prompt builders
+- Depends on: Supabase Storage (download), Supabase REST API (state updates), Anthropic API (Haiku 4.5, Claude Sonnet), AWS Bedrock (alternative)
+- Used by: Next.js API layer, triggered via HTTP POST
 
-**Data Access Layer:**
-- Purpose: Database abstraction and authenticated client creation
-- Location: `lib/supabase/` (client.ts, server.ts, middleware.ts)
-- Contains: Supabase client factories with auth context
-- Depends on: @supabase/supabase-js
-- Used by: API routes, client components, middleware
+**Processors (Importers/Generators):**
+- Purpose: Modular transformation steps - streaming download, parsing, chunking, fact extraction, soulprint generation
+- Location: `rlm-service/processors/`
+- Key files: `streaming_import.py`, `quick_pass.py`, `full_pass.py`, `conversation_chunker.py`, `fact_extractor.py`, `dag_parser.py`
+- Pattern: Stateless functions that read from Supabase Storage, write to Supabase DB
 
-**External Integrations:**
-- RLM Service: `https://soulprint-landing.onrender.com` - Remote memory with inference
-- AWS Bedrock: Claude models for LLM, Titan for embeddings
-- Supabase PostgreSQL: User profiles, memory chunks, chat history, learned facts
-- Gmail OAuth2: Email notifications via nodemailer
+**Database Layer (Supabase):**
+- Purpose: Persistent state - user profiles, conversation chunks, chat messages, embeddings
+- Accessed via: Supabase REST API (from RLM), Supabase JS client (from Next.js)
+- Key tables: `user_profiles`, `conversation_chunks`, `chat_messages`, `conversations`, `learned_facts`, `conversation_embeddings`
+
+**Client Layer (React):**
+- Purpose: Upload UI, progress polling, chat interface
+- Location: `app/import/page.tsx`, `app/chat/page.tsx`, `components/`
+- Integrations: TUS for resumable upload, Supabase Real-time (future), polling for progress updates
 
 ## Data Flow
 
-**User Import Flow:**
+**Import Flow (User Uploads ChatGPT Export):**
 
-1. User navigates to `/import` (client component)
-2. Uploads ChatGPT export (ZIP or JSON) via `uploadWithProgress()`
-3. File sent to `/api/import/chunked-upload` (handles large files)
-4. Raw storage path returned to client
-5. Client triggers `/api/import/process-server` with storage path
-6. Server downloads file from Supabase Storage
-7. Extracts conversations.json and validates structure
-8. Creates multi-tier chunks:
-   - Tier 1: 100 chars (facts, names, dates)
-   - Tier 2: 500 chars (context, topics)
-   - Tier 3: 2000 chars (full conversation flow)
-9. Sends chunks to RLM service: `POST /create-soulprint`
-10. RLM returns soulprint_text
-11. Store in `user_profiles.soulprint_text`
-12. Set `import_status = 'complete'`
-13. Send email notification
-14. User can now chat
+```
+1. Frontend (app/import/page.tsx)
+   ↓ User selects ZIP file or JSON from ChatGPT
+   ↓ (Attempt client-side extraction if <100MB)
+   ↓ Upload to Supabase Storage via TUS (resumable protocol)
 
-**Chat Flow:**
+2. Next.js API (app/api/import/trigger/route.ts)
+   ↓ POST /import/trigger with storagePath
+   ↓ Auth check + rate limit check
+   ↓ Duplicate import guard (if already processing, reject with 409)
+   ↓ Set user_profiles.import_status = 'processing'
+   ↓ Fire-and-forget POST to RLM /import-full endpoint (10s timeout)
+   ↓ Return 202 Accepted immediately
 
-1. User enters message on `/chat` (client component)
-2. Sent to `/api/chat` (POST)
-3. Fetch user's soulprint_text from `user_profiles`
-4. Build memory context with `getMemoryContext()`:
-   - Query `conversation_chunks` for semantic similarity
-   - Combine top chunks with system prompt
-5. Try RLM service `/query` (with circuit breaker check):
-   - Pass user message, history, soulprint_text, memory context
-   - RLM returns response using user's memory + Claude
-6. If RLM fails or circuit open: fallback to direct Bedrock call
-   - Use Bedrock ConverseStream for streaming response
-7. Save message to `chat_messages` table
-8. Learn facts from conversation with `learnFromChat()`
-9. Stream response back to client (Server-Sent Events)
+3. RLM Service Background Task (rlm-service/processors/streaming_import.py)
+   ↓ process_import_streaming() via asyncio.create_task()
 
-**Memory Learning Flow:**
+   Stage 1 (0-20%): Download from Supabase Storage
+   - Stream to temp file (chunk-by-chunk, constant memory)
+   - If ZIP, extract conversations.json
+   - Update progress_percent via Supabase PATCH
 
-1. After chat response completes
-2. Extract facts/names/topics from latest Q&A with `learnFromChat()`
-3. Store in `learned_facts` table
-4. Update `user_profiles.processed_chunks`
+   Stage 2 (20-50%): Parse conversations
+   - ijson.items() from file handle (not load whole file to RAM)
+   - DAG traversal per conversation (extract_active_path)
+   - Build list of {id, title, createdAt, messages}
 
-**State Management:**
+   Stage 3 (50-100%): Generate Quick Pass
+   - Sample richest conversations (token budget aware)
+   - Call Haiku 4.5 via AWS Bedrock for personality analysis
+   - Returns 5 sections: {soul, identity, user, agents, tools}
 
-- **User Profile:** Stored in `user_profiles` (soulprint, import_status, timestamps)
-- **Chat History:** Stored in `chat_messages` (user_id, content, role, created_at)
-- **Memory Chunks:** Stored in `memory_chunks` with pgvector embeddings
-- **Learned Facts:** Stored in `learned_facts` (fact, category, timestamps)
-- **Profile Customization:** `user_profiles` (ai_name, ai_avatar_url, settings)
+   Stage 3.5: Save Quick Pass to DB
+   - Upsert user_profiles with soul_md, identity_md, user_md, agents_md, tools_md
+   - Set soulprint_text (pre-rendered for chat)
+   - Set import_status = 'quick_ready' (user can now chat)
+   - Set ai_name, archetype from identity section
+
+   Stage 4: Trigger Full Pass (background, fire-and-forget)
+   - asyncio.create_task(trigger_full_pass)
+   - Does NOT block chat access
+
+4. Full Pass Pipeline (rlm-service/processors/full_pass.py)
+   - Re-download conversations from Storage
+   - Chunk conversations into ~2000 token segments
+   - Save chunks to conversation_chunks table
+   - Extract facts from chunks in parallel (10 at a time)
+   - Consolidate facts
+   - Generate MEMORY section from facts
+   - Update user_profiles.full_pass_status = 'complete'
+   - Hard timeout: 30 minutes
+
+5. Frontend Polling (app/import/page.tsx)
+   ↓ Poll user_profiles every 3 seconds for progress_percent, import_stage, import_status
+   ↓ Once import_status = 'quick_ready', redirect to /chat
+   ↓ (Full pass completes in background, not blocking chat)
+```
+
+**Query Flow (User Sends Chat Message):**
+
+```
+1. Frontend Chat (app/chat/page.tsx)
+   ↓ User types message
+   ↓ POST /api/chat/messages with role, content, conversation_id
+
+2. Next.js Chat API (app/api/chat/messages/route.ts)
+   ↓ Save message to chat_messages table
+   ↓ (Actual AI response comes from different endpoint or streaming)
+
+3. Chat Query Handler (specific endpoint, not in read files)
+   ↓ Fetch user profile from user_profiles
+   ↓ Check shouldAttemptRLM() via circuit breaker (lib/rlm/health.ts)
+   ↓ Fetch recent conversation_chunks for context
+   ↓ POST /query to RLM service
+
+4. RLM Query Endpoint (rlm-service/main.py @app.post("/query"))
+   ↓ Fetch conversation chunks from Supabase
+   ↓ Build conversation_context from 50 most recent chunks
+   ↓ Try query_with_rlm() first (RLM library)
+   ↓ On RLM failure, fall back to query_fallback()
+
+   query_with_rlm():
+   - Initialize RLM with Claude Sonnet 4 backend
+   - Build emotionally intelligent system prompt via PromptBuilder
+   - Send context + message history to RLM
+
+   query_fallback():
+   - Use Anthropic SDK directly (no RLM)
+   - Tool-calling loop: LLM decides if web_search needed
+   - Tavily web search integration for real-time queries
+
+5. Return QueryResponse
+   ↓ {response: str, chunks_used: int, method: "rlm" | "fallback", latency_ms: int}
+```
+
+**State Tracking During Import:**
+
+```
+user_profiles table columns:
+- import_status: 'none' → 'processing' → 'quick_ready' (chat enabled) → 'complete' (full pass done)
+- progress_percent: 0-100 (updated at each stage)
+- import_stage: "Downloading export" → "Parsing conversations" → "Generating soulprint" → "Complete"
+- import_error: null or error message (set on failure)
+- soul_md, identity_md, user_md, agents_md, tools_md: JSON strings from quick pass
+- soulprint_text: Pre-rendered markdown for chat (combines all sections)
+- ai_name, archetype: From identity section
+- full_pass_status: 'none' → 'processing' → 'complete' or 'failed'
+```
 
 ## Key Abstractions
 
-**RLM Circuit Breaker:**
-- Purpose: Fast-fail when RLM service is down (avoid 60s timeouts)
+**Streaming Download & Parse (Memory Efficient):**
+- Purpose: Process 300MB+ ChatGPT exports without OOM on Render's 512MB RAM limit
+- Examples: `rlm-service/processors/streaming_import.py` (download_streaming, parse_conversations_streaming)
+- Pattern:
+  1. httpx.AsyncClient.stream() → write chunks to temp file
+  2. ijson.items(file_handle) → parse from disk
+  3. Result: ~1-5MB peak memory regardless of file size
+
+**DAG Traversal (ChatGPT Message Tree):**
+- Purpose: Extract only the "active" conversation path (ignore branches/regenerations)
+- Examples: `rlm-service/processors/dag_parser.py` (extract_active_path)
+- Pattern: ChatGPT export has tree structure (branches from regenerates); traverse to leaf, work backwards to root
+
+**Multi-Stage Import Pipeline:**
+- Purpose: Separate concerns - quick soulprint (15-30s) vs full context (30 min)
+- Stages:
+  1. Quick Pass: Personality sections (5 structured JSON sections)
+  2. Full Pass: Conversation chunks, fact extraction, memory synthesis
+- Pattern: Quick Pass unblocks chat; Full Pass runs async, enhances over time
+
+**Prompt Builder (Versioned):**
+- Purpose: Construct system prompts deterministically from structured sections
+- Examples: `rlm-service/prompt_builder.py`, `lib/soulprint/prompt-builder.ts`
+- Versions: v1-technical (markdown headers), v2-natural-voice (flowing personality)
+- Pattern: Mirrors TypeScript exactly for character-identical output in both environments
+
+**Circuit Breaker (RLM Health):**
+- Purpose: Fast-fail when RLM is down; don't wait 60s timeout on every request
 - Examples: `lib/rlm/health.ts`
-- Pattern: Three states (CLOSED → OPEN → HALF_OPEN)
-- Tracks: Last failure time, consecutive failures, state transitions
-- Behavior: Opens after 2 failures, tests recovery every 30s
+- States: CLOSED (normal) → OPEN (2 failures) → HALF_OPEN (after 30s) → CLOSED (success)
+- Pattern: Tracks lastFailureTime, consecutiveFailures in-memory; shouldAttemptRLM() gates all RLM calls
 
-**Memory Query Interface:**
-- Purpose: Unified memory search supporting different chunk layers
-- Examples: `lib/memory/query.ts`, `lib/memory/learning.ts`
-- Pattern: Timeout-safe async operations with fallbacks
-- Layers: Can search different tier sizes depending on query complexity
-
-**Bedrock LLM Wrapper:**
-- Purpose: Unified interface for Claude model calls (chat, JSON parsing, streaming)
-- Examples: `lib/bedrock.ts`
-- Pattern: Lazy client initialization, model abstraction (Sonnet/Haiku/Opus)
-- Features: Timeout handling, JSON extraction from markdown blocks, streaming support
-
-**Chunked Upload Manager:**
-- Purpose: Handle files >100MB on mobile with automatic chunking
-- Examples: `lib/chunked-upload.ts`
-- Pattern: Client-side chunking with progress callbacks
-- Handles: S3 multipart upload coordination, resume capability
+**Parallel Fact Extraction:**
+- Purpose: Extract durable facts from chunks without cascading API calls
+- Examples: `rlm-service/processors/fact_extractor.py` (extract_facts_parallel)
+- Pattern: Semaphore concurrency control (10 at a time), each chunk → Haiku 4.5 API call
 
 ## Entry Points
 
-**Web Application Entry:**
-- Location: `app/page.tsx` (landing page)
-- Triggers: Page load in browser
-- Responsibilities: Auth check → redirect to dashboard if authenticated, show marketing sections
-
-**Import Entry:**
+**Frontend Upload (User Initiates):**
 - Location: `app/import/page.tsx`
-- Triggers: User navigates to /import
-- Responsibilities: File upload UI, progress tracking, status polling
+- Triggers: File drag-drop or click
+- Responsibilities: Display instructions, validate ZIP, call TUS upload, poll progress
 
-**Chat Entry:**
-- Location: `app/chat/page.tsx`
-- Triggers: Authenticated user navigates to /chat
-- Responsibilities: Chat interface, message handling, streaming responses
+**RLM Import Trigger (Next.js API):**
+- Location: `app/api/import/trigger/route.ts`
+- Triggers: POST from frontend after storage completes
+- Responsibilities: Auth gate, rate limit, duplicate guard, RLM HTTP call, return 202
 
-**API Import Processing:**
-- Location: `app/api/import/process-server/route.ts`
-- Triggers: Client calls after upload completes
-- Responsibilities: Download/extract/validate/chunk/embed/notify
+**RLM Import Processing (Background Task):**
+- Location: `rlm-service/main.py @app.post("/import-full")`
+- Triggers: HTTP POST from Next.js, processed via asyncio.create_task()
+- Responsibilities: Dispatch streaming_import.process_import_streaming() immediately, return 202
 
-**API Chat:**
-- Location: `app/api/chat/route.ts`
-- Triggers: User submits chat message
-- Responsibilities: Fetch context, call RLM (or fallback), stream response, save history
+**RLM Query (Chat Endpoint):**
+- Location: `rlm-service/main.py @app.post("/query")`
+- Triggers: HTTP POST from Next.js chat API
+- Responsibilities: Fetch chunks, build context, call RLM or fallback, return response + metadata
 
-**Middleware:**
-- Location: `middleware.ts`
-- Triggers: Every request matching `/((?!_next|favicon|static|images|svg).*).*`
-- Responsibilities: Update Supabase auth session, refresh tokens
+**Health Checks:**
+- RLM health: `rlm-service/main.py @app.get("/health")` (called by circuit breaker)
+- Supabase health: `app/api/health/supabase/route.ts`
 
 ## Error Handling
 
-**Strategy:** Graceful degradation with circuit breakers and fallbacks
+**Strategy:** Best-effort with graceful degradation
 
 **Patterns:**
 
-- **RLM Service Down:** Circuit breaker opens → fallback to direct Bedrock LLM
-- **Memory Search Timeout:** Returns null after 10s → uses soulprint_text directly
-- **Embedding Timeout:** Skips embedding tier, uses available memory
-- **Large File Upload:** Chunked multipart upload → resume on failure
-- **Chat Generation Failure:** Retry with exponential backoff → fallback response
-- **Email Send Failure:** 3 retry attempts with 1s/2s/4s delays
+1. **Import Failures:** Never block pipeline
+   - Catch exceptions at each processor level
+   - Return empty/default values instead of raising
+   - Example: `fact_extractor.extract_facts_from_chunk()` returns `{preferences: [], ...}` on error
+   - User sees error in UI but import doesn't cascade-fail
+
+2. **RLM Unavailable:** Fall back to direct API
+   - Try `query_with_rlm()` first (RLM library)
+   - On exception, catch and log, then try `query_fallback()` (direct Anthropic)
+   - Circuit breaker prevents repeated failed attempts
+
+3. **Rate Limiting:** Redis via Upstash
+   - Fail-open: if Redis down, allow request (safety over precision)
+   - Three tiers: standard (60/min), expensive (20/min), upload (100/min)
+   - Checked at each API endpoint
+
+4. **Progress Update Failures:** Best-effort, never block
+   - update_progress() in streaming_import catches all exceptions
+   - Logs warning but continues processing
+   - Frontend has fallback polling mechanism
+
+5. **Duplicate Imports:** Duplicate guard before triggering
+   - Check if import_status = 'processing'
+   - If elapsed < 15 minutes, reject with 409
+   - If elapsed > 15 minutes, allow retry (assume stuck)
 
 ## Cross-Cutting Concerns
 
-**Logging:** Console.log with `[ComponentName]` prefixes for easy grep/debugging
+**Logging:**
+- Next.js: Pino logger (lib/logger/index.ts), structured with correlationId
+- RLM: print() with [scope] prefix (e.g., "[streaming_import] Message")
+- Level: INFO for major steps, DEBUG for details, ERROR for failures
 
 **Validation:**
-- ZIP extraction: Checks for conversations.json existence
-- ChatGPT export: Validates array structure, presence of mapping field
-- User data: Type guards in profile validation (e.g., `validateProfile()`)
+- Next.js: Zod schemas in `lib/api/schemas.ts` (validateRequest, parseRequestBody)
+- RLM: Pydantic BaseModel for request bodies (QueryRequest, ProcessFullRequest)
+- ZIP validation: Check magic bytes (PK), then extract conversations.json
 
 **Authentication:**
-- Supabase OAuth via client + server auth flows
-- Service role client for server operations (bypasses RLS)
-- Header-based auth for internal server-to-server calls (`X-Internal-User-Id`)
+- Next.js: Supabase auth.getUser() in every route
+- RLM: Trusts user_id from caller (no auth on RLM itself - internal only)
+- Database: RLS policies enforce row-level isolation
 
 **Rate Limiting:**
-- Handled at API route level per endpoint need
-- RLM service manages its own rate limits
-- Bedrock API uses built-in quotas
+- Next.js: checkRateLimit(user_id, tier) → blocks or allows
+- Tiers: standard (chat), expensive (imports), upload (file uploads)
+- Redis key: `ratelimit:${tier}:${user_id}`
 
-**Security:**
-- Row-level security on all tables (user_id checks)
-- Service role client isolated to backend
-- Environment variables for secrets (API keys, URLs)
-- Chunked upload with validation before processing
+**Monitoring:**
+- Alerts: Optional webhook for RLM failures (ALERT_WEBHOOK env var)
+- Circuit breaker status available via getCircuitStatus()
+- Admin endpoints: `/api/admin/health`, `/api/admin/rlm-status`
 
 ---
 
-*Architecture analysis: 2026-02-06*
+*Architecture analysis: 2026-02-11*
