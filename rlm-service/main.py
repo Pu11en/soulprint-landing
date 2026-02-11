@@ -370,6 +370,65 @@ User message: {message}"""
         raise Exception("RLM library not available")
 
 
+async def execute_web_search(query: str) -> str:
+    """Execute web search using Tavily API"""
+    tavily_key = os.getenv("TAVILY_API_KEY")
+    if not tavily_key:
+        return "[Search unavailable - no API key]"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.tavily.com/search",
+                json={
+                    "api_key": tavily_key,
+                    "query": query,
+                    "max_results": 5,
+                    "include_answer": True,
+                    "search_depth": "basic",
+                },
+                timeout=10.0,
+            )
+            
+            if response.status_code != 200:
+                return f"[Search error: {response.status_code}]"
+            
+            data = response.json()
+            
+            # Format results
+            lines = []
+            if data.get("answer"):
+                lines.append(f"**Quick Answer:** {data['answer']}\n")
+            
+            for result in data.get("results", [])[:5]:
+                lines.append(f"• **{result.get('title', 'Untitled')}**")
+                lines.append(f"  {result.get('content', '')[:300]}...")
+                lines.append(f"  Source: {result.get('url', '')}\n")
+            
+            return "\n".join(lines) if lines else "[No results found]"
+            
+    except Exception as e:
+        print(f"[WebSearch] Error: {e}")
+        return f"[Search failed: {str(e)[:100]}]"
+
+
+# Tool definitions for Claude
+WEB_SEARCH_TOOL = {
+    "name": "web_search",
+    "description": "Search the web for current, real-time information. Use this when you need: today's news, current events, live prices (stocks, crypto), weather, sports scores, recent announcements, or any facts you're uncertain about. Don't guess - search.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The search query. Be specific and include relevant context (dates, names, etc.)"
+            }
+        },
+        "required": ["query"]
+    }
+}
+
+
 async def query_fallback(
     message: str,
     conversation_context: str,
@@ -381,7 +440,7 @@ async def query_fallback(
     emotional_state: Optional[dict] = None,
     relationship_arc: Optional[dict] = None,
 ) -> str:
-    """Fallback to direct Anthropic API if RLM fails"""
+    """Query with tool calling - LLM decides when to search"""
     import anthropic
 
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -402,14 +461,70 @@ async def query_fallback(
         messages.append({"role": h["role"], "content": h["content"]})
     messages.append({"role": "user", "content": message})
 
+    # First call - let LLM decide if it needs to search
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=4096,
         system=system_prompt,
         messages=messages,
+        tools=[WEB_SEARCH_TOOL],
     )
 
-    return response.content[0].text
+    # Handle tool use loop (max 3 searches per query)
+    max_tool_calls = 3
+    tool_calls = 0
+    
+    while response.stop_reason == "tool_use" and tool_calls < max_tool_calls:
+        tool_calls += 1
+        
+        # Find tool use block
+        tool_use_block = None
+        text_blocks = []
+        for block in response.content:
+            if block.type == "tool_use":
+                tool_use_block = block
+            elif block.type == "text":
+                text_blocks.append(block.text)
+        
+        if not tool_use_block:
+            break
+            
+        print(f"[ToolCall] {tool_use_block.name}: {tool_use_block.input}")
+        
+        # Execute the search
+        if tool_use_block.name == "web_search":
+            search_query = tool_use_block.input.get("query", message)
+            search_results = await execute_web_search(search_query)
+        else:
+            search_results = "[Unknown tool]"
+        
+        # Add assistant response and tool result to messages
+        messages.append({"role": "assistant", "content": response.content})
+        messages.append({
+            "role": "user",
+            "content": [{
+                "type": "tool_result",
+                "tool_use_id": tool_use_block.id,
+                "content": search_results,
+            }]
+        })
+        
+        # Continue conversation with search results
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4096,
+            system=system_prompt,
+            messages=messages,
+            tools=[WEB_SEARCH_TOOL],
+        )
+    
+    # Extract final text response
+    final_text = ""
+    for block in response.content:
+        if hasattr(block, "text"):
+            final_text += block.text
+    
+    return final_text
 
 
 @app.post("/process-full")
