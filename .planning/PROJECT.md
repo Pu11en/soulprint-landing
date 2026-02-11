@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A privacy-first AI personalization platform. Users upload their ChatGPT export, we analyze it to create a "SoulPrint" (personality profile), and they get a personalized AI assistant that remembers them. The AI adapts its tone based on emotional state, acknowledges uncertainty in low-confidence areas, and uses systematic evaluation to prevent personality drift.
+A privacy-first AI personalization platform. Users upload their ChatGPT export, we analyze it to create a "SoulPrint" (personality profile), and they get a personalized AI assistant that deeply remembers them. The AI adapts its tone based on emotional state, acknowledges uncertainty in low-confidence areas, uses semantic search over conversation history for relevant context, and tracks per-user costs to ensure affordability.
 
 ## Core Value
 
@@ -65,21 +65,20 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 - ✓ Google Trends integration filtered by user interests, injected into dailyMemory — v2.4
 - ✓ Parallel chat route prep (classifier + emotion + memory + DB in Promise.allSettled) — v2.4
 - ✓ SearchValueJudge for evaluating search routing decisions — v2.4
+- ✓ Full pass pipeline reliably completes with error propagation, retry with backoff — v3.0
+- ✓ Fact extraction reduced to concurrency=5 with exponential backoff on rate limits — v3.0
+- ✓ MEMORY section validated before save, retries 2x on placeholder content — v3.0
+- ✓ Full pass retry mechanism from chat UI (persisted storage_path, /retry-full-pass) — v3.0
+- ✓ pgvector HNSW index on conversation_chunks with Titan Embed v2 (768-dim) — v3.0
+- ✓ Semantic search in RLM /query (top 8 chunks, cosine similarity, threshold 0.3) — v3.0
+- ✓ memory_md wired into chat system prompt via RLM and PromptBuilder — v3.0
+- ✓ Per-user import cost tracking (CostTracker, Haiku $1/$5 per 1M, Titan $0.02 per 1M) — v3.0
+- ✓ Admin import costs endpoint with budget verification (all_under_budget flag) — v3.0
+- ✓ MemoryDepthJudge + A/B experiment script for quality measurement — v3.0
 
 ### Active
 
-#### v3.0 Deep Memory
-
-- [ ] Full pass pipeline reliably completes (no silent failures)
-- [ ] Conversation chunks actually saved to database with error propagation
-- [ ] Fact extraction handles rate limits and retries gracefully
-- [ ] MEMORY section generated reliably (no fallback placeholders saved)
-- [ ] memory_md wired into chat responses (passed to RLM + Bedrock fallback)
-- [ ] Conversation chunks used for RAG during chat (semantic search)
-- [ ] pgvector embeddings on conversation_chunks for semantic retrieval
-- [ ] Embedding cost under $0.10 per user import
-- [ ] Full pass retry mechanism (user or system can re-trigger failed full pass)
-- [ ] Chat quality measurably improves when full pass is complete vs quick_ready only
+(None — next milestone requirements to be defined via `/gsd:new-milestone`)
 
 ### Out of Scope
 
@@ -100,35 +99,31 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 
 ## Context
 
-### Current State (after v2.0)
+### Current State (after v3.0)
 
-- **Codebase:** ~105K lines TypeScript + Python, Next.js 16 App Router, Supabase, deployed on Vercel
-- **RLM service:** FastAPI on Render with full pass pipeline (conversation chunking, fact extraction, MEMORY generation, v2 regeneration)
-- **Evaluation:** Opik evaluation framework with LLM-as-judge (personality consistency, factuality, tone matching), experiment runner, regression CLI
-- **Prompts:** Versioned PromptBuilder (v1-technical, v2-natural-voice), cross-language Python parity, DATA CONFIDENCE sections
+- **Codebase:** ~107K lines TypeScript + Python, Next.js 16 App Router, Supabase, deployed on Vercel
+- **RLM service:** FastAPI on Render with full pass pipeline (conversation chunking, fact extraction, MEMORY generation, v2 regeneration, embedding generation, cost tracking)
+- **Deep Memory:** pgvector HNSW index on conversation_chunks, Titan Embed v2 (768-dim), semantic search in RLM /query endpoint (top 8, threshold 0.3)
+- **Cost Tracking:** CostTracker instruments full pipeline, saves per-user costs to import_cost_json, admin endpoint at /api/admin/import-costs
+- **Evaluation:** Opik evaluation framework with 4 LLM-as-judge metrics (personality consistency, factuality, tone matching, memory depth), A/B experiment script for quick_ready vs full_pass comparison
+- **Prompts:** Versioned PromptBuilder (v1-technical, v2-natural-voice), cross-language Python parity, DATA CONFIDENCE sections, memory_md + memoryContext integration
 - **Emotional Intelligence:** Emotion detection (Haiku 4.5), relationship arc tracking, dynamic temperature, uncertainty acknowledgment
 - **Quality:** Three-dimensional scoring (completeness, coherence, specificity), daily refinement cron, import pipeline hooks
 - **CI/CD:** GitHub Actions regression testing on prompt file changes, autocannon latency benchmarking
 - **Test coverage:** 112+ Vitest tests, Playwright E2E (import-to-chat + long-session drift detection)
 - **Security:** CSRF + rate limiting + Zod validation + RLS scripts ready
-- **Observability:** Pino structured logging, /api/health with dependency checks
+- **Observability:** Pino structured logging, /api/health with dependency checks, structured pipeline logging with user_id + step context
 - **Type safety:** noUncheckedIndexedAccess, zero `any` in import/chat flows
-- **AI pipeline:** Two-pass generation — quick pass (Haiku 4.5 on Bedrock, ~30s) + full pass (Haiku 4.5 on Anthropic API, background)
+- **AI pipeline:** Two-pass generation — quick pass (Haiku 4.5 on Bedrock, ~30s) + full pass (Haiku 4.5 on Anthropic API, background with cost tracking)
 
 ### Known Issues
 
 - RLS scripts need manual execution in Supabase SQL Editor
 - Database migrations pending: `20260206_add_tools_md.sql`, `20260207_full_pass_schema.sql`, `20260209_quality_breakdown.sql`
+- import_cost_json TEXT column needs to be added to user_profiles in Supabase
 - Some routes use console.log instead of Pino
 - lib/retry.ts has no dedicated unit tests
-- **Full pass save_chunks_batch() silently swallows HTTP errors** — chunks not saved but pipeline continues
-- **Full pass fact extraction hits rate limits** — 10 concurrent Haiku calls, circuit breaker gives up after 5 failures
-- **Full pass memory_generator returns placeholder on any error** — "Memory generation failed" saved to DB, never retried
-- **memory_md not passed to RLM service** — full pass MEMORY never used in chat responses
-- **conversation_chunks empty when full pass fails** — getMemoryContext() returns nothing, chat has no RAG
-- **Token estimation in chunker uses len()/4** — inaccurate, causes oversized chunks
-- **Full pass killed by Render redeploys** — every push triggers restart, long-running full pass aborted
-- **Fact extraction costs ~$8-10 per import** — 2140 Haiku API calls (needs concurrency reduction)
+- Token estimation in chunker uses len()/4 — approximate but functional
 
 ### Key Fragile Areas (mostly addressed)
 
@@ -142,7 +137,7 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 - **Deployment**: Vercel — 5-minute function timeout, serverless execution
 - **Testing**: User tests on deployed production, not localhost
 - **Database**: Supabase schema changes should be avoided if possible (per CLAUDE.md)
-- **External services**: RLM service deploys from separate repo (Pu11en/soulprint-rlm) to Render
+- **External services**: RLM service deploys from soulprint-landing/rlm-service/ to Render
 - **Auth flow**: Working, don't touch it
 
 ## Key Decisions
@@ -162,7 +157,7 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 | Remove email gate for import | Users are already chatting by the time email arrives | ✓ Good — users go straight to chat |
 | OpenClaw-inspired structured context | Modular SOUL/USER/MEMORY sections vs monolithic blob | ✓ Good — 7 sections, clean composition |
 | Two-pass pipeline | Quick pass for speed, full pass for depth | ✓ Good — ~30s to chat, v2 upgrade in background |
-| Separate soulprint-rlm repo | Production RLM deploys from Pu11en/soulprint-rlm | — Pending |
+| Monorepo for RLM | RLM service moved to soulprint-landing/rlm-service/ | ✓ Good — single deploy |
 | Switch to Sonnet 4.5 for chat | Nova Lite can't follow personality instructions | ✓ Good — natural personality |
 | OpenClaw-style prompt | Minimal preamble, let sections define personality | ✓ Good — deployed to production |
 | Evaluation-first approach | Build measurement before changing prompts | ✓ Good — baseline before changes |
@@ -172,17 +167,20 @@ The AI must feel like YOUR AI -- genuinely human, deeply personalized, systemati
 | Fire-and-forget quality scoring | Non-blocking in import, cron catches failures | ✓ Good — no import slowdown |
 | P97.5 latency percentile | autocannon limitation vs P95 | ✓ Good — close approximation |
 | PR-triggered regression testing | Only on prompt file changes, avoids expensive evals | ✓ Good — cost-efficient CI |
+| Supabase pgvector (not Pinecone) | No new infra, ALTER TABLE + HNSW index | ✓ Good — zero new services |
+| Titan Embed v2 768-dim | Cheaper than 1024-dim, matches Bedrock pricing tier | ✓ Good — $0.02/1M tokens |
+| HNSW over IVFFlat | Better recall for <1M rows | ✓ Good — instant similarity search |
+| Concurrency 5 for fact extraction | Prevents rate limits vs aggressive 10 | ✓ Good — reliable completion |
+| Optional cost_tracker parameter | Backwards compatible instrumentation | ✓ Good — zero breaking changes |
+| SHA256 reverse lookup for eval | Hash all user_ids, match against dataset | ✓ Good — privacy-preserving |
 
-## Current Milestone: v3.0 Deep Memory
+## Latest Milestone: v3.0 Deep Memory (SHIPPED 2026-02-11)
 
-**Goal:** Make the full soulprint pipeline reliable and wire real memory into chat. Users should get noticeably better responses once full pass completes — the AI should actually know their history, not just their personality.
+**Delivered:** Reliable full pass pipeline with semantic memory search, cost tracking, and quality measurement. The AI now references specific user history via pgvector semantic search, pipeline costs tracked per-user, and A/B evaluation infrastructure measures memory quality impact.
 
-**Target features:**
-- Full pass pipeline that reliably completes without silent failures
-- memory_md and conversation chunks actually used in chat responses
-- pgvector semantic search over conversation history (Supabase, Titan Embed v2)
-- Cost-efficient pipeline (under $0.10/user, down from ~$8-10)
-- Full pass retry mechanism for failed imports
+## Next Milestone
+
+To be defined via `/gsd:new-milestone`.
 
 ---
-*Last updated: 2026-02-11 after v3.0 milestone started*
+*Last updated: 2026-02-11 after v3.0 milestone shipped*

@@ -107,3 +107,13 @@
 **What's next:** Phase 2 Polish — Progress indicators, error handling, large file support
 
 ---
+
+## v3.0 Deep Memory (Shipped: 2026-02-11)
+
+**Phases completed:** 42 phases, 97 plans, 27 tasks
+
+**Key accomplishments:**
+- GitHub Actions regression workflow + correlation script validates quality scores correlate r>0.7 with user satisfaction
+
+---
+
