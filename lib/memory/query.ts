@@ -87,27 +87,27 @@ function getSupabaseAdmin() {
 }
 
 /**
- * Embed a query using Cohere Embed v3 (with timeout protection)
+ * Embed a query using Amazon Titan Embed v2 (768 dimensions)
+ * Must match the model used in rlm-service/processors/embedding_generator.py
  */
 export async function embedQuery(text: string): Promise<number[]> {
   const client = getBedrockClient();
 
   const command = new InvokeModelCommand({
-    modelId: 'cohere.embed-english-v3',
+    modelId: 'amazon.titan-embed-text-v2:0',
     contentType: 'application/json',
     accept: 'application/json',
     body: JSON.stringify({
-      texts: [text.slice(0, 128000)], // Cohere v3 supports context
-      input_type: 'search_query', // Critical for v3
-      embedding_types: ['float'],
-      truncate: 'END',
+      inputText: text.slice(0, 8000), // Titan v2 max ~8192 tokens, truncate conservatively
+      dimensions: 768,
+      normalize: true,
     }),
   });
 
   const embedPromise = async (): Promise<number[]> => {
     const response = await client.send(command);
     const result = JSON.parse(new TextDecoder().decode(response.body));
-    return result.embeddings.float[0];
+    return result.embedding; // Titan v2 returns { embedding: number[] }
   };
 
   try {
@@ -117,42 +117,21 @@ export async function embedQuery(text: string): Promise<number[]> {
     }
     return result;
   } catch (error) {
-    console.error('[Embed] Cohere v3 error:', error);
-    throw new Error(`Cohere embedding error: ${error}`);
+    console.error('[Embed] Titan v2 error:', error);
+    throw new Error(`Titan embedding error: ${error}`);
   }
 }
 
 /**
- * Batch embed multiple texts
+ * Batch embed multiple texts using Titan Embed v2
+ * Note: Titan v2 does NOT support native batching, so we call sequentially
  */
 export async function embedBatch(texts: string[]): Promise<number[][]> {
-  const client = getBedrockClient();
-  const BATCH_SIZE = 96;
   const allEmbeddings: number[][] = [];
 
-  for (let i = 0; i < texts.length; i += BATCH_SIZE) {
-    const batch = texts.slice(i, i + BATCH_SIZE).map(t => t.slice(0, 128000));
-
-    const command = new InvokeModelCommand({
-      modelId: 'cohere.embed-english-v3',
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify({
-        texts: batch,
-        input_type: 'search_document',
-        embedding_types: ['float'],
-        truncate: 'END',
-      }),
-    });
-
-    try {
-      const response = await client.send(command);
-      const result = JSON.parse(new TextDecoder().decode(response.body));
-      allEmbeddings.push(...result.embeddings.float);
-    } catch (error) {
-      console.error('[Embed] Cohere v3 batch error:', error);
-      throw new Error(`Cohere batch embedding error: ${error}`);
-    }
+  for (const text of texts) {
+    const embedding = await embedQuery(text);
+    allEmbeddings.push(embedding);
   }
 
   return allEmbeddings;
