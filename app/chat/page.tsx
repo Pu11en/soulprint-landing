@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { TelegramChatV2 } from '@/components/chat/telegram-chat-v2';
 import { ConversationSidebar } from '@/components/chat/conversation-sidebar';
@@ -845,46 +846,58 @@ export default function ChatPage() {
 
   if (loadingHistory) {
     return (
-      <div className="fixed inset-0 h-screen w-screen bg-background flex items-center justify-center">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="fixed inset-0 h-screen w-screen bg-black flex items-center justify-center"
+      >
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span className="text-muted-foreground text-sm">Loading your memories...</span>
+          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-white/60 text-sm">Loading your memories...</span>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
     <>
-      {/* Conversation Sidebar */}
-      <ConversationSidebar
-        conversations={conversations}
-        activeConversationId={currentConversationId}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onSelect={handleSelectConversation}
-        onCreateNew={handleCreateConversation}
-        onRename={handleRenameConversation}
-        onDelete={handleDeleteConversation}
-      />
-
-      {/* Main Chat Area */}
-      <div className="fixed inset-0 h-screen w-screen">
-        <TelegramChatV2
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          onRegenerate={handleRegenerate}
-          isLoading={isLoading}
-          isGenerating={isGenerating}
-          isDeepSearching={isDeepSearching}
-          aiName={aiName}
-          aiAvatar={aiAvatar || undefined}
-          onBack={handleBack}
-          onSettings={() => setShowSettings(true)}
-          onStop={handleStop}
-          onMenuClick={() => setSidebarOpen(true)}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.05 }}
+        style={{ position: 'fixed', inset: 0, height: '100vh', width: '100vw' }}
+      >
+        {/* Conversation Sidebar */}
+        <ConversationSidebar
+          conversations={conversations}
+          activeConversationId={currentConversationId}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onSelect={handleSelectConversation}
+          onCreateNew={handleCreateConversation}
+          onRename={handleRenameConversation}
+          onDelete={handleDeleteConversation}
         />
-      </div>
+
+        {/* Main Chat Area */}
+        <div className="fixed inset-0 h-screen w-screen">
+          <TelegramChatV2
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            onRegenerate={handleRegenerate}
+            isLoading={isLoading}
+            isGenerating={isGenerating}
+            isDeepSearching={isDeepSearching}
+            aiName={aiName}
+            aiAvatar={aiAvatar || undefined}
+            onBack={handleBack}
+            onSettings={() => setShowSettings(true)}
+            onStop={handleStop}
+            onMenuClick={() => setSidebarOpen(true)}
+          />
+        </div>
+      </motion.div>
 
       {saveError && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 max-w-sm w-full px-4">
